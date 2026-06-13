@@ -1,0 +1,1095 @@
+@model SCIBM.Models.Examen
+@using Newtonsoft.Json
+@{
+    ViewBag.Title = $"Calibración: {Model.Titulo}";
+    ViewBag.Subtitle = "Defina la grilla de respuestas y el área de estampado de notas";
+}
+
+@section styles {
+    <style>
+        .editor-container {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 30px;
+            align-items: start;
+            height: calc(100vh - 180px);
+            min-height: 550px;
+        }
+
+        /* PDF VIEWER COLUMN */
+        .viewer-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+            padding: 16px !important;
+        }
+        
+        .viewer-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            margin-bottom: 12px;
+        }
+
+        .pdf-viewport-container {
+            flex-grow: 1;
+            overflow: auto;
+            position: relative;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+        }
+
+        .pdf-wrapper {
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            background: white;
+            line-height: 0;
+        }
+
+        #pdf-canvas {
+            display: block;
+            z-index: 5;
+        }
+
+        /* OVERLAY PARA INPUTS Y STAMP */
+        #overlay-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        /* CAJA DE ESTAMPADO DRAGGABLE & RESIZABLE */
+        #stamp-box {
+            position: absolute;
+            border: 2px dashed #ff5252;
+            background: rgba(255, 82, 82, 0.15);
+            color: #ff5252;
+            border-radius: 4px;
+            cursor: move;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            user-select: none;
+            box-sizing: border-box;
+            box-shadow: 0 0 10px rgba(255, 82, 82, 0.3);
+            text-transform: uppercase;
+        }
+        .stamp-handle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #ff5252;
+            right: -5px;
+            bottom: -5px;
+            cursor: se-resize;
+            border-radius: 50%;
+        }
+
+        /* CONTROLES DE PREGUNTA EN EL PDF */
+        .question-overlay-box {
+            position: absolute;
+            border: 1px solid var(--accent-color);
+            background: rgba(72, 202, 228, 0.08);
+            border-radius: 4px;
+            cursor: pointer;
+            box-sizing: border-box;
+            transition: background 0.2s;
+        }
+        .question-overlay-box:hover, .question-overlay-box.active {
+            background: rgba(72, 202, 228, 0.2);
+            border-width: 2px;
+        }
+        .question-badge-number {
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            width: 20px;
+            height: 20px;
+            background: var(--accent-color);
+            color: #0b132b;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .option-radio-overlay {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #2ec4b6;
+            background: rgba(46, 196, 182, 0.15);
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .option-radio-overlay.selected {
+            background: #2ec4b6;
+            box-shadow: 0 0 8px #2ec4b6;
+        }
+
+        .blank-textbox-overlay {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--accent-color);
+            border-radius: 4px;
+            outline: none;
+            color: #1c2541;
+            font-weight: 600;
+            padding: 2px 4px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        /* QUESTIONNAIRE PANEL COLUMN */
+        .panel-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .questions-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .question-card-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+        .question-card-item.active {
+            border-color: var(--accent-color);
+            background: rgba(72, 202, 228, 0.04);
+        }
+
+        .q-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .q-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--primary-glow);
+        }
+
+        .q-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .form-select {
+            width: 100%;
+            padding: 8px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 6px;
+            color: white;
+            font-size: 13px;
+            outline: none;
+        }
+        .form-select option {
+            background: var(--sidebar-bg);
+            color: white;
+        }
+
+        /* LOADING DIALOG */
+        .progress-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(11, 19, 43, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+            gap: 20px;
+        }
+        .progress-bar {
+            width: 320px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-color), var(--primary-glow));
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+}
+
+<!-- EDITOR WRAPPER -->
+<div class="editor-container">
+
+    <!-- LEFT COLUMN: PDF VIEW -->
+    <div class="glass-card viewer-card">
+        <div class="viewer-toolbar">
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-secondary" style="padding: 8px 14px;" onclick="changePage(-1)">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <span id="page-num-indicator" style="font-weight: 500; font-size: 14px; display: inline-flex; align-items: center; padding: 0 10px;">
+                    Cargando páginas...
+                </span>
+                <button class="btn btn-secondary" style="padding: 8px 14px;" onclick="changePage(1)">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" style="padding: 8px 14px; font-size: 13px;" onclick="addManualControl()">
+                    <i class="fa-solid fa-crosshairs"></i> Añadir Control Manual
+                </button>
+                <button class="btn btn-danger" style="padding: 8px 14px; font-size: 13px;" onclick="deleteSelectedQuestion()" id="delete-q-btn" disabled>
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="pdf-viewport-container">
+            <div class="pdf-wrapper" id="pdf-wrapper-el">
+                <canvas id="pdf-canvas"></canvas>
+                <!-- OVERLAY LAYER FOR INPUTS -->
+                <div id="overlay-container">
+                    <!-- DRAGGABLE STAMP BOX -->
+                    <div id="stamp-box">
+                        Nota: 20.0
+                        <div class="stamp-handle"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: FORM & CONFIGURATION -->
+    <div class="glass-card panel-card">
+        <div class="panel-header">
+            <h2>Plantilla Examen</h2>
+            <div style="font-size: 13px; color: var(--text-muted);">
+                Total: <strong id="total-score-indicator" style="color: var(--primary-glow);">0.0 ptos</strong>
+            </div>
+        </div>
+
+        <!-- LIST OF QUESTIONS -->
+        <div class="questions-list" id="questions-list-el">
+            <!-- Cargado dinámicamente -->
+        </div>
+
+        <!-- FOOTER ACTIONS -->
+        <div style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 15px; display: flex; gap: 12px; justify-content: flex-end;">
+            <a href="@Url.Action("Detail", "Unidad", new { id = Model.Id })" class="btn btn-secondary">Cancelar</a>
+            <button class="btn btn-primary" onclick="saveExamen()">Guardar Plantilla</button>
+        </div>
+    </div>
+
+</div>
+
+<!-- LOADING OCR DIALOG -->
+<div class="progress-overlay" id="ocr-loader">
+    <i class="fa-solid fa-microchip-scan" style="font-size: 64px; color: var(--primary-glow); text-shadow: 0 0 20px var(--primary-glow); animation: pulse 1.5s infiniteAlternate;"></i>
+    <h3 id="ocr-loader-title">Inicializando visor de examen...</h3>
+    <p id="ocr-loader-subtitle" style="color: var(--text-muted); font-size: 14.5px;">Cargando documento PDF...</p>
+    <div class="progress-bar">
+        <div class="progress-fill" id="ocr-progress-bar"></div>
+    </div>
+</div>
+
+@section scripts {
+    <!-- PDF.js y Tesseract.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+
+    <script>
+        // Configuración de PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        var pdfDoc = null;
+        var currentPageNum = 1;
+        var totalPages = 1;
+        var pdfScale = 1.2;
+        var canvas = document.getElementById("pdf-canvas");
+        var ctx = canvas.getContext("2d");
+        var wrapper = document.getElementById("pdf-wrapper-el");
+        var overlay = document.getElementById("overlay-container");
+
+        // Datos del modelo
+        var examenId = '@Model.Id';
+        @{
+            string fileName = Model.RutaPdfOriginal != null ? Model.RutaPdfOriginal.Substring(Model.RutaPdfOriginal.LastIndexOf("/") + 1) : "";
+        }
+        var pdfUrl = '@Url.Action("GetExamenPdf", "Examen", new { filename = fileName })';
+        
+        // Listado de preguntas en memoria
+        var preguntas = [];
+        var activeQuestionIndex = -1;
+
+        // Coordenadas de estampado inicial (porcentajes)
+        var stampX = @Model.StampX.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var stampY = @Model.StampY.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var stampWidth = @Model.StampWidth.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var stampHeight = @Model.StampHeight.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        // Inicializar
+        window.addEventListener('load', function() {
+            cargarPdf();
+            initDraggableStamp();
+        });
+
+        // 1. Cargar el PDF original
+        function cargarPdf() {
+            var loader = document.getElementById("ocr-loader");
+            var loaderTitle = document.getElementById("ocr-loader-title");
+            var fill = document.getElementById("ocr-progress-bar");
+
+            loaderTitle.innerText = "Cargando documento PDF...";
+            fill.style.width = "20%";
+
+            pdfjsLib.getDocument(pdfUrl).promise.then(function(pdfDoc_) {
+                pdfDoc = pdfDoc_;
+                totalPages = pdfDoc.numPages;
+                fill.style.width = "50%";
+                
+                // Cargar datos preexistentes si los hay
+                cargarPreguntasExistentes();
+
+                // Si no hay preguntas guardadas, realizamos el OCR inicial de la primera página
+                if (preguntas.length === 0) {
+                    ejecutarOcrInicial();
+                } else {
+                    renderPage(currentPageNum);
+                    loader.style.display = "none";
+                }
+            }).catch(function(err) {
+                alert("Error al cargar PDF: " + err.message);
+                loader.style.display = "none";
+            });
+        }
+
+        // Cargar preguntas guardadas en la base de datos
+        function cargarPreguntasExistentes() {
+            @if (Model.Preguntas != null && Model.Preguntas.Any())
+            {
+                foreach (var p in Model.Preguntas.OrderBy(pr => pr.NumeroPregunta))
+                {
+                    <text>
+                    preguntas.push({
+                        id: '@p.Id',
+                        numeroPregunta: @p.NumeroPregunta,
+                        enunciado: @Html.Raw(JsonConvert.SerializeObject(p.Enunciado)),
+                        tipo: @Html.Raw(JsonConvert.SerializeObject(p.Tipo)),
+                        respuestaCorrecta: @Html.Raw(JsonConvert.SerializeObject(p.RespuestaCorrecta)),
+                        puntaje: @p.Puntaje.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        posX: @p.PosX.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        posY: @p.PosY.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        width: @p.Width.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        height: @p.Height.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        opcionesJson: @Html.Raw(string.IsNullOrEmpty(p.OpcionesJson) ? "[]" : JsonConvert.SerializeObject(p.OpcionesJson)),
+                        page: 1 // Por defecto en página 1
+                    });
+                    </text>
+                }
+            }
+            recalcularPuntajeTotal();
+        }
+
+        // 2. Ejecutar OCR inicial para autodetectar preguntas usando Tesseract.js
+        async function ejecutarOcrInicial() {
+            var loader = document.getElementById("ocr-loader");
+            var loaderTitle = document.getElementById("ocr-loader-title");
+            var loaderSubtitle = document.getElementById("ocr-loader-subtitle");
+            var fill = document.getElementById("ocr-progress-bar");
+
+            loaderTitle.innerText = "Analizando examen...";
+            loaderSubtitle.innerText = "Extrayendo estructura de preguntas (OCR)...";
+            fill.style.width = "60%";
+
+            try {
+                // Renderizar la página 1 a una imagen virtual para que Tesseract la procese
+                var page = await pdfDoc.getPage(1);
+                var viewport = page.getViewport({ scale: 1.5 });
+                var virtualCanvas = document.createElement("canvas");
+                virtualCanvas.width = viewport.width;
+                virtualCanvas.height = viewport.height;
+                var vCtx = virtualCanvas.getContext("2d");
+                
+                await page.render({ canvasContext: vCtx, viewport: viewport }).promise;
+                var dataUrl = virtualCanvas.toDataURL();
+                
+                fill.style.width = "75%";
+                
+                // Ejecutar Tesseract OCR
+                var worker = await Tesseract.createWorker();
+                await worker.loadLanguage('spa');
+                await worker.initialize('spa');
+                
+                var ocrResult = await worker.recognize(dataUrl);
+                var paragraphs = ocrResult.data.paragraphs;
+                await worker.terminate();
+
+                fill.style.width = "90%";
+
+                var numQ = 1;
+                for (var idx = 0; idx < paragraphs.length; idx++) {
+                    var para = paragraphs[idx];
+                    var text = para.text.trim();
+                    
+                    // Buscar si el párrafo empieza con un número de pregunta: ej "1.", "2)", "3.-"
+                    var match = text.match(/^(\d+)\s*[\.\-\)]\s*([\s\S]+)/);
+                    if (match) {
+                        var qNum = parseInt(match[1]);
+                        var qText = match[0];
+                        
+                        // Coordenadas relativas en porcentaje
+                        var bbox = para.bbox;
+                        var px = (bbox.x0 / viewport.width) * 100.0;
+                        var py = (bbox.y0 / viewport.height) * 100.0;
+                        var pw = ((bbox.x1 - bbox.x0) / viewport.width) * 100.0;
+                        var ph = ((bbox.y1 - bbox.y0) / viewport.height) * 100.0;
+
+                        // Determinar si es de opción múltiple (si el texto contiene opciones tipo A, B, C, D)
+                        var esMultiple = text.match(/\b[A-E]\s*[\.\-\)]/i) !== null;
+                        
+                        // Generar sub-opciones simuladas o detectadas
+                        var opciones = [];
+                        if (esMultiple) {
+                            // Crear 5 opciones separadas vertical/horizontalmente debajo del cuadro de la pregunta
+                            var labels = ["A", "B", "C", "D", "E"];
+                            for (var optIdx = 0; optIdx < 5; optIdx++) {
+                                opciones.push({
+                                    label: labels[optIdx],
+                                    // Separadas por 5% horizontalmente a la derecha del inicio
+                                    x: px + (optIdx * 5) + 2, 
+                                    y: py + ph + 2, // Justo debajo
+                                    w: 2.5,
+                                    h: 2.5
+                                });
+                            }
+                        }
+
+                        // Buscar si tiene puntos indicados
+                        var ptMatch = text.match(/(?:[\(\[\{])\s*(\d+(?:\.\d+)?)\s*(?:ptos|puntos|pts|pt|p)\s*(?:[\)\]\}])|(\d+(?:\.\d+)?)\s*(?:ptos|puntos|pts|pt|p)\b/i);
+                        var pts = 1.0;
+                        if (ptMatch) {
+                            var val = ptMatch[1] || ptMatch[2];
+                            pts = parseFloat(val);
+                        }
+
+                        preguntas.push({
+                            numeroPregunta: qNum,
+                            enunciado: qText,
+                            tipo: esMultiple ? "OpcionMultiple" : "RespuestaLibre",
+                            respuestaCorrecta: esMultiple ? "A" : "OK",
+                            puntaje: pts,
+                            posX: px,
+                            posY: py,
+                            width: pw + 2,
+                            height: ph + 1.5,
+                            opcionesJson: JSON.stringify(opciones),
+                            page: 1
+                        });
+                        numQ++;
+                    }
+                }
+
+                // Si no se detectó nada, crear una pregunta inicial
+                if (preguntas.length === 0) {
+                    preguntas.push({
+                        numeroPregunta: 1,
+                        enunciado: "Pregunta 1. Escribe el enunciado aquí...",
+                        tipo: "OpcionMultiple",
+                        respuestaCorrecta: "A",
+                        puntaje: 2.0,
+                        posX: 10,
+                        posY: 15,
+                        width: 70,
+                        height: 6,
+                        opcionesJson: JSON.stringify([
+                            { label: "A", x: 12, y: 22, w: 2.5, h: 2.5 },
+                            { label: "B", x: 17, y: 22, w: 2.5, h: 2.5 },
+                            { label: "C", x: 22, y: 22, w: 2.5, h: 2.5 },
+                            { label: "D", x: 27, y: 22, w: 2.5, h: 2.5 },
+                            { label: "E", x: 32, y: 22, w: 2.5, h: 2.5 }
+                        ]),
+                        page: 1
+                    });
+                }
+
+                // Ordenar por número de pregunta
+                preguntas.sort((a, b) => a.numeroPregunta - b.numeroPregunta);
+                
+                recalcularPuntajeTotal();
+                renderPage(1);
+                loader.style.display = "none";
+            } catch (err) {
+                console.error("Error en OCR:", err);
+                loader.style.display = "none";
+                renderPage(1);
+            }
+        }
+
+        // 3. Renderizar la página PDF en el canvas
+        function renderPage(pageNum) {
+            currentPageNum = pageNum;
+            document.getElementById("page-num-indicator").innerText = `Pág. ${pageNum} de ${totalPages}`;
+
+            pdfDoc.getPage(pageNum).then(function(page) {
+                var viewport = page.getViewport({ scale: pdfScale });
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+
+                var renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+
+                page.render(renderContext).promise.then(function() {
+                    // Adaptar las dimensiones del contenedor overlay
+                    overlay.style.width = viewport.width + "px";
+                    overlay.style.height = viewport.height + "px";
+                    wrapper.style.width = viewport.width + "px";
+                    wrapper.style.height = viewport.height + "px";
+
+                    // Posicionar la caja de estampado en base a porcentajes guardados
+                    positionStampBox();
+
+                    // Renderizar los controles sobre el PDF
+                    renderOverlayControls();
+
+                    // Renderizar el formulario del panel lateral derecho
+                    renderQuestionsForm();
+                });
+            });
+        }
+
+        function changePage(delta) {
+            var newPage = currentPageNum + delta;
+            if (newPage >= 1 && newPage <= totalPages) {
+                renderPage(newPage);
+            }
+        }
+
+        // 4. Posicionar la caja de estampado
+        function positionStampBox() {
+            var box = document.getElementById("stamp-box");
+            box.style.left = stampX + "%";
+            box.style.top = stampY + "%";
+            box.style.width = stampWidth + "%";
+            box.style.height = stampHeight + "%";
+        }
+
+        // 5. Inicializar la lógica Draggable & Resizable de la caja de estampado
+        function initDraggableStamp() {
+            var box = document.getElementById("stamp-box");
+            var handle = box.querySelector(".stamp-handle");
+            var isDragging = false;
+            var isResizing = false;
+            var startX, startY, startLeft, startTop, startWidth, startHeight;
+
+            box.addEventListener('mousedown', function(e) {
+                if (e.target === handle) return; // Si hace click en el handle de redimensionar
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = box.offsetLeft;
+                startTop = box.offsetTop;
+                e.preventDefault();
+            });
+
+            handle.addEventListener('mousedown', function(e) {
+                isResizing = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = box.offsetWidth;
+                startHeight = box.offsetHeight;
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                var overlayW = overlay.offsetWidth;
+                var overlayH = overlay.offsetHeight;
+
+                if (isDragging) {
+                    var dx = e.clientX - startX;
+                    var dy = e.clientY - startY;
+                    var newLeft = startLeft + dx;
+                    var newTop = startTop + dy;
+
+                    // Limitar bordes
+                    if (newLeft < 0) newLeft = 0;
+                    if (newTop < 0) newTop = 0;
+                    if (newLeft + box.offsetWidth > overlayW) newLeft = overlayW - box.offsetWidth;
+                    if (newTop + box.offsetHeight > overlayH) newTop = overlayH - box.offsetHeight;
+
+                    // Convertir a porcentajes
+                    stampX = (newLeft / overlayW) * 100.0;
+                    stampY = (newTop / overlayH) * 100.0;
+                    
+                    positionStampBox();
+                }
+
+                if (isResizing) {
+                    var dx = e.clientX - startX;
+                    var dy = e.clientY - startY;
+                    var newW = startWidth + dx;
+                    var newH = startHeight + dy;
+
+                    // Limitar tamaño mínimo
+                    if (newW < 60) newW = 60;
+                    if (newH < 25) newH = 25;
+                    if (box.offsetLeft + newW > overlayW) newW = overlayW - box.offsetLeft;
+                    if (box.offsetTop + newH > overlayH) newH = overlayH - box.offsetTop;
+
+                    // Convertir a porcentajes
+                    stampWidth = (newW / overlayW) * 100.0;
+                    stampHeight = (newH / overlayH) * 100.0;
+
+                    positionStampBox();
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                isDragging = false;
+                isResizing = false;
+            });
+        }
+
+        // 6. Renderizar controles visuales sobre la capa overlay del PDF
+        function renderOverlayControls() {
+            // Eliminar controles anteriores excepto la caja de estampado
+            var elements = overlay.querySelectorAll(".question-overlay-box, .option-radio-overlay, .blank-textbox-overlay");
+            elements.forEach(el => el.remove());
+
+            var overlayW = overlay.offsetWidth;
+            var overlayH = overlay.offsetHeight;
+
+            preguntas.forEach((p, idx) => {
+                if (p.page !== currentPageNum) return;
+
+                // 1. Contenedor de la pregunta (caja azul semitransparente)
+                var box = document.createElement("div");
+                box.className = "question-overlay-box" + (activeQuestionIndex === idx ? " active" : "");
+                box.style.left = p.posX + "%";
+                box.style.top = p.posY + "%";
+                box.style.width = p.width + "%";
+                box.style.height = p.height + "%";
+
+                var numBadge = document.createElement("div");
+                numBadge.className = "question-badge-number";
+                numBadge.innerText = p.numeroPregunta;
+                box.appendChild(numBadge);
+
+                box.onclick = function(e) {
+                    selectQuestion(idx);
+                    e.stopPropagation();
+                };
+
+                // Permitir arrastrar/mover la caja del control en porcentaje mediante el ratón
+                makeElementDraggable(box, idx);
+
+                overlay.appendChild(box);
+
+                // 2. Renderizar sub-elementos de respuesta según tipo
+                if (p.tipo === "OpcionMultiple" && p.opcionesJson) {
+                    try {
+                        var opciones = JSON.parse(p.opcionesJson);
+                        opciones.forEach((opt, optIdx) => {
+                            var radio = document.createElement("div");
+                            radio.className = "option-radio-overlay" + (p.respuestaCorrecta === opt.label ? " selected" : "");
+                            radio.style.left = opt.x + "%";
+                            radio.style.top = opt.y + "%";
+                            radio.innerText = opt.label;
+                            radio.style.fontSize = "9px";
+                            radio.style.fontWeight = "bold";
+                            radio.style.color = p.respuestaCorrecta === opt.label ? "#0b132b" : "#2ec4b6";
+
+                            radio.onclick = function(e) {
+                                p.respuestaCorrecta = opt.label;
+                                renderOverlayControls();
+                                renderQuestionsForm();
+                                e.stopPropagation();
+                            };
+
+                            // Permitir mover la sub-opción
+                            makeSubOptionDraggable(radio, idx, optIdx);
+
+                            overlay.appendChild(radio);
+                        });
+                    } catch (ex) {}
+                } else if (p.tipo === "RespuestaLibre") {
+                    var textbox = document.createElement("div");
+                    textbox.className = "blank-textbox-overlay";
+                    textbox.style.left = p.posX + "%";
+                    textbox.style.top = (p.posY + p.height + 0.5) + "%";
+                    textbox.style.width = Math.min(25, p.width) + "%";
+                    textbox.style.height = "3.2%";
+                    textbox.innerText = p.respuestaCorrecta || "Texto";
+                    textbox.style.fontSize = "10px";
+                    textbox.style.lineHeight = "2";
+
+                    overlay.appendChild(textbox);
+                }
+            });
+        }
+
+        // Hacer que las cajas de preguntas sean arrastrables
+        function makeElementDraggable(el, qIdx) {
+            var isMoving = false;
+            var sX, sY, sLeft, sTop;
+
+            el.addEventListener('mousedown', function(e) {
+                if (e.target.className === "question-badge-number") return;
+                isMoving = true;
+                sX = e.clientX;
+                sY = e.clientY;
+                sLeft = el.offsetLeft;
+                sTop = el.offsetTop;
+                selectQuestion(qIdx);
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!isMoving) return;
+                var dx = e.clientX - sX;
+                var dy = e.clientY - sY;
+                var overlayW = overlay.offsetWidth;
+                var overlayH = overlay.offsetHeight;
+
+                var newL = sLeft + dx;
+                var newT = sTop + dy;
+
+                if (newL < 0) newL = 0;
+                if (newT < 0) newT = 0;
+                if (newL + el.offsetWidth > overlayW) newL = overlayW - el.offsetWidth;
+                if (newT + el.offsetHeight > overlayH) newT = overlayH - el.offsetHeight;
+
+                var p = preguntas[qIdx];
+                var oldPosX = p.posX;
+                var oldPosY = p.posY;
+                p.posX = (newL / overlayW) * 100.0;
+                p.posY = (newT / overlayH) * 100.0;
+
+                // Si es opción múltiple, desplazar también sus sub-opciones la misma cantidad
+                if (p.tipo === "OpcionMultiple" && p.opcionesJson) {
+                    try {
+                        var opciones = JSON.parse(p.opcionesJson);
+                        var diffX = p.posX - oldPosX;
+                        var diffY = p.posY - oldPosY;
+                        opciones.forEach(opt => {
+                            opt.x += diffX;
+                            opt.y += diffY;
+                        });
+                        p.opcionesJson = JSON.stringify(opciones);
+                    } catch (ex) {}
+                }
+
+                el.style.left = p.posX + "%";
+                el.style.top = p.posY + "%";
+
+                renderOverlayControls();
+            });
+
+            document.addEventListener('mouseup', function() {
+                isMoving = false;
+            });
+        }
+
+        // Permitir arrastrar los radio buttons individuales
+        function makeSubOptionDraggable(el, qIdx, optIdx) {
+            var isMoving = false;
+            var sX, sY, sLeft, sTop;
+
+            el.addEventListener('mousedown', function(e) {
+                isMoving = true;
+                sX = e.clientX;
+                sY = e.clientY;
+                sLeft = el.offsetLeft + (el.offsetWidth/2); // centro
+                sTop = el.offsetTop + (el.offsetHeight/2); // centro
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!isMoving) return;
+                var dx = e.clientX - sX;
+                var dy = e.clientY - sY;
+                var overlayW = overlay.offsetWidth;
+                var overlayH = overlay.offsetHeight;
+
+                var newL = sLeft + dx;
+                var newT = sTop + dy;
+
+                var p = preguntas[qIdx];
+                try {
+                    var opciones = JSON.parse(p.opcionesJson);
+                    opciones[optIdx].x = (newL / overlayW) * 100.0;
+                    opciones[optIdx].y = (newT / overlayH) * 100.0;
+                    p.opcionesJson = JSON.stringify(opciones);
+                } catch (ex) {}
+
+                el.style.left = ((newL / overlayW) * 100.0) + "%";
+                el.style.top = ((newT / overlayH) * 100.0) + "%";
+            });
+
+            document.addEventListener('mouseup', function(e) {
+                if (isMoving) {
+                    isMoving = false;
+                    renderOverlayControls();
+                }
+            });
+        }
+
+        // 7. Renderizar panel lateral de preguntas
+        function renderQuestionsForm() {
+            var container = document.getElementById("questions-list-el");
+            container.innerHTML = "";
+
+            preguntas.forEach((p, idx) => {
+                var card = document.createElement("div");
+                card.className = "question-card-item" + (activeQuestionIndex === idx ? " active" : "");
+                
+                // Header
+                var qH = document.createElement("div");
+                qH.className = "q-header";
+                qH.innerHTML = `<span class="q-title">Pregunta ${p.numeroPregunta}</span>
+                                <span style="font-size:12px; color:var(--accent-color); font-weight:bold;">${p.puntaje.toFixed(1)} ptos</span>`;
+                card.appendChild(qH);
+
+                // Enunciado
+                var label = document.createElement("div");
+                label.style.fontSize = "13px";
+                label.style.color = "var(--text-muted)";
+                label.style.wordBreak = "break-word";
+                label.innerText = p.enunciado.substring(0, 100) + (p.enunciado.length > 100 ? "..." : "");
+                card.appendChild(label);
+
+                // Inputs
+                var inputsDiv = document.createElement("div");
+                inputsDiv.className = "q-inputs";
+
+                // Tipo Selector
+                var selectTipo = document.createElement("select");
+                selectTipo.className = "form-select";
+                selectTipo.innerHTML = `<option value="OpcionMultiple" ${p.tipo === "OpcionMultiple" ? "selected" : ""}>Opción Múltiple</option>
+                                        <option value="RespuestaLibre" ${p.tipo === "RespuestaLibre" ? "selected" : ""}>Espacio Blanco</option>`;
+                selectTipo.onchange = function() {
+                    p.tipo = this.value;
+                    if (p.tipo === "OpcionMultiple") {
+                        p.respuestaCorrecta = "A";
+                        // Inicializar opciones
+                        var opciones = [];
+                        var labels = ["A", "B", "C", "D", "E"];
+                        for (var i = 0; i < 5; i++) {
+                            opciones.push({ label: labels[i], x: p.posX + (i * 5) + 2, y: p.posY + p.height + 2, w: 2.5, h: 2.5 });
+                        }
+                        p.opcionesJson = JSON.stringify(opciones);
+                    } else {
+                        p.respuestaCorrecta = "OK";
+                        p.opcionesJson = "[]";
+                    }
+                    renderOverlayControls();
+                    renderQuestionsForm();
+                };
+                inputsDiv.appendChild(selectTipo);
+
+                // Respuesta Correcta Input
+                if (p.tipo === "OpcionMultiple") {
+                    var selectResp = document.createElement("select");
+                    selectResp.className = "form-select";
+                    var labels = ["A", "B", "C", "D", "E"];
+                    var html = "";
+                    labels.forEach(l => {
+                        html += `<option value="${l}" ${p.respuestaCorrecta === l ? "selected" : ""}>Opción ${l}</option>`;
+                    });
+                    selectResp.innerHTML = html;
+                    selectResp.onchange = function() {
+                        p.respuestaCorrecta = this.value;
+                        renderOverlayControls();
+                    };
+                    inputsDiv.appendChild(selectResp);
+                } else {
+                    var inputText = document.createElement("input");
+                    inputText.type = "text";
+                    inputText.className = "form-input";
+                    inputText.style.padding = "6px 10px";
+                    inputText.style.fontSize = "13px";
+                    inputText.value = p.respuestaCorrecta;
+                    inputText.placeholder = "Respuesta Correcta";
+                    inputText.oninput = function() {
+                        p.respuestaCorrecta = this.value;
+                        // Actualizar texto en tiempo real
+                        var tb = overlay.querySelector(".blank-textbox-overlay");
+                        if (tb) tb.innerText = this.value;
+                    };
+                    inputsDiv.appendChild(inputText);
+                }
+
+                card.appendChild(inputsDiv);
+
+                card.onclick = function() {
+                    selectQuestion(idx);
+                };
+
+                container.appendChild(card);
+            });
+        }
+
+        function selectQuestion(idx) {
+            activeQuestionIndex = idx;
+            document.getElementById("delete-q-btn").disabled = (idx === -1);
+            
+            // Renderizar estados activos
+            var items = document.querySelectorAll(".question-card-item");
+            items.forEach((item, i) => {
+                if (i === idx) item.classList.add("active");
+                else item.classList.remove("active");
+            });
+
+            var boxes = document.querySelectorAll(".question-overlay-box");
+            boxes.forEach((box, i) => {
+                // Filtramos por página
+                var filteredIndex = preguntas.filter(p => p.page === currentPageNum).indexOf(preguntas[idx]);
+                if (filteredIndex === i) box.classList.add("active");
+                else box.classList.remove("active");
+            });
+        }
+
+        // Recalcular el puntaje total del examen
+        function recalcularPuntajeTotal() {
+            var total = preguntas.reduce((sum, p) => sum + p.Puntaje, 0);
+            document.getElementById("total-score-indicator").innerText = total.toFixed(1) + " ptos";
+        }
+
+        // Añadir una pregunta de forma manual en el visor
+        function addManualControl() {
+            var qNum = preguntas.length > 0 ? Math.max(...preguntas.map(p => p.numeroPregunta)) + 1 : 1;
+            
+            // Posicionar en un lugar predeterminado en el centro de la página actual
+            var p = {
+                numeroPregunta: qNum,
+                enunciado: "Pregunta manual " + qNum + ".",
+                tipo: "OpcionMultiple",
+                respuestaCorrecta: "A",
+                puntaje: 2.0,
+                posX: 15,
+                posY: 30,
+                width: 70,
+                height: 5,
+                opcionesJson: JSON.stringify([
+                    { label: "A", x: 17, y: 37, w: 2.5, h: 2.5 },
+                    { label: "B", x: 22, y: 37, w: 2.5, h: 2.5 },
+                    { label: "C", x: 27, y: 37, w: 2.5, h: 2.5 },
+                    { label: "D", x: 32, y: 37, w: 2.5, h: 2.5 },
+                    { label: "E", x: 37, y: 37, w: 2.5, h: 2.5 }
+                ]),
+                page: currentPageNum
+            };
+
+            preguntas.push(p);
+            preguntas.sort((a, b) => a.numeroPregunta - b.numeroPregunta);
+            
+            recalcularPuntajeTotal();
+            renderOverlayControls();
+            renderQuestionsForm();
+            selectQuestion(preguntas.indexOf(p));
+        }
+
+        // Eliminar pregunta seleccionada
+        function deleteSelectedQuestion() {
+            if (activeQuestionIndex >= 0 && activeQuestionIndex < preguntas.length) {
+                preguntas.splice(activeQuestionIndex, 1);
+                activeQuestionIndex = -1;
+                document.getElementById("delete-q-btn").disabled = true;
+                
+                recalcularPuntajeTotal();
+                renderOverlayControls();
+                renderQuestionsForm();
+            }
+        }
+
+        // 8. Guardar todo el examen en el backend vía AJAX
+        function saveExamen() {
+            var loader = document.getElementById("ocr-loader");
+            var loaderTitle = document.getElementById("ocr-loader-title");
+            var loaderSubtitle = document.getElementById("ocr-loader-subtitle");
+            var fill = document.getElementById("ocr-progress-bar");
+
+            loaderTitle.innerText = "Guardando plantilla...";
+            loaderSubtitle.innerText = "Sincronizando coordenadas y solucionario...";
+            fill.style.width = "40%";
+            loader.style.display = "flex";
+
+            var data = {
+                examenId: examenId,
+                preguntasJson: JSON.stringify(preguntas),
+                stampX: stampX,
+                stampY: stampY,
+                stampWidth: stampWidth,
+                stampHeight: stampHeight
+            };
+
+            fetch('@Url.Action("GuardarPlantilla", "Examen")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: Object.keys(data).map(key => encodeURIComponent(key) + '=' + encodeURIComponent(data[key])).join('&')
+            })
+            .then(response => response.json())
+            .then(res => {
+                if (res.success) {
+                    fill.style.width = "100%";
+                    location.href = res.redirectUrl;
+                } else {
+                    loader.style.display = "none";
+                    alert(res.message || "Error al guardar examen.");
+                }
+            })
+            .catch(err => {
+                loader.style.display = "none";
+                alert("Error de conexión al guardar plantilla.");
+            });
+        }
+    </script>
+}

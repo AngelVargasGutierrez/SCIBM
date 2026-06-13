@@ -1,0 +1,259 @@
+@model IEnumerable<SCIBM.Models.Curso>
+@{
+    ViewBag.Title = "Cursos: " + ViewBag.CicloNombre;
+    ViewBag.Subtitle = "Gestione los cursos activos y acceda a sus unidades";
+}
+
+<style>
+    /* COURSE GRID */
+    .courses-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 24px;
+    }
+
+    .course-card {
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        padding: 24px;
+        backdrop-filter: blur(12px);
+        box-shadow: var(--glass-shadow);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 20px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    .course-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, var(--accent-color), var(--primary-glow));
+        opacity: 0.8;
+    }
+    .course-card:hover {
+        transform: translateY(-5px);
+        border-color: rgba(100, 223, 223, 0.3);
+        box-shadow: 0 12px 40px 0 rgba(0, 180, 216, 0.15);
+    }
+
+    .course-info h3 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #ffffff;
+    }
+    .course-code {
+        font-size: 13px;
+        color: var(--text-muted);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+    }
+
+    .course-stats {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 12px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .stat-val {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--primary-glow);
+    }
+    .stat-lbl {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* ACTION BAR */
+    .action-bar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    /* NO DATA EMPTY STATE */
+    .empty-state {
+        text-align: center;
+        padding: 60px 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+    .empty-icon {
+        font-size: 64px;
+        color: var(--text-muted);
+        opacity: 0.4;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @@keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+</style>
+
+<!-- ACTION BAR -->
+<div class="action-bar">
+    <button class="btn btn-primary" onclick="openModal()">
+        <i class="fa-solid fa-plus"></i> Agregar Curso
+    </button>
+</div>
+
+<!-- COURSES LISTING -->
+@if (Model == null || !Model.Any())
+{
+    <div class="glass-card empty-state">
+        <i class="fa-solid fa-graduation-cap empty-icon"></i>
+        <h2>No hay cursos registrados</h2>
+        <p style="color: var(--text-muted); max-width: 400px; font-size: 15px;">
+            Aún no has creado ningún curso en este ciclo. Agrega uno nuevo para comenzar a gestionar los exámenes y las unidades.
+        </p>
+        <button class="btn btn-primary" onclick="openModal()">
+            Crear mi primer curso
+        </button>
+    </div>
+}
+else
+{
+    <div class="courses-grid">
+        @foreach (var c in Model)
+        {
+            <div class="course-card">
+                <div class="course-info">
+                    <span class="course-code">@c.Codigo</span>
+                    <h3 title="@c.Nombre">@c.Nombre</h3>
+                </div>
+                
+                <div class="course-stats">
+                    <div class="stat-item">
+                        <span class="stat-val">@c.Secciones.Count</span>
+                        <span class="stat-lbl">Secciones</span>
+                    </div>
+                    @if (c.DriveFolderId != null)
+                    {
+                        <div class="stat-item" style="margin-left: auto;">
+                            <span class="stat-val" style="color: var(--primary-glow);"><i class="fa-brands fa-google-drive"></i></span>
+                            <span class="stat-lbl">Sincronizado</span>
+                        </div>
+                    }
+                </div>
+
+                <a href="@Url.Action("Detail", "Curso", new { id = c.Id })" class="btn btn-secondary" style="width: 100%;">
+                    Gestionar Curso <i class="fa-solid fa-arrow-right" style="margin-left: 6px; font-size: 12px;"></i>
+                </a>
+            </div>
+        }
+    </div>
+}
+
+<!-- MODAL ADD COURSE -->
+<div class="modal-overlay" id="add-course-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Nuevo Curso</h3>
+            <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <form id="create-course-form" onsubmit="submitForm(event)">
+            <input type="hidden" id="cicloId" value="@ViewBag.CicloId" />
+            <div class="form-group">
+                <label for="nombre">Nombre del Curso</label>
+                <input type="text" id="nombre" name="nombre" class="form-input" placeholder="Ej: Álgebra Lineal" required />
+            </div>
+            
+            <div class="form-group">
+                <label for="codigo">Código del Curso</label>
+                <input type="text" id="codigo" name="codigo" class="form-input" placeholder="Ej: AL-101" required />
+            </div>
+
+            <div id="modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    <span>Guardar y Crear Carpeta en Drive</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section scripts {
+    <script>
+        function openModal() {
+            document.getElementById("add-course-modal").classList.add("active");
+            document.getElementById("nombre").focus();
+        }
+
+        function closeModal() {
+            document.getElementById("add-course-modal").classList.remove("active");
+            document.getElementById("create-course-form").reset();
+            document.getElementById("modal-error").style.display = "none";
+        }
+
+        function submitForm(e) {
+            e.preventDefault();
+            
+            var submitBtn = document.getElementById("submit-btn");
+            var originalHtml = submitBtn.innerHTML;
+            
+            // Mostrar estado de carga (ya que crea la carpeta en Google Drive de forma síncrona/segura)
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creando carpeta en Drive...';
+
+            var nombre = document.getElementById("nombre").value;
+            var codigo = document.getElementById("codigo").value;
+            var cicloId = document.getElementById("cicloId").value;
+
+            fetch('@Url.Action("Create", "Curso")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'cicloId=' + encodeURIComponent(cicloId) + '&nombre=' + encodeURIComponent(nombre) + '&codigo=' + encodeURIComponent(codigo)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                    var errDiv = document.getElementById("modal-error");
+                    errDiv.innerText = data.message || "Ocurrió un error al crear el curso.";
+                    errDiv.style.display = "block";
+                }
+            })
+            .catch(error => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHtml;
+                var errDiv = document.getElementById("modal-error");
+                errDiv.innerText = "Error de conexión con el servidor.";
+                errDiv.style.display = "block";
+            });
+        }
+    </script>
+}

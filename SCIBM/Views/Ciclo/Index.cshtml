@@ -1,0 +1,242 @@
+@model IEnumerable<SCIBM.Models.CicloAcademico>
+
+@{
+    ViewBag.Title = "Ciclos Académicos";
+    ViewBag.Subtitle = "Gestione sus ciclos y acceda a los cursos de cada uno";
+}
+
+<style>
+    /* COURSE GRID */
+    .courses-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 24px;
+    }
+
+    .course-card {
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        padding: 24px;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        position: relative;
+        overflow: hidden;
+    }
+    .course-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, var(--accent-color), var(--primary-glow));
+        opacity: 0.8;
+    }
+    .course-card:hover {
+        transform: translateY(-5px);
+        border-color: rgba(100, 223, 223, 0.3);
+        box-shadow: 0 12px 40px 0 rgba(0, 180, 216, 0.15);
+    }
+
+    .course-info h3 {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #ffffff;
+    }
+
+    .course-stats {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 12px 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .stat-val {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--primary-glow);
+    }
+    .stat-lbl {
+        font-size: 11px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* ACTION BAR */
+    .action-bar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    /* NO DATA EMPTY STATE */
+    .empty-state {
+        text-align: center;
+        padding: 60px 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+    .empty-icon {
+        font-size: 64px;
+        color: var(--text-muted);
+        opacity: 0.4;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @@keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+</style>
+
+<!-- ACTION BAR -->
+<div class="action-bar">
+    <button class="btn btn-primary" onclick="openModal()">
+        <i class="fa-solid fa-plus"></i> Nuevo Ciclo
+    </button>
+</div>
+
+<!-- CICLOS LISTING -->
+@if (Model == null || !Model.Any())
+{
+    <div class="glass-card empty-state">
+        <i class="fa-solid fa-calendar-days empty-icon"></i>
+        <h2>No hay ciclos académicos</h2>
+        <p style="color: var(--text-muted); max-width: 400px; font-size: 15px;">
+            Aún no has creado ningún ciclo (Ej. 2026-I). Crea uno para empezar a organizar tus cursos.
+        </p>
+        <button class="btn btn-primary" onclick="openModal()">
+            Crear mi primer ciclo
+        </button>
+    </div>
+}
+else
+{
+    <div class="courses-grid">
+        @foreach (var c in Model)
+        {
+            <div class="course-card">
+                <div class="course-info">
+                    <h3 title="@c.Nombre">@c.Nombre</h3>
+                </div>
+                
+                <div class="course-stats">
+                    <div class="stat-item">
+                        <span class="stat-val">@c.Cursos.Count</span>
+                        <span class="stat-lbl">Cursos</span>
+                    </div>
+                    @if (c.DriveFolderId != null)
+                    {
+                        <div class="stat-item" style="margin-left: auto;">
+                            <span class="stat-val" style="color: var(--primary-glow);"><i class="fa-brands fa-google-drive"></i></span>
+                            <span class="stat-lbl">Sincronizado</span>
+                        </div>
+                    }
+                </div>
+
+                <a href="@Url.Action("Index", "Curso", new { cicloId = c.Id })" class="btn btn-secondary" style="width: 100%;">
+                    Ver Cursos <i class="fa-solid fa-arrow-right" style="margin-left: 6px; font-size: 12px;"></i>
+                </a>
+            </div>
+        }
+    </div>
+}
+
+<!-- MODAL ADD CICLO -->
+<div class="modal-overlay" id="add-ciclo-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Nuevo Ciclo Académico</h3>
+            <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <form id="create-ciclo-form" onsubmit="submitForm(event)">
+            <div class="form-group">
+                <label for="nombre">Nombre del Ciclo</label>
+                <input type="text" id="nombre" name="nombre" class="form-input" placeholder="Ej: 2026-I" required />
+            </div>
+
+            <div id="modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="submit-btn">
+                    <span>Crear Ciclo</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section scripts {
+    <script>
+        function openModal() {
+            document.getElementById("add-ciclo-modal").classList.add("active");
+            document.getElementById("nombre").focus();
+        }
+
+        function closeModal() {
+            document.getElementById("add-ciclo-modal").classList.remove("active");
+            document.getElementById("create-ciclo-form").reset();
+            document.getElementById("modal-error").style.display = "none";
+        }
+
+        function submitForm(e) {
+            e.preventDefault();
+            
+            var submitBtn = document.getElementById("submit-btn");
+            var originalHtml = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creando...';
+
+            var nombre = document.getElementById("nombre").value;
+
+            fetch('@Url.Action("Create", "Ciclo")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'nombre=' + encodeURIComponent(nombre)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                    var errDiv = document.getElementById("modal-error");
+                    errDiv.innerText = data.message || "Ocurrió un error al crear el ciclo.";
+                    errDiv.style.display = "block";
+                }
+            })
+            .catch(error => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHtml;
+                var errDiv = document.getElementById("modal-error");
+                errDiv.innerText = "Error de conexión con el servidor.";
+                errDiv.style.display = "block";
+            });
+        }
+    </script>
+}

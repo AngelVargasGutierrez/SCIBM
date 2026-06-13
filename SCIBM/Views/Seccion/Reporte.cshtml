@@ -1,0 +1,100 @@
+@model SCIBM.Models.Seccion
+@{
+    ViewBag.Title = $"Reporte: {Model.Nombre}";
+    ViewBag.Subtitle = $"Curso: {Model.Curso.Nombre}";
+    var examenes = ViewBag.Examenes as IEnumerable<SCIBM.Models.Examen>;
+}
+
+<style>
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .panel-header h2 {
+        font-size: 18px;
+        font-weight: 600;
+    }
+    .table-responsive {
+        overflow-x: auto;
+    }
+    table.report-table {
+        width: 100%;
+        border-collapse: collapse;
+        color: white;
+    }
+    table.report-table th, table.report-table td {
+        padding: 12px 15px;
+        border: 1px solid var(--glass-border);
+        text-align: center;
+    }
+    table.report-table th {
+        background: rgba(255, 255, 255, 0.05);
+        font-weight: 600;
+    }
+    table.report-table tbody tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+    table.report-table td:first-child {
+        text-align: left;
+    }
+</style>
+
+<div class="glass-card">
+    <div class="panel-header">
+        <h2>Consolidado de Notas</h2>
+        <a href="@Url.Action("ExportarReporteGeneralExcel", "Seccion", new { seccionId = Model.Id })" class="btn btn-success">
+            <i class="fa-solid fa-file-excel"></i> Exportar a Excel
+        </a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="report-table" id="reporteTable">
+            <thead>
+                <tr>
+                    <th style="text-align: left;">Alumno</th>
+                    @foreach (var un in Model.Unidades.OrderBy(u => u.NombreUnidad))
+                    {
+                        <th>@un.NombreUnidad</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Contenido cargado por AJAX -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            fetch('@Url.Action("GetReporteGeneralData", "Seccion")?seccionId=@Model.Id')
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        const tbody = document.querySelector("#reporteTable tbody");
+                        tbody.innerHTML = "";
+                        res.data.forEach(row => {
+                            let tr = document.createElement("tr");
+                            
+                            let tdNombre = document.createElement("td");
+                            tdNombre.innerText = row.NombreAlumno;
+                            tr.appendChild(tdNombre);
+
+                            res.unidades.forEach(un => {
+                                let td = document.createElement("td");
+                                td.innerText = row[un] !== undefined ? row[un] : "-";
+                                tr.appendChild(td);
+                            });
+
+                            tbody.appendChild(tr);
+                        });
+                    }
+                });
+        });
+    </script>
+}

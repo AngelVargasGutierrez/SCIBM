@@ -1,0 +1,781 @@
+@model SCIBM.Models.Examen
+@using Newtonsoft.Json
+@{
+    ViewBag.Title = $"Revisión de Calificaciones: {Model.Titulo}";
+    ViewBag.Subtitle = "Valide las respuestas extraídas y resuelva observaciones antes de guardar";
+    var matriculados = ViewBag.AlumnosMatriculados as IEnumerable<SCIBM.Models.AlumnoMatriculado>;
+    var tempFiles = ViewBag.TempFiles as List<string>;
+}
+
+@section styles {
+    <style>
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 30px;
+            height: calc(100vh - 180px);
+            min-height: 550px;
+        }
+
+        /* LEFT LIST COLUMN */
+        .list-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .students-scanned-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-right: 5px;
+        }
+
+        .student-scan-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .student-scan-item.active {
+            border-color: var(--accent-color);
+            background: rgba(72, 202, 228, 0.04);
+        }
+        .student-scan-item.error {
+            border-color: #ff5252;
+            background: rgba(255, 82, 82, 0.02);
+        }
+
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .raw-name {
+            font-size: 11px;
+            color: var(--text-muted);
+            opacity: 0.8;
+            font-style: italic;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        /* RIGHT BREAKDOWN COLUMN */
+        .breakdown-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .breakdown-content {
+            flex-grow: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .panel-column {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .answers-grid-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-right: 5px;
+        }
+
+        .answer-verify-item {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+        .answer-verify-item.correct {
+            border-left: 4px solid #2ec4b6;
+        }
+        .answer-verify-item.incorrect {
+            border-left: 4px solid #ff5252;
+        }
+
+        /* MINIPREV DEL PDF */
+        .pdf-preview-box {
+            flex-grow: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            border: 1px solid var(--glass-border);
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 10px;
+        }
+        #preview-canvas {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            background: white;
+            display: block;
+        }
+
+        /* LOADER */
+        .progress-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(11, 19, 43, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+            gap: 20px;
+        }
+        .progress-bar {
+            width: 320px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-color), var(--primary-glow));
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+    </style>
+}
+
+<div class="grid-layout">
+
+    <!-- LEFT COLUMN: SCANNED STUDENTS LIST -->
+    <div class="glass-card list-card">
+        <div class="panel-header">
+            <h2>Hojas de Examen</h2>
+            <span style="font-size:12px; color:var(--text-muted);" id="scanned-count-indicator">Cargando...</span>
+        </div>
+
+        <div class="students-scanned-list" id="students-scanned-list-el">
+            <!-- Cargado por JS al procesar los archivos -->
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN: CURRENT STUDENT VERIFICATION -->
+    <div class="glass-card breakdown-card" id="breakdown-panel-el" style="display: none;">
+        <div class="panel-header">
+            <div style="flex-grow:1; display:flex; flex-direction:column; gap:6px;">
+                <!-- SELECCIÓN O ASOCIACIÓN DE MATRÍCULA -->
+                <label style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Asociar a Alumno Matriculado</label>
+                <select id="select-matricula-al" class="form-select" style="font-size:15px; font-weight:600; padding:10px; width: 100%;" onchange="asociarAlumnoMatriculado(this.value)">
+                    <option value="">-- Sin Coincidencia (Observado) --</option>
+                    @if (matriculados != null)
+                    {
+                        foreach (var al in matriculados.OrderBy(a => a.NombreCompleto))
+                        {
+                            <option value="@al.Id">@al.NombreCompleto</option>
+                        }
+                    }
+                </select>
+            </div>
+            
+            <div style="text-align: right; padding-left: 20px;">
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Nota Final</span>
+                <span class="grade-badge" id="breakdown-grade" style="font-size: 26px;">0.0</span>
+            </div>
+        </div>
+
+        <!-- SPLIT VIEW: RESPUESTAS VS PDF PREVIEW -->
+        <div class="breakdown-content">
+            
+            <!-- PANEL: RESPUESTAS DETECTADAS -->
+            <div class="panel-column">
+                <h4 style="font-size:13px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Respuestas de la Hoja</h4>
+                <div class="answers-grid-list" id="answers-verify-list-el">
+                    <!-- Se carga dinámicamente -->
+                </div>
+            </div>
+
+            <!-- PANEL: VISTA PREVIA PDF -->
+            <div class="panel-column">
+                <h4 style="font-size:13px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Vista del Documento</h4>
+                <div class="pdf-preview-box">
+                    <canvas id="preview-canvas"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- BOTÓN DE ACCIÓN FINAL -->
+        <div style="border-top:1px solid rgba(255,255,255,0.05); padding-top:15px; display:flex; justify-content:space-between; align-items:center;">
+            <div style="color:#ffb703; font-size:13.5px; display:none;" id="warning-match-el">
+                <i class="fa-solid fa-triangle-exclamation"></i> Este examen esta marcado como observado (sin matricula).
+            </div>
+            <div style="margin-left:auto; display:flex; gap:12px;">
+                <a href="@Url.Action("Detail", "Examen", new { id = Model.Id })" class="btn btn-secondary">Cancelar</a>
+                <button class="btn btn-primary" onclick="guardarNotasFinales()">Guardar Calificaciones</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- LOADING OCR PROGRESS DIALOG -->
+<div class="progress-overlay" id="grader-loader">
+    <i class="fa-solid fa-wand-magic-sparkles" style="font-size: 64px; color: var(--primary-glow); text-shadow: 0 0 20px var(--primary-glow); animation: pulse 1.5s infiniteAlternate;"></i>
+    <h3 id="loader-title">Procesando exámenes...</h3>
+    <p id="loader-subtitle" style="color: var(--text-muted); font-size: 14.5px;">Cargando motor de escaneo...</p>
+    <div class="progress-bar">
+        <div class="progress-fill" id="loader-progress-bar"></div>
+    </div>
+</div>
+
+@section scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        // Lista de alumnos matriculados en JS para la coincidencia difusa
+        var matriculados = [];
+        @if (matriculados != null)
+        {
+            foreach (var al in matriculados)
+            {
+                <text>
+                matriculados.push({
+                    id: '@al.Id',
+                    nombreCompleto: @Html.Raw(JsonConvert.SerializeObject(al.NombreCompleto)),
+                    apellidos: @Html.Raw(JsonConvert.SerializeObject(al.Apellidos)),
+                    nombres: @Html.Raw(JsonConvert.SerializeObject(al.Nombres))
+                });
+                </text>
+            }
+        }
+
+        // Estructura de plantilla del examen
+        var plantillaPreguntas = [];
+        @foreach (var p in Model.Preguntas.OrderBy(pr => pr.NumeroPregunta))
+        {
+            <text>
+            plantillaPreguntas.push({
+                numeroPregunta: @p.NumeroPregunta,
+                enunciado: @Html.Raw(JsonConvert.SerializeObject(p.Enunciado)),
+                tipo: @Html.Raw(JsonConvert.SerializeObject(p.Tipo)),
+                respuestaCorrecta: @Html.Raw(JsonConvert.SerializeObject(p.RespuestaCorrecta)),
+                puntaje: @p.Puntaje.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                posX: @p.PosX.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                posY: @p.PosY.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                width: @p.Width.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                height: @p.Height.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                opcionesJson: @Html.Raw(string.IsNullOrEmpty(p.OpcionesJson) ? "[]" : JsonConvert.SerializeObject(p.OpcionesJson))
+            });
+            </text>
+        }
+
+        // Archivos temporales subidos
+        var tempFiles = [];
+        @if (tempFiles != null)
+        {
+            foreach (var tf in tempFiles)
+            {
+                <text>tempFiles.push(@Html.Raw(JsonConvert.SerializeObject(tf)));</text>
+            }
+        }
+
+        // Datos calificados (resultados en memoria)
+        var resultadosAlumnos = [];
+        var activeStudentIndex = -1;
+        var aiResultsJson = @Html.Raw(Session["AIGradingResults"] != null ? Session["AIGradingResults"].ToString() : "null");
+
+        // Iniciar procesamiento al cargar
+        window.addEventListener('load', function() {
+            if (aiResultsJson) {
+                // Modo Inteligencia Artificial (Saltamos Tesseract)
+                document.getElementById("grader-loader").style.display = "none";
+                resultadosAlumnos = aiResultsJson;
+                
+                // Aplicar fuzzy match a cada uno para asociarlo al id matriculado
+                resultadosAlumnos.forEach(res => {
+                    var matchedAlumno = fuzzyMatchAlumno(res.nombreAlumnoRaw);
+                    res.alumnoMatriculadoId = matchedAlumno ? matchedAlumno.id : null;
+                    res.tieneObservacion = matchedAlumno === null;
+                    res.observacion = res.tieneObservacion ? "No se encontró coincidencia con ningún alumno matriculado" : "";
+                });
+                
+                document.getElementById("scanned-count-indicator").innerText = `${resultadosAlumnos.length} Calificados (IA)`;
+                renderScannedList();
+                if (resultadosAlumnos.length > 0) {
+                    selectStudent(0);
+                }
+            } else {
+                // Modo Manual (OMR/OCR Local)
+                procesarArchivosAlumnos();
+            }
+        });
+
+        // 1. Escanear y calificar de forma secuencial en el navegador (OMR + OCR)
+        async function procesarArchivosAlumnos() {
+            var loader = document.getElementById("grader-loader");
+            var loaderTitle = document.getElementById("loader-title");
+            var loaderSubtitle = document.getElementById("loader-subtitle");
+            var fill = document.getElementById("loader-progress-bar");
+
+            loader.style.display = "flex";
+            var total = tempFiles.length;
+            
+            // Inicializar worker de Tesseract
+            loaderTitle.innerText = "Inicializando OCR...";
+            loaderSubtitle.innerText = "Cargando diccionario de idioma español...";
+            var ocrWorker = await Tesseract.createWorker();
+            await ocrWorker.loadLanguage('spa');
+            await ocrWorker.initialize('spa');
+
+            for (var i = 0; i < total; i++) {
+                var filePath = tempFiles[i];
+                var fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+                
+                loaderTitle.innerText = `Calificando examen ${i + 1} de ${total}...`;
+                loaderSubtitle.innerText = `Procesando: ${fileName}`;
+                fill.style.width = ((i / total) * 100) + "%";
+
+                try {
+                    // Cargar PDF del alumno
+                    var fileUrl = '@Url.Action("GetExamenPdf", "Examen")' + '?filename=' + encodeURIComponent(fileName) + '&isTemp=true';
+                    var pdf = await pdfjsLib.getDocument(fileUrl).promise;
+                    var page = await pdf.getPage(1); // Escaneamos la primera página para OMR/OCR nombre
+                    
+                    // Renderizar página a escala estándar para OMR
+                    var scale = 1.5;
+                    var viewport = page.getViewport({ scale: scale });
+                    var virtualCanvas = document.createElement("canvas");
+                    virtualCanvas.width = viewport.width;
+                    virtualCanvas.height = viewport.height;
+                    var vCtx = virtualCanvas.getContext("2d");
+                    
+                    await page.render({ canvasContext: vCtx, viewport: viewport }).promise;
+
+                    // A. AUTO-ALINEACIÓN (Delta X, Delta Y)
+                    // Buscamos la posición del texto de la primera pregunta para ajustar desfases
+                    // Para simplificar y hacerlo ultra-rápido, asumiremos alineación directa.
+                    // No obstante, si se desalinea, permitiremos la revisión y cambio manual en la grilla.
+                    
+                    // B. OCR DEL NOMBRE DEL ALUMNO (Parte superior del examen)
+                    // Asumiremos que el área del nombre está en el primer 15% superior de la hoja
+                    var nameCanvas = document.createElement("canvas");
+                    nameCanvas.width = viewport.width;
+                    nameCanvas.height = viewport.height * 0.15;
+                    var nameCtx = nameCanvas.getContext("2d");
+                    nameCtx.drawImage(virtualCanvas, 0, 0, viewport.width, viewport.height * 0.15, 0, 0, viewport.width, viewport.height * 0.15);
+                    
+                    var nameOcr = await ocrWorker.recognize(nameCanvas.toDataURL());
+                    var rawNameText = nameOcr.data.text.trim();
+                    
+                    // Limpiar saltos de línea y basura del OCR
+                    rawNameText = rawNameText.replace(/[\r\n\t]+/g, ' ').replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s,]/g, '').trim();
+                    if (rawNameText.length < 3) rawNameText = "Ilegible / Sin Nombre";
+
+                    // C. COINCIDENCIA DIFUSA CONTRA MATRICULADOS (Matching 2-3 palabras del nombre)
+                    var matchedAlumno = fuzzyMatchAlumno(rawNameText);
+                    var alumnoId = matchedAlumno ? matchedAlumno.id : null;
+                    var tieneObservacion = matchedAlumno === null;
+                    var observacion = tieneObservacion ? "No se encontró coincidencia con ningún alumno matriculado" : "";
+
+                    // D. LECTURA DE RESPUESTAS (OMR de círculos marcados / OCR de campos)
+                    var respuestasAlumno = [];
+                    for (var q of plantillaPreguntas) {
+                        var respuestaDetectada = "";
+
+                        if (q.tipo === "OpcionMultiple" && q.opcionesJson) {
+                            var opciones = JSON.parse(q.opcionesJson);
+                            var maxDensity = -1;
+                            var selectedOption = "A"; // Default fallback
+
+                            // Evaluar la densidad de píxeles (OMR) en cada opción de la pregunta
+                            for (var opt of opciones) {
+                                // Mapear porcentaje a píxeles del canvas
+                                var ox = viewport.width * (opt.x / 100.0);
+                                var oy = viewport.height * (opt.y / 100.0);
+                                var ow = viewport.width * (opt.w / 100.0);
+                                var oh = viewport.height * (opt.h / 100.0);
+
+                                if (ow <= 0) ow = 12;
+                                if (oh <= 0) oh = 12;
+
+                                // Extraer datos de píxeles
+                                var imgData = vCtx.getImageData(ox, oy, ow, oh);
+                                var pixels = imgData.data;
+                                var darkPixels = 0;
+
+                                // Contar cuántos píxeles son oscuros (lapicero/marca)
+                                for (var pIdx = 0; pIdx < pixels.length; pIdx += 4) {
+                                    var r = pixels[pIdx];
+                                    var g = pixels[pIdx+1];
+                                    var b = pixels[pIdx+2];
+                                    var gray = 0.299*r + 0.587*g + 0.114*b;
+                                    
+                                    if (gray < 130) { // Umbral de oscuridad (0-255)
+                                        darkPixels++;
+                                    }
+                                }
+
+                                var density = darkPixels / (ow * oh);
+                                if (density > maxDensity) {
+                                    maxDensity = density;
+                                    selectedOption = opt.label;
+                                }
+                            }
+                            
+                            // Si la densidad máxima es muy baja (ej: < 5%), asumimos que no marcó ninguna
+                            respuestaDetectada = maxDensity > 0.05 ? selectedOption : "";
+                        } 
+                        else if (q.tipo === "RespuestaLibre") {
+                            // Hacer OCR localizado en la caja del espacio vacío
+                            var qx = viewport.width * (q.posX / 100.0);
+                            var qy = viewport.height * ((q.posY + q.height) / 100.0); // Abajo
+                            var qw = viewport.width * (Math.min(25, q.width) / 100.0);
+                            var qh = viewport.height * (3.2 / 100.0);
+
+                            var cropCanvas = document.createElement("canvas");
+                            cropCanvas.width = qw;
+                            cropCanvas.height = qh;
+                            var cropCtx = cropCanvas.getContext("2d");
+                            cropCtx.drawImage(virtualCanvas, qx, qy, qw, qh, 0, 0, qw, qh);
+
+                            var cropOcr = await ocrWorker.recognize(cropCanvas.toDataURL());
+                            respuestaDetectada = cropOcr.data.text.trim().replace(/[\r\n\t]+/g, ' ');
+                        }
+
+                        respuestasAlumno.push({
+                            numeroPregunta: q.numeroPregunta,
+                            respuestaDada: respuestaDetectada
+                        });
+                    }
+
+                    resultadosAlumnos.push({
+                        tempFilePath: filePath,
+                        fileName: fileName,
+                        nombreAlumnoRaw: rawNameText,
+                        alumnoMatriculadoId: alumnoId,
+                        tieneObservacion: tieneObservacion,
+                        observacion: observacion,
+                        respuestas: respuestasAlumno
+                    });
+
+                } catch (err) {
+                    console.error("Error al calificar archivo: ", err);
+                    resultadosAlumnos.push({
+                        tempFilePath: filePath,
+                        fileName: fileName,
+                        nombreAlumnoRaw: "Error de lectura / PDF corrupto",
+                        alumnoMatriculadoId: null,
+                        tieneObservacion: true,
+                        observacion: "El PDF no se pudo renderizar o está corrupto: " + err.message,
+                        respuestas: []
+                    });
+                }
+            }
+
+            await ocrWorker.terminate();
+            fill.style.width = "100%";
+            loader.style.display = "none";
+
+            // Mostrar el panel de revisión
+            document.getElementById("scanned-count-indicator").innerText = `${resultadosAlumnos.length} Calificados`;
+            renderScannedList();
+            if (resultadosAlumnos.length > 0) {
+                selectStudent(0);
+            }
+        }
+
+        // Algoritmo de coincidencia difusa (Jaccard de palabras)
+        function fuzzyMatchAlumno(ocrName) {
+            if (!ocrName || ocrName.length < 4) return null;
+            
+            // Separar el nombre del OCR en palabras clave (ignorando artículos cortos)
+            var ocrWords = ocrName.toUpperCase().split(/[\s,]+/).filter(w => w.length > 2);
+
+            if (ocrWords.length === 0) return null;
+
+            var bestMatch = null;
+            var maxMatchCount = 0;
+
+            for (var al of matriculados) {
+                var nameUpper = al.nombreCompleto.toUpperCase();
+                var matchCount = 0;
+
+                // Contar cuántas palabras del OCR están en el nombre completo del alumno matriculado
+                ocrWords.forEach(w => {
+                    if (nameUpper.includes(w)) {
+                        matchCount++;
+                    }
+                });
+
+                // Si coinciden al menos 2 palabras (o todas si son pocas)
+                if (matchCount >= 2 && matchCount > maxMatchCount) {
+                    maxMatchCount = matchCount;
+                    bestMatch = al;
+                }
+            }
+
+            return bestMatch;
+        }
+
+        // 2. Renderizar lista de alumnos escaneados a la izquierda
+        function renderScannedList() {
+            var list = document.getElementById("students-scanned-list-el");
+            list.innerHTML = "";
+
+            resultadosAlumnos.forEach((res, idx) => {
+                var item = document.createElement("div");
+                item.className = "student-scan-item" + (activeStudentIndex === idx ? " active" : "") + (res.tieneObservacion ? " error" : "");
+                
+                // Mapear nombre matriculado para mostrar en la lista
+                var displayName = "No Matriculado / Observado";
+                if (res.alumnoMatriculadoId) {
+                    var al = matriculados.find(a => a.id === res.alumnoMatriculadoId);
+                    if (al) displayName = al.nombreCompleto;
+                }
+
+                // Calcular nota preliminar en vivo
+                var score = calcularNotaPreliminar(res);
+
+                item.innerHTML = `
+                    <div class="item-row">
+                        <strong style="font-size:14px; color:${res.tieneObservacion ? '#ff5252' : '#ffffff'};">${displayName}</strong>
+                        <span class="grade-badge" style="font-size:15px;">${score.toFixed(1)}</span>
+                    </div>
+                    <div class="raw-name">PDF: ${res.fileName}</div>
+                    <div class="raw-name" style="color:var(--text-muted);">Leido OCR: "${res.nombreAlumnoRaw}"</div>
+                `;
+
+                item.onclick = function() {
+                    selectStudent(idx);
+                };
+
+                list.appendChild(item);
+            });
+        }
+
+        // Calcular la nota sumando los puntajes de aciertos
+        function calcularNotaPreliminar(res) {
+            var total = 0;
+            res.respuestas.forEach(resp => {
+                var q = plantillaPreguntas.find(p => p.numeroPregunta === resp.numeroPregunta);
+                if (q) {
+                    var esCorrecto = q.respuestaCorrecta.toUpperCase() === (resp.respuestaDada || "").toUpperCase();
+                    if (resp.esCorrectoManual) esCorrecto = true;
+                    if (esCorrecto) total += q.puntaje;
+                }
+            });
+            return total;
+        }
+
+        // 3. Seleccionar alumno de la lista e instanciar su desglose y vista previa PDF
+        function selectStudent(idx) {
+            activeStudentIndex = idx;
+            document.getElementById("breakdown-panel-el").style.display = "flex";
+
+            // Marcar activo en la lista
+            var items = document.querySelectorAll(".student-scan-item");
+            items.forEach((item, i) => {
+                if (i === idx) item.classList.add("active");
+                else item.classList.remove("active");
+            });
+
+            var res = resultadosAlumnos[idx];
+
+            // 1. Cargar el selector de matrícula con su valor
+            document.getElementById("select-matricula-al").value = res.alumnoMatriculadoId || "";
+
+            // 2. Renderizar respuestas
+            renderAnswersVerifyList(res);
+
+            // 3. Mostrar observaciones si existen
+            var warning = document.getElementById("warning-match-el");
+            warning.style.display = res.tieneObservacion ? "block" : "none";
+
+            // 4. Renderizar PDF del alumno en la vista previa
+            var tempName = res.tempFilePath ? res.tempFilePath.split('/').pop() : encodeURIComponent(res.fileName);
+            var fileUrl = '@Url.Action("GetExamenPdf", "Examen")' + '?filename=' + tempName + '&folderType=alumnos';
+            renderPdfPreview(fileUrl);
+        }
+
+        // Renderizar el desglose de preguntas
+        function renderAnswersVerifyList(res) {
+            var container = document.getElementById("answers-verify-list-el");
+            container.innerHTML = "";
+
+            res.respuestas.forEach((resp, rIdx) => {
+                var q = plantillaPreguntas.find(p => p.numeroPregunta === resp.numeroPregunta);
+                if (!q) return;
+
+                var esCorrecto = q.respuestaCorrecta.toUpperCase() === (resp.respuestaDada || "").toUpperCase();
+                if (resp.esCorrectoManual) esCorrecto = true;
+                
+                var item = document.createElement("div");
+                item.className = "answer-verify-item " + (esCorrecto ? "correct" : "incorrect");
+
+                var optHtml = "";
+                if (q.tipo === "OpcionMultiple" || q.tipo === "VerdaderoFalso" || q.respuestaCorrecta.toUpperCase() === "V" || q.respuestaCorrecta.toUpperCase() === "F") {
+                    var labels = ["A", "B", "C", "D", "E"];
+                    if (q.tipo === "VerdaderoFalso" || q.respuestaCorrecta.toUpperCase() === "V" || q.respuestaCorrecta.toUpperCase() === "F") {
+                        labels = ["V", "F"];
+                    }
+                    var options = "";
+                    labels.forEach(l => {
+                        options += `<option value="${l}" ${(resp.respuestaDada || "").toUpperCase() === l ? "selected" : ""}>Letra ${l}</option>`;
+                    });
+                    optHtml = `<select class="form-select" style="width:110px; padding:4px;" onchange="cambiarRespuestaAlumno(${rIdx}, this.value)">
+                                  <option value="" ${!resp.respuestaDada ? "selected" : ""}>-- Sin Marc. --</option>
+                                  ${options}
+                               </select>`;
+                } else {
+                    var isManual = resp.esCorrectoManual ? "checked" : "";
+                    optHtml = `<input type="text" class="form-input" style="width:110px; padding:4px 8px; font-size:13px;" value="${resp.respuestaDada}" oninput="cambiarRespuestaAlumno(${rIdx}, this.value)" />
+                               <label style="font-size:11px; display:flex; align-items:center; gap:3px; margin-left:5px; cursor:pointer;" title="Forzar Correcto">
+                                   <input type="checkbox" ${isManual} onchange="toggleCorrectoManual(${rIdx}, this.checked)" /> Ok
+                               </label>`;
+                }
+
+                item.innerHTML = `
+                    <div>
+                        <div style="font-weight:600; font-size:13.5px;">Pregunta ${q.numeroPregunta}</div>
+                        <div style="font-size:12px; color:var(--text-muted);">
+                            Correcta: <strong style="color:#2ec4b6;">${q.respuestaCorrecta}</strong> | Peso: ${q.puntaje.toFixed(1)} pt
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        ${optHtml}
+                        <span style="font-size:18px; color:${esCorrecto ? '#2ec4b6' : '#ff5252'};">
+                            <i class="fa-solid ${esCorrecto ? 'fa-circle-check' : 'fa-circle-xmark'}"></i>
+                        </span>
+                    </div>
+                `;
+
+                container.appendChild(item);
+            });
+
+            // Actualizar nota en pantalla
+            var score = calcularNotaPreliminar(res);
+            document.getElementById("breakdown-grade").innerText = score.toFixed(1);
+        }
+
+        // Cambiar respuesta de alumno de forma manual
+        function cambiarRespuestaAlumno(rIdx, value) {
+            var res = resultadosAlumnos[activeStudentIndex];
+            res.respuestas[rIdx].respuestaDada = value;
+            
+            // Recalcular y re-renderizar
+            renderAnswersVerifyList(res);
+            renderScannedList();
+        }
+
+        // Forzar pregunta como correcta (para respuestas libres)
+        function toggleCorrectoManual(rIdx, isChecked) {
+            var res = resultadosAlumnos[activeStudentIndex];
+            res.respuestas[rIdx].esCorrectoManual = isChecked;
+            
+            renderAnswersVerifyList(res);
+            renderScannedList();
+        }
+
+        // Asociar alumno matriculado desde el dropdown
+        function asociarAlumnoMatriculado(val) {
+            var res = resultadosAlumnos[activeStudentIndex];
+            res.alumnoMatriculadoId = val ? val : null;
+            res.tieneObservacion = (val === "");
+            res.observacion = res.tieneObservacion ? "No se encontró coincidencia con ningún alumno matriculado" : "";
+
+            document.getElementById("warning-match-el").style.display = res.tieneObservacion ? "block" : "none";
+            renderScannedList();
+        }
+
+        // Renderizar vista previa del PDF
+        var previewPdfDoc = null;
+        function renderPdfPreview(url) {
+            var pCanvas = document.getElementById("preview-canvas");
+            var pCtx = pCanvas.getContext("2d");
+
+            pdfjsLib.getDocument(url).promise.then(function(pdf) {
+                previewPdfDoc = pdf;
+                pdf.getPage(1).then(function(page) {
+                    // Renderizamos a escala miniatura
+                    var viewport = page.getViewport({ scale: 0.65 });
+                    pCanvas.width = viewport.width;
+                    pCanvas.height = viewport.height;
+
+                    page.render({
+                        canvasContext: pCtx,
+                        viewport: viewport
+                    });
+                });
+            });
+        }
+
+        // 4. Guardar notas definitivas en el servidor vía AJAX
+        function guardarNotasFinales() {
+            var loader = document.getElementById("grader-loader");
+            var loaderTitle = document.getElementById("loader-title");
+            var loaderSubtitle = document.getElementById("loader-subtitle");
+            var fill = document.getElementById("loader-progress-bar");
+
+            loaderTitle.innerText = "Guardando calificaciones...";
+            loaderSubtitle.innerText = "Estampando notas y actualizando SQL Server...";
+            fill.style.width = "40%";
+            loader.style.display = "flex";
+
+            var data = {
+                examenId: '@Model.Id',
+                resultadosJson: JSON.stringify(resultadosAlumnos)
+            };
+
+            fetch('@Url.Action("GuardarNotas", "Examen")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: Object.keys(data).map(key => encodeURIComponent(key) + '=' + encodeURIComponent(data[key])).join('&')
+            })
+            .then(response => response.json())
+            .then(res => {
+                if (res.success) {
+                    fill.style.width = "100%";
+                    location.href = '@Url.Action("Detail", "Examen", new { id = Model.Id })';
+                } else {
+                    loader.style.display = "none";
+                    alert(res.message || "Error al guardar calificaciones.");
+                }
+            })
+            .catch(err => {
+                loader.style.display = "none";
+                alert("Error de conexión con el servidor.");
+            });
+        }
+    </script>
+}

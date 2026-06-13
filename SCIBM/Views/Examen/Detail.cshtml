@@ -1,0 +1,416 @@
+@model SCIBM.Models.Examen
+@{
+    ViewBag.Title = $"{Model.Unidad.NombreUnidad} - {Model.NombreVersion}";
+    ViewBag.Subtitle = $"Gestione el examen y califique las hojas de respuesta de esta versión";
+    var calificaciones = ViewBag.Calificaciones as IEnumerable<SCIBM.Models.ExamenAlumno>;
+    int totalPreguntas = ViewBag.TotalPreguntas != null ? (int)ViewBag.TotalPreguntas : 0;
+}
+
+<style>
+    .unidad-layout {
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: 30px;
+        align-items: start;
+    }
+
+    /* CARD DE ESTADOS Y ACCIONES */
+    .action-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .panel-divider {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.05);
+        margin: 10px 0;
+    }
+
+    .badge {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 8px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .badge-success { background: rgba(46, 196, 182, 0.15); color: #2ec4b6; }
+    .badge-warn { background: rgba(255, 183, 3, 0.15); color: #ffb703; }
+    .badge-danger { background: rgba(255, 82, 82, 0.15); color: #ff5252; }
+
+    /* TABLA DE CALIFICACIONES */
+    .table-container {
+        overflow-x: auto;
+        margin-top: 15px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+    th {
+        padding: 14px 16px;
+        font-weight: 600;
+        color: var(--text-muted);
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+    }
+    td {
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        font-size: 14px;
+    }
+    tr:hover td {
+        background: rgba(255, 255, 255, 0.01);
+    }
+    
+    .grade-badge {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--primary-glow);
+    }
+
+    .alert {
+        padding: 12px 18px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .alert-success {
+        background: rgba(46, 196, 182, 0.15);
+        color: #2ec4b6;
+        border: 1px solid rgba(46, 196, 182, 0.25);
+    }
+    .alert-danger {
+        background: rgba(255, 82, 82, 0.15);
+        color: #ff5252;
+        border: 1px solid rgba(255, 82, 82, 0.25);
+    }
+</style>
+
+<!-- VOLVER A LA UNIDAD -->
+<div style="margin-bottom: -10px;">
+    <a href="@Url.Action("Detail", "Unidad", new { id = Model.UnidadId })" style="color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;">
+        <i class="fa-solid fa-arrow-left"></i> Volver a @Model.Unidad.NombreUnidad
+    </a>
+</div>
+
+<!-- ALERTAS -->
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success">
+        <i class="fa-solid fa-circle-check"></i>
+        <span>@TempData["Success"]</span>
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <span>@TempData["Error"]</span>
+    </div>
+}
+
+<div class="unidad-layout">
+
+    <!-- COLUMNA 1: LISTADO DE CALIFICACIONES -->
+    <div>
+        <!-- TABLA DE CALIFICACIONES DE ALUMNOS -->
+        <div class="glass-card">
+            <div class="panel-header">
+                <h2>Calificaciones <span>@(calificaciones != null ? calificaciones.Count() : 0)</span></h2>
+            </div>
+
+            @if (calificaciones == null || !calificaciones.Any())
+            {
+                <div style="text-align: center; padding: 60px 20px; color: var(--text-muted); font-size: 14.5px;">
+                    <i class="fa-solid fa-rectangle-list" style="font-size: 44px; opacity: 0.3; margin-bottom: 12px; display: block;"></i>
+                    No se ha calificado a ningún alumno en esta versión aún.
+                    <p style="font-size: 13px; color: rgba(255,255,255,0.3); margin-top: 4px;">Usa el panel derecho para subir los exámenes de los alumnos.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Estudiante</th>
+                                <th>Fecha</th>
+                                <th>Estado Drive</th>
+                                <th>Observación</th>
+                                <th>Nota</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in calificaciones)
+                            {
+                                <tr>
+                                    <td style="font-weight: 500;">
+                                        @if (c.AlumnoMatriculadoId != null)
+                                        {
+                                            @c.AlumnoMatriculado.NombreCompleto
+                                        }
+                                        else
+                                        {
+                                            <span style="color: #ff5252;" title="Nombre detectado: @c.NombreAlumno">
+                                                <i class="fa-solid fa-circle-exclamation"></i> @c.NombreAlumno (No Matr.)
+                                            </span>
+                                        }
+                                    </td>
+                                    <td style="color: var(--text-muted); font-size: 13px;">@c.FechaCalificacion.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>
+                                        @if (c.SincronizadoDrive)
+                                        {
+                                            <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Subido</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-warn"><i class="fa-solid fa-clock"></i> Pendiente</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (c.TieneObservacion)
+                                        {
+                                            <span style="color: #ffb703; font-size: 13px;" title="@c.Observacion">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> @c.Observacion
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span style="color: #2ec4b6; font-size: 13px;"><i class="fa-solid fa-circle-check"></i> Ok</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="grade-badge">@c.Nota.ToString("0.0")</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- COLUMNA 2: ACCIONES Y CARGA DE ALUMNOS -->
+    <div class="action-panel">
+        
+        <!-- ESTADO DEL EXAMEN PLANTILLA -->
+        <div class="glass-card" style="padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--accent-color);">
+                <i class="fa-solid fa-file-invoice"></i> Configuración Versión
+            </h3>
+            <div style="font-size: 14px; line-height: 1.6;">
+                <div style="font-weight: 500; font-size: 15px; margin-bottom: 8px;">@Model.NombreVersion</div>
+                <div style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">
+                    Preguntas Calibradas: <strong>@totalPreguntas</strong>
+                </div>
+
+                <!-- ESTADO DRIVE PLANTILLAS -->
+                <div style="margin-bottom: 15px;">
+                    <span style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Google Drive:</span>
+                    @if (Model.SincronizadoDrive)
+                    {
+                        <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Plantillas Subidas</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-warn"><i class="fa-solid fa-triangle-exclamation"></i> Pendiente de subir</span>
+                    }
+                </div>
+
+                @if (string.IsNullOrEmpty(Model.RutaPdfOriginal) && totalPreguntas == 0)
+                {
+                    <h4 style="font-size: 14px; margin-bottom: 10px; color: var(--accent-color);">Subir Plantilla PDF</h4>
+                    <form action="@Url.Action("SubirPlantillaExistente", "Examen")" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="examenId" value="@Model.Id" />
+                        
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <input type="file" id="pdfFile" name="pdfFile" accept=".pdf" class="form-input" style="padding: 8px; font-size: 13px;" required />
+                        </div>
+
+                        <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px;">
+                            <i class="fa-solid fa-upload"></i> Subir PDF en blanco y calibrar
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <a href="@Url.Action("ScanTemplate", "Examen", new { examenId = Model.Id })" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; margin-bottom: 10px;">
+                        <i class="fa-solid fa-pen-to-square"></i> Calibrar / Editar Respuestas (Clásico)
+                    </a>
+                }
+
+                <div class="panel-divider" style="margin: 20px 0;"></div>
+                
+                <h4 style="font-size: 14px; margin-bottom: 10px; color: #26D0CE;"><i class="fa-solid fa-brain"></i> Actualizar Solucionario (IA)</h4>
+                <form action="@Url.Action("AnalizarSolucionarioGemini", "Examen")" method="POST" enctype="multipart/form-data" onsubmit="showCalificarLoading(event)">
+                    <input type="hidden" name="examenId" value="@Model.Id" />
+                    <input type="hidden" name="titulo" value="@Model.NombreVersion" />
+                    
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <input type="file" id="pdfSolucionarioUpdate" name="pdfFile" accept=".pdf" class="form-input" style="padding: 8px; font-size: 13px;" required />
+                    </div>
+
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; background: linear-gradient(135deg, #1A2980, #26D0CE); border: none;">
+                        <i class="fa-solid fa-brain"></i> Leer Solucionario con IA
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- CARGAR EXAMENES DE ALUMNOS -->
+        <div class="glass-card" style="padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--primary-glow);">
+                <i class="fa-solid fa-graduation-cap"></i> Calificar Exámenes
+            </h3>
+            <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">
+                Selecciona los archivos PDF de los alumnos escaneados en papel. Puedes seleccionar múltiples archivos a la vez.
+            </p>
+
+            <form action="@Url.Action("CalificarExamenes", "Examen")" method="POST" enctype="multipart/form-data" onsubmit="showCalificarLoading(event)">
+                <input type="hidden" name="examenId" value="@Model.Id" />
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label for="archivosAlumnos">Subir PDFs de Alumnos (Plantilla Clásica)</label>
+                    <input type="file" id="archivosAlumnos" name="archivosAlumnos" accept=".pdf" class="form-input" style="padding: 8px; font-size: 13px;" multiple required />
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="calificar-btn" style="width: 100%; padding: 8px 12px; font-size: 13px;">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Calificar con Plantilla
+                </button>
+            </form>
+
+            <div class="panel-divider"></div>
+            <h4 style="font-size: 14px; margin-bottom: 10px; color: #26D0CE;"><i class="fa-solid fa-brain"></i> Calificación IA (Gemini)</h4>
+            <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">
+                Gemini leerá cada hoja y la comparará automáticamente con el solucionario.
+            </p>
+
+            <form action="@Url.Action("CalificarAlumnosGemini", "Examen")" method="POST" enctype="multipart/form-data" onsubmit="showCalificarLoading(event)">
+                <input type="hidden" name="examenId" value="@Model.Id" />
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <input type="file" id="archivosAlumnosIA" name="archivosAlumnos" accept=".pdf" class="form-input" style="padding: 8px; font-size: 13px;" multiple required />
+                </div>
+
+                <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; background: linear-gradient(135deg, #1A2980, #26D0CE); border: none;">
+                    <i class="fa-solid fa-robot"></i> Calificar Estudiantes con IA
+                </button>
+            </form>
+        </div>
+
+        <!-- RESPALDO Y LIMPIEZA -->
+        <div class="glass-card" style="padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">
+                <i class="fa-solid fa-cloud"></i> Respaldo y Limpieza
+            </h3>
+
+            <!-- BOTON SINCRONIZAR -->
+            <form action="@Url.Action("SincronizarExamenConDrive", "Examen")" method="POST" onsubmit="showSyncLoading(event)" style="margin-bottom: 12px;">
+                <input type="hidden" name="examenId" value="@Model.Id" />
+                <button type="submit" class="btn btn-success" id="sync-btn" style="width: 100%; padding: 8px 12px; font-size: 13px;">
+                    <i class="fa-brands fa-google-drive"></i> Subir a Google Drive
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@if (ViewBag.PreguntasIA != null && TempData["ShowReviewModal"] != null && (bool)TempData["ShowReviewModal"])
+{
+    var preguntas = (List<SCIBM.Models.Pregunta>)ViewBag.PreguntasIA;
+    
+    <!-- Modal de Revisión IA -->
+    <div id="reviewModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+        <div style="background: var(--surface-light); padding: 30px; border-radius: 12px; max-width: 900px; width: 90%; max-height: 90vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1);">
+            <h2 style="color: var(--accent-color); margin-bottom: 10px;"><i class="fa-solid fa-clipboard-check"></i> Revision de Solucionario IA</h2>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+                Gemini ha extraido <strong>@preguntas.Count</strong> preguntas. Por favor, revisa que no haya errores de lectura y edita lo que sea necesario antes de confirmar.
+            </p>
+
+            <form action="@Url.Action("ConfirmarSolucionario", "Examen")" method="POST">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="examenId" value="@Model.Id" />
+                
+                <table style="width: 100%; text-align: left; border-collapse: collapse; margin-bottom: 20px;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <th style="padding: 10px; color: var(--primary-glow);">Nro</th>
+                            <th style="padding: 10px; color: var(--primary-glow);">Enunciado</th>
+                            <th style="padding: 10px; color: var(--primary-glow);">Tipo</th>
+                            <th style="padding: 10px; color: var(--primary-glow);">Respuesta Correcta</th>
+                            <th style="padding: 10px; color: var(--primary-glow);">Puntaje</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < preguntas.Count; i++)
+                        {
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <td style="padding: 10px; font-weight: bold;">
+                                    <input type="hidden" name="preguntasEditadas[@i].Id" value="@preguntas[i].Id" />
+                                    @preguntas[i].NumeroPregunta
+                                </td>
+                                <td style="padding: 10px;">
+                                    <input type="text" name="preguntasEditadas[@i].Enunciado" value="@preguntas[i].Enunciado" class="form-input" style="padding: 6px; font-size: 13px;" />
+                                </td>
+                                <td style="padding: 10px;">
+                                    <select name="preguntasEditadas[@i].Tipo" class="form-input" style="padding: 6px; font-size: 13px;">
+                                        <option value="OpcionMultiple" @(preguntas[i].Tipo == "OpcionMultiple" ? "selected" : "")>Opcion Multiple</option>
+                                        <option value="RespuestaLibre" @(preguntas[i].Tipo == "RespuestaLibre" ? "selected" : "")>Respuesta Libre</option>
+                                    </select>
+                                </td>
+                                <td style="padding: 10px;">
+                                    <input type="text" name="preguntasEditadas[@i].RespuestaCorrecta" value="@preguntas[i].RespuestaCorrecta" class="form-input" style="padding: 6px; font-size: 13px;" />
+                                </td>
+                                <td style="padding: 10px;">
+                                    <input type="number" step="0.5" name="preguntasEditadas[@i].Puntaje" value="@preguntas[i].Puntaje.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-input" style="padding: 6px; font-size: 13px; width: 70px;" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div style="display: flex; justify-content: flex-end; gap: 15px;">
+                    <button type="button" onclick="document.getElementById('reviewModal').style.display='none'" class="btn" style="background: rgba(255,255,255,0.1); border: none;">Cerrar (Guardado Temporalmente)</button>
+                    <button type="submit" class="btn btn-secondary" style="background: linear-gradient(135deg, #11998e, #38ef7d); border: none;">
+                        <i class="fa-solid fa-check-double"></i> Conforme - Guardar Definitivamente
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+<!-- LOADING OVERLAYS -->
+<div class="modal-overlay" id="loading-overlay">
+    <div class="modal-box" style="text-align: center; width: 300px; padding: 40px 20px;">
+        <i class="fa-solid fa-spinner fa-spin" style="font-size: 48px; color: var(--accent-color); margin-bottom: 20px;"></i>
+        <h3 id="loading-text">Procesando exámenes...</h3>
+        <p style="font-size: 12px; color: var(--text-muted); margin-top: 10px;">Por favor no cierres ni recargues la página.</p>
+    </div>
+</div>
+
+@section scripts {
+    <script>
+        function showCalificarLoading(e) {
+            document.getElementById("loading-text").innerText = "Escaneando y calificando exámenes de alumnos...";
+            document.getElementById("loading-overlay").classList.add("active");
+        }
+
+        function showSyncLoading(e) {
+            document.getElementById("loading-text").innerText = "Estampando notas y sincronizando archivos con Google Drive...";
+            document.getElementById("loading-overlay").classList.add("active");
+        }
+    </script>
+}

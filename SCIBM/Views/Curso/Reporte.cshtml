@@ -1,0 +1,95 @@
+@model SCIBM.Models.Curso
+@{
+    ViewBag.Title = Model.Nombre;
+    ViewBag.Subtitle = $"Código del Curso: {Model.Codigo.ToUpper()}";
+}
+
+<style>
+    .units-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+    }
+
+    .unit-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 16px;
+        transition: border-color 0.2s;
+    }
+    .unit-card:hover {
+        border-color: rgba(100, 223, 223, 0.25);
+        background: rgba(255, 255, 255, 0.03);
+    }
+    .unit-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+    .unit-badge {
+        font-size: 14px;
+        font-weight: 700;
+        background: var(--accent-color);
+        color: #0b132b;
+        padding: 6px 12px;
+        border-radius: 6px;
+        text-transform: uppercase;
+    }
+
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .panel-header h2 {
+        font-size: 18px;
+        font-weight: 600;
+    }
+</style>
+
+<div class="glass-card">
+    <div class="panel-header">
+        <h2>Selecciona una Sección para el Reporte</h2>
+    </div>
+
+    @if (!Model.Secciones.Any())
+    {
+        <div style="text-align: center; padding: 80px 20px; color: var(--text-muted);">
+            <i class="fa-solid fa-folder-open" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px; display: block;"></i>
+            <h3>No hay secciones creadas</h3>
+            <p style="font-size: 14px; margin-top: 6px;">Agrega una sección para comenzar.</p>
+        </div>
+    }
+    else
+    {
+        <div class="units-grid">
+            @foreach (var sec in Model.Secciones.OrderBy(s => s.Nombre))
+            {
+                <div class="unit-card">
+                    <div>
+                        <div class="unit-info">
+                            <span class="unit-badge">@sec.Nombre</span>
+                            @if (sec.DriveFolderId != null)
+                            {
+                                <span style="font-size: 13px; color: var(--text-muted);" title="Sincronizado con Google Drive"><i class="fa-brands fa-google-drive"></i></span>
+                            }
+                        </div>
+                    </div>
+                    <div>
+                        <a href="@Url.Action("Reporte", "Seccion", new { id = sec.Id })" class="btn btn-primary" style="width: 100%; font-size: 13px; padding: 8px 12px;">
+                            Ver Reporte <i class="fa-solid fa-chart-line" style="margin-left: 6px; font-size: 11px;"></i>
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

@@ -1,0 +1,179 @@
+@model SCIBM.Models.Curso
+@{
+    ViewBag.Title = Model.Nombre;
+    ViewBag.Subtitle = $"Código del Curso: {Model.Codigo.ToUpper()}";
+}
+
+<style>
+    .units-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+    }
+
+    .unit-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 16px;
+        transition: border-color 0.2s;
+    }
+    .unit-card:hover {
+        border-color: rgba(100, 223, 223, 0.25);
+        background: rgba(255, 255, 255, 0.03);
+    }
+    .unit-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+    .unit-badge {
+        font-size: 14px;
+        font-weight: 700;
+        background: var(--accent-color);
+        color: #0b132b;
+        padding: 6px 12px;
+        border-radius: 6px;
+        text-transform: uppercase;
+    }
+
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .panel-header h2 {
+        font-size: 18px;
+        font-weight: 600;
+    }
+</style>
+
+<div class="glass-card">
+    <div class="panel-header">
+        <h2>Secciones del Curso</h2>
+        <button class="btn btn-primary" onclick="openSeccionModal()">
+            <i class="fa-solid fa-plus"></i> Nueva Sección
+        </button>
+    </div>
+
+    @if (!Model.Secciones.Any())
+    {
+        <div style="text-align: center; padding: 80px 20px; color: var(--text-muted);">
+            <i class="fa-solid fa-folder-open" style="font-size: 48px; opacity: 0.3; margin-bottom: 16px; display: block;"></i>
+            <h3>No hay secciones creadas</h3>
+            <p style="font-size: 14px; margin-top: 6px;">Agrega una sección para comenzar.</p>
+        </div>
+    }
+    else
+    {
+        <div class="units-grid">
+            @foreach (var sec in Model.Secciones.OrderBy(s => s.Nombre))
+            {
+                <div class="unit-card">
+                    <div>
+                        <div class="unit-info">
+                            <span class="unit-badge">@sec.Nombre</span>
+                            @if (sec.DriveFolderId != null)
+                            {
+                                <span style="font-size: 13px; color: var(--text-muted);" title="Sincronizado con Google Drive"><i class="fa-brands fa-google-drive"></i></span>
+                            }
+                        </div>
+                    </div>
+                    <div>
+                        <a href="@Url.Action("Detail", "Seccion", new { id = sec.Id })" class="btn btn-secondary" style="width: 100%; font-size: 13px; padding: 8px 12px;">
+                            Gestionar Sección <i class="fa-solid fa-arrow-right" style="margin-left: 6px; font-size: 11px;"></i>
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- MODAL ADD SECCION -->
+<div class="modal-overlay" id="add-seccion-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Nueva Sección</h3>
+            <button class="modal-close" onclick="closeSeccionModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <form id="create-seccion-form" onsubmit="submitSeccionForm(event)">
+            <input type="hidden" id="seccionCursoId" name="cursoId" value="@Model.Id" />
+            
+            <div class="form-group">
+                <label for="nombreSeccion">Nombre de la Sección</label>
+                <input type="text" id="nombreSeccion" name="nombreSeccion" class="form-input" placeholder="Ej: Sección A, Turno Mañana" required />
+            </div>
+
+            <div id="seccion-modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px;">
+                <button type="button" class="btn btn-secondary" onclick="closeSeccionModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="seccion-submit-btn">
+                    <span>Guardar y Crear Carpeta en Drive</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section scripts {
+    <script>
+        function openSeccionModal() {
+            document.getElementById("add-seccion-modal").classList.add("active");
+            document.getElementById("nombreSeccion").focus();
+        }
+        function closeSeccionModal() {
+            document.getElementById("add-seccion-modal").classList.remove("active");
+            document.getElementById("create-seccion-form").reset();
+            document.getElementById("seccion-modal-error").style.display = "none";
+        }
+        function submitSeccionForm(e) {
+            e.preventDefault();
+            
+            var submitBtn = document.getElementById("seccion-submit-btn");
+            var originalHtml = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Creando...';
+
+            var cursoId = document.getElementById("seccionCursoId").value;
+            var nombreSeccion = document.getElementById("nombreSeccion").value;
+
+            fetch('@Url.Action("Create", "Seccion")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'cursoId=' + encodeURIComponent(cursoId) + '&nombreSeccion=' + encodeURIComponent(nombreSeccion)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                    var errDiv = document.getElementById("seccion-modal-error");
+                    errDiv.innerText = data.message || "Ocurrió un error al crear la sección.";
+                    errDiv.style.display = "block";
+                }
+            })
+            .catch(error => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHtml;
+                var errDiv = document.getElementById("seccion-modal-error");
+                errDiv.innerText = "Error de conexión con el servidor.";
+                errDiv.style.display = "block";
+            });
+        }
+    </script>
+}

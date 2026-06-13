@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewBag.Title - SCIBM</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome para iconos -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    
+    <style>
+        :root {
+            --bg-color: #0b132b;
+            --sidebar-bg: #1c2541;
+            --primary-glow: #64dfdf;
+            --accent-color: #48cae4;
+            --accent-hover: #00b4d8;
+            --text-color: #f1faee;
+            --text-muted: #a8dadc;
+            --glass-bg: rgba(28, 37, 65, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-color) var(--bg-color);
+        }
+
+        *::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        *::-webkit-scrollbar-track {
+            background: var(--bg-color);
+        }
+        *::-webkit-scrollbar-thumb {
+            background-color: var(--accent-color);
+            border-radius: 10px;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--bg-color) 0%, #1d2d44 100%);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* SIDEBAR CONTAINER */
+        aside {
+            width: 280px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 1000;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* BRAND */
+        .brand {
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .brand i {
+            font-size: 28px;
+            color: var(--primary-glow);
+            text-shadow: 0 0 10px var(--primary-glow);
+        }
+        .brand span {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            background: linear-gradient(to right, #ffffff, var(--primary-glow));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* NAVIGATION MENU */
+        .menu {
+            flex-grow: 1;
+            padding: 20px 14px;
+            overflow-y: auto;
+        }
+        .menu-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            padding-left: 10px;
+            opacity: 0.7;
+        }
+        .menu-item {
+            list-style: none;
+            margin-bottom: 6px;
+        }
+        .menu-link {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            color: var(--text-color);
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .menu-link div {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .menu-link i.icon-left {
+            width: 20px;
+            text-align: center;
+            font-size: 16px;
+        }
+        .menu-link:hover, .menu-link.active {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--primary-glow);
+        }
+        .menu-link.active i.icon-left {
+            color: var(--primary-glow);
+        }
+
+        /* ACCORDION REPORTES */
+        .submenu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            padding-left: 36px;
+            margin-top: 4px;
+        }
+        .submenu-item {
+            list-style: none;
+            margin-bottom: 4px;
+        }
+        .submenu-link {
+            display: block;
+            padding: 8px 12px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .submenu-link:hover, .submenu-link.active {
+            color: var(--primary-glow);
+            padding-left: 16px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .menu-item.open .submenu {
+            max-height: 300px; /* Suficiente espacio para listar cursos */
+        }
+        .menu-item.open .chevron {
+            transform: rotate(90deg);
+        }
+        .chevron {
+            transition: transform 0.2s ease;
+            font-size: 12px;
+        }
+
+        /* USER FOOTER */
+        .user-footer {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.15);
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .user-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 2px solid var(--primary-glow);
+            object-fit: cover;
+            box-shadow: 0 0 10px rgba(100, 223, 223, 0.2);
+        }
+        .user-info {
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        .user-name {
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .user-role {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .logout-btn {
+            color: var(--text-muted);
+            font-size: 18px;
+            transition: color 0.2s ease;
+            text-decoration: none;
+        }
+        .logout-btn:hover {
+            color: #ff6b6b;
+        }
+
+        /* MAIN WRAPPER */
+        main {
+            margin-left: 280px;
+            flex-grow: 1;
+            padding: 40px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            transition: margin-left 0.3s ease;
+        }
+
+        /* TOP HEADER */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 16px 28px;
+            border-radius: 16px;
+            backdrop-filter: blur(12px);
+            box-shadow: var(--glass-shadow);
+        }
+        .header-title h1 {
+            font-size: 22px;
+            font-weight: 600;
+        }
+        .header-title span {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        
+        .header-folder {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(100, 223, 223, 0.1);
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(100, 223, 223, 0.2);
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--primary-glow);
+        }
+        .header-folder i {
+            font-size: 16px;
+        }
+
+        /* GLASS CARD COMMON STYLE */
+        .glass-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 28px;
+            backdrop-filter: blur(12px);
+            box-shadow: var(--glass-shadow);
+        }
+
+        /* MODALES MODERNOS */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(5, 8, 22, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-box {
+            background: var(--sidebar-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            width: 480px;
+            max-width: 90%;
+            padding: 30px;
+            box-shadow: var(--glass-shadow);
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal-overlay.active .modal-box {
+            transform: scale(1);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-header h3 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 18px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .modal-close:hover {
+            color: #ffffff;
+        }
+
+        /* BOTONES PREMIUM */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        .btn-primary {
+            background: var(--accent-color);
+            color: #0b132b;
+        }
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            box-shadow: 0 0 15px rgba(0, 180, 216, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-color);
+            border: 1px solid var(--glass-border);
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+        .btn-danger {
+            background: #ff5252;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #ff7676;
+            box-shadow: 0 0 15px rgba(255, 82, 82, 0.4);
+        }
+        .btn-success {
+            background: #2ec4b6;
+            color: #0b132b;
+        }
+        .btn-success:hover {
+            background: #4de1d4;
+            box-shadow: 0 0 15px rgba(46, 196, 182, 0.4);
+        }
+
+        /* FORM INPUTS */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            color: white;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-input:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 10px rgba(72, 202, 228, 0.25);
+        }
+    </style>
+    @RenderSection("styles", required: false)
+</head>
+<body>
+
+    <!-- SIDEBAR NAV -->
+    <aside>
+        <div>
+            <!-- LOGO/BRAND -->
+            <div class="brand">
+                <i class="fa-solid fa-microchip-scan"></i>
+                <span>SCIBM</span>
+            </div>
+
+            <!-- MENU -->
+            <ul class="menu">
+                <li class="menu-title">Docente</li>
+                <li class="menu-item">
+                    <a href="@Url.Action("Index", "Ciclo")" class="menu-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Ciclo" && ViewContext.RouteData.Values["action"]?.ToString() == "Index" ? "active" : "")">
+                        <div>
+                            <i class="fa-solid fa-calendar-days icon-left"></i>
+                            <span>Ciclos Académicos</span>
+                        </div>
+                    </a>
+                </li>
+                
+                <li class="menu-title">Métricas y Reportes</li>
+                <!-- ACORDEON REPORTES -->
+                @{
+                    var misCursos = Session["MisCursos"] as Dictionary<Guid, string>;
+                    bool isReportActive = ViewContext.RouteData.Values["action"]?.ToString() == "Reporte";
+                }
+                <li class="menu-item @(isReportActive ? "open" : "")" id="reportes-accordion">
+                    <a class="menu-link" onclick="toggleAccordion()">
+                        <div>
+                            <i class="fa-solid fa-chart-line icon-left"></i>
+                            <span>Reportes</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right chevron"></i>
+                    </a>
+                    <ul class="submenu">
+                        @if (misCursos != null && misCursos.Any())
+                        {
+                            foreach (var c in misCursos)
+                            {
+                                string courseIdStr = ViewContext.RouteData.Values["id"]?.ToString();
+                                bool isThisCourseActive = isReportActive && courseIdStr == c.Key.ToString();
+                                <li class="submenu-item">
+                                    <a href="@Url.Action("Reporte", "Curso", new { id = c.Key })" class="submenu-link @(isThisCourseActive ? "active" : "")" title="@c.Value">
+                                        @c.Value
+                                    </a>
+                                </li>
+                            }
+                        }
+                        else
+                        {
+                            <li class="submenu-item">
+                                <span class="submenu-link" style="opacity: 0.5; font-style: italic;">Sin cursos registrados</span>
+                            </li>
+                        }
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <!-- USER INFO FOOTER -->
+        <div class="user-footer">
+            <img src="@(Session["UserPicture"] ?? "/Content/images/user-default.png")" alt="Docente Avatar" class="user-avatar" />
+            <div class="user-info">
+                <div class="user-name">@(Session["UserName"] ?? "Docente UPT")</div>
+                <div class="user-role" title="@(Session["UserEmail"])">@(Session["UserEmail"] ?? "Invitado")</div>
+            </div>
+            <a href="@Url.Action("Logout", "Auth")" class="logout-btn" title="Cerrar Sesión">
+                <i class="fa-solid fa-right-from-bracket"></i>
+            </a>
+        </div>
+    </aside>
+
+    <!-- CONTENT WRAPPER -->
+    <main>
+        <!-- TOP HEADER -->
+        <header>
+            <div class="header-title">
+                <h1>@ViewBag.Title</h1>
+                <span>@ViewBag.Subtitle</span>
+            </div>
+            
+            @if (Session["DriveFolderId"] != null)
+            {
+                // Extraer el nombre de la carpeta formateada (SCIBM_Elanchipa)
+                string rootFolderId = Session["DriveFolderId"].ToString();
+                string fLetter = !string.IsNullOrEmpty(Session["UserFirstName"]?.ToString()) ? Session["UserFirstName"].ToString().Substring(0, 1).ToUpper() : "U";
+                string lName = "Docente";
+                if (!string.IsNullOrEmpty(Session["UserLastName"]?.ToString()))
+                {
+                    var parts = Session["UserLastName"].ToString().Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length > 0)
+                    {
+                        lName = parts[0];
+                        lName = char.ToUpper(lName[0]) + lName.Substring(1).ToLower();
+                    }
+                }
+                string rootFolderName = $"SCIBM_{fLetter}{lName}";
+
+                <div class="header-folder" title="ID de Carpeta Raíz: @rootFolderId">
+                    <i class="fa-brands fa-google-drive"></i>
+                    <span>@rootFolderName</span>
+                </div>
+            }
+        </header>
+
+        <!-- CONTAINER FOR VIEWS -->
+        @RenderBody()
+    </main>
+
+    <script>
+        function toggleAccordion() {
+            var accordion = document.getElementById("reportes-accordion");
+            accordion.classList.toggle("open");
+        }
+    </script>
+    @RenderSection("scripts", required: false)
+</body>
+</html>

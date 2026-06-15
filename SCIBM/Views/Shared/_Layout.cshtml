@@ -447,6 +447,21 @@
             border-color: var(--accent-color);
             box-shadow: 0 0 10px rgba(72, 202, 228, 0.25);
         }
+
+        /* ALERTAS ANIMACION */
+        .alert {
+            transition: opacity 0.5s ease, height 0.5s ease, padding 0.5s ease, margin 0.5s ease, border-width 0.5s ease;
+            overflow: hidden;
+        }
+        .alert.fade-out {
+            opacity: 0 !important;
+            height: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+            border-width: 0 !important;
+        }
     </style>
     @RenderSection("styles", required: false)
 </head>
@@ -572,6 +587,20 @@
             var accordion = document.getElementById("reportes-accordion");
             accordion.classList.toggle("open");
         }
+
+        // Auto-dismiss alerts smoothly after 4 seconds
+        document.addEventListener("DOMContentLoaded", function () {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                setTimeout(function() {
+                    alert.style.height = alert.offsetHeight + 'px';
+                    // Force reflow
+                    alert.offsetHeight; 
+                    alert.classList.add('fade-out');
+                    setTimeout(() => alert.remove(), 500);
+                }, 4000);
+            });
+        });
     </script>
     @RenderSection("scripts", required: false)
 </body>

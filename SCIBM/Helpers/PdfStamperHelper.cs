@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
+using SCIBM.Controllers;
 using SCIBM.Models;
 
 namespace SCIBM.Helpers
@@ -80,6 +82,121 @@ namespace SCIBM.Helpers
                 {
                     File.Copy(inputPdfPath, outputPdfPath, true);
                 }
+            }
+        }
+
+        public class CorrectionStampData
+        {
+            public double X { get; set; }
+            public double Y { get; set; }
+            public int Page { get; set; } // Página donde se debe estampar
+            public bool IsCorrect { get; set; }
+            public string CorrectAnswerText { get; set; }
+        }
+
+        // 1.5 Estampar nota final y correcciones (Check/X)
+        public static void StampGradeAndCorrections(string inputPdfPath, string outputPdfPath, string gradeText, StampInfoTemp stampInfo, List<CorrectionStampData> corrections)
+        {
+            try
+            {
+                if (!File.Exists(inputPdfPath))
+                    throw new FileNotFoundException("No se encontró el archivo PDF original para estampar.");
+
+                using (PdfDocument document = PdfReader.Open(inputPdfPath, PdfDocumentOpenMode.Modify))
+                {
+                    if (document.Pages.Count == 0) return;
+
+                    PdfPage page = document.Pages[0];
+                    double pageWidth = page.Width.Point;
+                    double pageHeight = page.Height.Point;
+
+                    using (XGraphics gfx = XGraphics.FromPdfPage(page))
+                    {
+                        // A) Estampar Nota
+                        if (stampInfo != null)
+                        {
+                            double x = pageWidth * (stampInfo.x / 100.0);
+                            double y = pageHeight * (stampInfo.y / 100.0);
+                            double w = pageWidth * (stampInfo.w / 100.0);
+                            double h = pageHeight * (stampInfo.h / 100.0);
+
+                            if (w <= 0) w = 120;
+                            if (h <= 0) h = 45;
+
+                            XColor bgColor = XColor.FromArgb(120, 255, 159, 28);
+                            XSolidBrush bgBrush = new XSolidBrush(bgColor);
+                            XPen borderPen = new XPen(XColor.FromArgb(255, 255, 159, 28), 2);
+                            borderPen.DashStyle = XDashStyle.Dash;
+
+                            gfx.DrawRectangle(borderPen, bgBrush, x, y, w, h);
+
+                            double fontSize = Math.Max(10, Math.Min(18, h * 0.4));
+                            XFont font = new XFont("Arial", fontSize, XFontStyle.Bold);
+                            XStringFormat format = new XStringFormat { LineAlignment = XLineAlignment.Center, Alignment = XStringAlignment.Center };
+                            gfx.DrawString(gradeText, font, new XSolidBrush(XColor.FromArgb(255, 255, 159, 28)), new XRect(x, y, w, h), format);
+                        }
+                    }
+
+                    // B) Estampar Correcciones (Check / X) por página
+                    if (corrections != null)
+                    {
+                        var correctionsByPage = new Dictionary<int, List<CorrectionStampData>>();
+                        foreach (var c in corrections)
+                        {
+                            int pNum = c.Page > 0 ? c.Page : 1;
+                            if (!correctionsByPage.ContainsKey(pNum))
+                                correctionsByPage[pNum] = new List<CorrectionStampData>();
+                            correctionsByPage[pNum].Add(c);
+                        }
+
+                        XFont markFont = new XFont("Arial", 16, XFontStyle.Bold);
+                        XFont textFont = new XFont("Arial", 10, XFontStyle.Regular);
+
+                        foreach (var kvp in correctionsByPage)
+                        {
+                            int targetPageZeroIndexed = kvp.Key - 1;
+                            if (targetPageZeroIndexed >= document.Pages.Count) continue;
+
+                            PdfPage currentPdfPage = document.Pages[targetPageZeroIndexed];
+                            double currentPageWidth = currentPdfPage.Width.Point;
+                            double currentPageHeight = currentPdfPage.Height.Point;
+
+                            using (XGraphics currentGfx = XGraphics.FromPdfPage(currentPdfPage))
+                            {
+                                foreach (var cor in kvp.Value)
+                                {
+                                    double cx = currentPageWidth * (cor.X / 100.0);
+                                    double cy = currentPageHeight * (cor.Y / 100.0);
+                                
+                                // Para compensar diferencias entre HTML y PDF, desplazamos cy ligeramente
+                                cy += 12; // Base line offset aprox
+
+                                if (cor.IsCorrect)
+                                {
+                                    // Verde (Check)
+                                    // Unicode checkmark "✓" is U+2713
+                                    currentGfx.DrawString("✓", markFont, XBrushes.DarkCyan, cx, cy);
+                                }
+                                else
+                                {
+                                    // Rojo (X)
+                                    currentGfx.DrawString("✗", markFont, XBrushes.DarkRed, cx, cy);
+                                    // Respuesta esperada
+                                    currentGfx.DrawString($" Cor: {cor.CorrectAnswerText}", textFont, XBrushes.DarkRed, cx + 15, cy);
+                                }
+                            }
+                        }
+                    }
+                    } // Cierra if (corrections != null)
+                    
+                    // Guardar los cambios
+                    document.Save(outputPdfPath);
+                } // Cierra using(PdfDocument)
+            } // Cierra try
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Error al estampar nota/correcciones en PDF: " + ex.Message);
+                if (inputPdfPath != outputPdfPath) File.Copy(inputPdfPath, outputPdfPath, true);
             }
         }
 

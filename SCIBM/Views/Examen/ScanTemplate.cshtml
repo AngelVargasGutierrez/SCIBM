@@ -358,6 +358,10 @@
             display: block;
         }
         
+        .blank-textbox-overlay .resize-handle {
+            display: block;
+        }
+        
         .question-card-item {
             cursor: pointer;
         }
@@ -449,7 +453,7 @@
 
         <!-- FOOTER ACTIONS -->
         <div style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 15px; display: flex; gap: 12px; justify-content: flex-end;">
-            <a href="@Url.Action("Detail", "Unidad", new { id = Model.Id })" class="btn btn-secondary">Cancelar</a>
+            <a href="@Url.Action("Detail", "Examen", new { id = Model.Id })" class="btn btn-secondary">Cancelar</a>
             <button class="btn btn-primary" onclick="saveExamen()">Guardar Plantilla</button>
         </div>
     </div>
@@ -477,17 +481,19 @@
     </div>
 
     <!-- Confirm Modal -->
-    <div id="confirm-modal">
-        <div class="confirm-box">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <h3>¿Cambiar configuración?</h3>
-            <p>¿Seguro que desea quitar las subpreguntas? Se quedará solo con la primera opción registrada y lo demás se limpiará.</p>
-            <div class="confirm-btns">
-                <button class="btn-cancelar" onclick="cancelConfirmToggle()">Cancelar</button>
-                <button class="btn-continuar" onclick="proceedConfirmToggle()">Continuar</button>
+    <div class="progress-overlay" id="confirm-modal" style="display: none; z-index: 3000;">
+        <div class="glass-card confirm-box" style="max-width: 400px; text-align: center; padding: 30px;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff5252; margin-bottom: 15px;"></i>
+            <h3 style="margin-bottom: 10px; color: white;">¿Cambiar configuración?</h3>
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">¿Seguro que desea quitar las subpreguntas? Se quedará solo con la primera opción registrada y lo demás se limpiará.</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button class="btn btn-secondary" onclick="cancelConfirmToggle()">Cancelar</button>
+                <button class="btn btn-primary" onclick="proceedConfirmToggle()">Continuar</button>
             </div>
         </div>
     </div>
+
+
 
 @section Scripts {
     <!-- PDF.js y Tesseract.js -->
@@ -583,7 +589,7 @@
                         width: @p.Width.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         height: @p.Height.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         opcionesJson: @Html.Raw(string.IsNullOrEmpty(p.OpcionesJson) ? "[]" : JsonConvert.SerializeObject(p.OpcionesJson)),
-                        page: 1 // Por defecto en página 1
+                        pagina: @p.Pagina
                     });
                     </text>
                 }
@@ -652,9 +658,9 @@
                     posY: py,
                     width: 30,
                     height: 5,
-                    opcionesJson: "[]",
+                    opcionesJson: JSON.stringify([{ label: "a", val: "Texto", x: px + 0.5, y: py + 0.5, w: 29, h: 4 }]),
                     tieneSubpreguntas: false,
-                    page: currentPageNum
+                    pagina: currentPageNum
                 });
             } else if (currentTool === 'desarrollo') {
                 preguntas.push({
@@ -670,7 +676,7 @@
                     height: 20,
                     opcionesJson: "[]",
                     tieneSubpreguntas: false,
-                    page: currentPageNum
+                    pagina: currentPageNum
                 });
             } else if (currentTool === 'opcion') {
                 preguntas.push({
@@ -686,7 +692,7 @@
                     height: 6,
                     opcionesJson: "[]",
                     tieneSubpreguntas: false,
-                    page: currentPageNum
+                    pagina: currentPageNum
                 });
             } else if (currentTool === 'vf') {
                 preguntas.push({
@@ -700,13 +706,17 @@
                     posY: py,
                     width: 30,
                     height: 10,
-                    opcionesJson: "[]",
+                    opcionesJson: JSON.stringify([
+                        { label: "a", val: "V", x: px + 2, y: py + 2, w: 2.5, h: 2.5 },
+                        { label: "b", val: "F", x: px + 2, y: py + 6, w: 2.5, h: 2.5 }
+                    ]),
                     tieneSubpreguntas: false,
-                    page: currentPageNum
+                    pagina: currentPageNum
                 });
             }
 
             preguntas.sort((a, b) => a.numeroPregunta - b.numeroPregunta);
+            activeQuestionIndex = preguntas.findIndex(p => p.numeroPregunta === qNum);
             recalcularPuntajeTotal();
             renderOverlayControls();
             renderQuestionsForm();
@@ -933,7 +943,7 @@
             var overlayH = overlay.offsetHeight;
 
             preguntas.forEach((p, idx) => {
-                if (p.page !== currentPageNum) return;
+                if (p.pagina !== currentPageNum) return;
 
                 // 1. Contenedor de la pregunta (caja azul semitransparente)
                 var box = document.createElement("div");
@@ -952,89 +962,6 @@
                 var rHandle = document.createElement("div");
                 rHandle.className = "resize-handle";
                 box.appendChild(rHandle);
-
-                box.onclick = function(e) {
-                    if (currentTool === 'borrador') {
-                        preguntas.splice(idx, 1);
-                        activeQuestionIndex = -1;
-                        recalcularPuntajeTotal();
-                        renderOverlayControls();
-                        renderQuestionsForm();
-                        e.stopPropagation();
-                        return;
-                    }
-
-                    // Punto 1: Clic dinámico para crear opciones dentro de la caja
-                    if (activeQuestionIndex === idx) {
-                        if (currentTool === 'opcion' && p.tipo === "OpcionMultiple") {
-                            var rect = overlay.getBoundingClientRect();
-                            var px = ((e.clientX - rect.left) / rect.width) * 100.0;
-                            var py = ((e.clientY - rect.top) / rect.height) * 100.0;
-
-                            var opciones = [];
-                            try { opciones = JSON.parse(p.opcionesJson) || []; } catch(ex){}
-                            
-                            // Letras secuenciales: 65 = 'A', 66 = 'B'...
-                            var nextChar = String.fromCharCode(65 + opciones.length); 
-                            
-                            opciones.push({ label: nextChar, x: px, y: py, w: 2.5, h: 2.5 });
-                            p.opcionesJson = JSON.stringify(opciones);
-                            
-                            if (opciones.length === 1) {
-                                p.respuestaCorrecta = nextChar;
-                            }
-
-                            renderOverlayControls();
-                            renderQuestionsForm();
-                            e.stopPropagation();
-                            return;
-                        }
-
-                        // Punto 2: Clic dinámico para incisos V/F
-                        if ((currentTool === 'vf-v' || currentTool === 'vf-f') && p.tipo === "VerdaderoFalso") {
-                            var rect = overlay.getBoundingClientRect();
-                            var px = ((e.clientX - rect.left) / rect.width) * 100.0;
-                            var py = ((e.clientY - rect.top) / rect.height) * 100.0;
-
-                            var opciones = [];
-                            try { opciones = JSON.parse(p.opcionesJson) || []; } catch(ex){}
-                            
-                            var nextChar = String.fromCharCode(97 + opciones.length); // 97 = 'a'
-                            var val = currentTool === 'vf-v' ? 'V' : 'F';
-                            
-                            opciones.push({ label: nextChar, val: val, x: px, y: py, w: 2.5, h: 2.5 });
-                            p.opcionesJson = JSON.stringify(opciones);
-                            
-                            renderOverlayControls();
-                            renderQuestionsForm();
-                            e.stopPropagation();
-                            return;
-                        }
-
-                        // Punto 5: Clic dinámico para incisos RespuestaLibre
-                        if (currentTool === 'texto' && p.tipo === "RespuestaLibre") {
-                            var rect = overlay.getBoundingClientRect();
-                            var px = ((e.clientX - rect.left) / rect.width) * 100.0;
-                            var py = ((e.clientY - rect.top) / rect.height) * 100.0;
-
-                            var opciones = [];
-                            try { opciones = JSON.parse(p.opcionesJson) || []; } catch(ex){}
-                            
-                            var nextChar = String.fromCharCode(97 + opciones.length); // 97 = 'a'
-                            
-                            opciones.push({ label: nextChar, val: "Texto", x: px, y: py, w: 15, h: 4 });
-                            p.opcionesJson = JSON.stringify(opciones);
-                            
-                            renderOverlayControls();
-                            renderQuestionsForm();
-                            e.stopPropagation();
-                            return;
-                        }
-                    }
-
-                    selectQuestion(idx);
-                    e.stopPropagation();
-                };
 
                 // Permitir arrastrar/mover y redimensionar la caja
                 makeElementDraggableAndResizable(box, rHandle, idx);
@@ -1060,11 +987,9 @@
                                 radio.style.borderRadius = "4px";
                                 radio.style.textAlign = "center";
                                 radio.style.cursor = "text";
-                                radio.style.overflow = "hidden";
                                 radio.innerText = opt.label + ") " + opt.val;
                                 radio.style.fontSize = "11px";
-                                radio.style.fontWeight = "bold";
-                                radio.style.color = "var(--text-color)";
+                                radio.style.color = "#1c2541";
 
                                 radio.onclick = function(e) {
                                     if (currentTool === 'borrador') {
@@ -1090,8 +1015,13 @@
                                     inputEl.value = currentVal;
                                     inputEl.style.width = "100%";
                                     inputEl.style.height = "100%";
-                                    inputEl.style.background = "var(--bg-color)";
-                                    inputEl.style.color = "var(--text-color)";
+                                    if (p.tipo === "RespuestaLibre") {
+                                        inputEl.style.background = "transparent";
+                                        inputEl.style.color = "#1c2541";
+                                    } else {
+                                        inputEl.style.background = "var(--bg-color)";
+                                        inputEl.style.color = "var(--text-color)";
+                                    }
                                     inputEl.style.border = "none";
                                     inputEl.style.outline = "none";
                                     inputEl.style.textAlign = "center";
@@ -1199,51 +1129,153 @@
                     textbox.style.border = "2px dashed #fca311";
                     textbox.style.borderRadius = "4px";
                     textbox.style.display = "flex";
+                    textbox.style.flexDirection = "column";
                     textbox.style.alignItems = "center";
                     textbox.style.justifyContent = "center";
                     textbox.style.color = "#fca311";
                     textbox.style.fontSize = "14px";
                     textbox.style.fontWeight = "bold";
                     textbox.style.textAlign = "center";
-                    textbox.innerText = "ZONA DE DESARROLLO\n(Calificación Manual)";
+                    textbox.style.lineHeight = "1.5";
+                    textbox.innerHTML = "ZONA DE DESARROLLO<br><span style='font-size:11px; font-weight:normal;'>(Calificación Manual)</span>";
                     box.appendChild(textbox);
                 }
             });
+        }
+
+        // Funciones para Modal de Incisos
+        var pendingIncisoContext = null;
+
+        function cancelIncisosToggle() {
+            pendingIncisoContext = null;
+            document.getElementById("confirm-incisos-modal").style.display = "none";
+        }
+
+        function proceedIncisosToggle() {
+            if (pendingIncisoContext) {
+                var p = pendingIncisoContext.p;
+                var opciones = pendingIncisoContext.opciones;
+                p.tieneSubpreguntas = true;
+                
+                if (pendingIncisoContext.tool === 'vf') {
+                    var nextChar = String.fromCharCode(97 + opciones.length); 
+                    opciones.push({ label: nextChar, val: pendingIncisoContext.val, x: pendingIncisoContext.x, y: pendingIncisoContext.y, w: 2.5, h: 2.5 });
+                    p.opcionesJson = JSON.stringify(opciones);
+                } else if (pendingIncisoContext.tool === 'texto') {
+                    var nextChar = String.fromCharCode(97 + opciones.length); 
+                    opciones.push({ label: nextChar, val: "Texto", x: pendingIncisoContext.x, y: pendingIncisoContext.y, w: 15, h: 4 });
+                    p.opcionesJson = JSON.stringify(opciones);
+                }
+                
+                renderOverlayControls();
+                renderQuestionsForm();
+                
+                pendingIncisoContext = null;
+                document.getElementById("confirm-incisos-modal").style.display = "none";
+            }
+        }
+
+        // Delegación de clic robusto para cajas de pregunta
+        function handleBoxClick(e, idx) {
+            var p = preguntas[idx];
+            if (currentTool === 'borrador') {
+                preguntas.splice(idx, 1);
+                activeQuestionIndex = -1;
+                recalcularPuntajeTotal();
+                renderOverlayControls();
+                renderQuestionsForm();
+                return;
+            }
+
+            if (activeQuestionIndex === idx) {
+                if (currentTool === 'opcion' && p.tipo === "OpcionMultiple") {
+                    var rect = overlay.getBoundingClientRect();
+                    var px = ((e.clientX - rect.left) / rect.width) * 100.0;
+                    var py = ((e.clientY - rect.top) / rect.height) * 100.0;
+                    var opciones = [];
+                    try { opciones = JSON.parse(p.opcionesJson) || []; } catch(ex){}
+                    var nextChar = String.fromCharCode(65 + opciones.length); 
+                    opciones.push({ label: nextChar, x: px, y: py, w: 2.5, h: 2.5 });
+                    p.opcionesJson = JSON.stringify(opciones);
+                    if (opciones.length === 1) p.respuestaCorrecta = nextChar;
+                    renderOverlayControls();
+                    renderQuestionsForm();
+                    return;
+                }
+                if ((currentTool === 'vf-v' || currentTool === 'vf-f') && p.tipo === "VerdaderoFalso") {
+                    var rect = overlay.getBoundingClientRect();
+                    var px = ((e.clientX - rect.left) / rect.width) * 100.0;
+                    var py = ((e.clientY - rect.top) / rect.height) * 100.0;
+                    var opciones = [];
+                    try { opciones = JSON.parse(p.opcionesJson) || []; } catch(ex){}
+
+                    var nextChar = String.fromCharCode(97 + opciones.length); 
+                    var val = currentTool === 'vf-v' ? 'V' : 'F';
+                    opciones.push({ label: nextChar, val: val, x: px, y: py, w: 2.5, h: 2.5 });
+                    p.opcionesJson = JSON.stringify(opciones);
+                    renderOverlayControls();
+                    renderQuestionsForm();
+                    return;
+                }
+                if (currentTool === 'texto' && p.tipo === "RespuestaLibre") {
+                    var rect = overlay.getBoundingClientRect();
+                    var px = ((e.clientX - rect.left) / rect.width) * 100.0;
+                    var py = ((e.clientY - rect.top) / rect.height) * 100.0;
+                    var opciones = [];
+                    try { opciones = JSON.parse(p.opcionesJson) || []; } catch(ex){}
+
+                    var nextChar = String.fromCharCode(97 + opciones.length); 
+                    opciones.push({ label: nextChar, val: "Texto", x: px, y: py, w: 15, h: 4 });
+                    p.opcionesJson = JSON.stringify(opciones);
+                    renderOverlayControls();
+                    renderQuestionsForm();
+                    return;
+                }
+            }
+            selectQuestion(idx);
         }
 
         // Hacer que las cajas de preguntas sean arrastrables y redimensionables
         function makeElementDraggableAndResizable(el, handle, qIdx) {
             var isMoving = false;
             var isResizing = false;
+            var hasMoved = false;
             var sX, sY, sLeft, sTop, sWidth, sHeight;
 
             el.addEventListener('mousedown', function(e) {
                 if (currentTool === 'borrador') return;
                 if (e.target === handle || e.target.className === "question-badge-number") return;
                 isMoving = true;
+                hasMoved = false;
                 sX = e.clientX;
                 sY = e.clientY;
                 sLeft = el.offsetLeft;
                 sTop = el.offsetTop;
                 selectQuestion(qIdx);
-                e.preventDefault();
                 e.stopPropagation();
             });
 
             handle.addEventListener('mousedown', function(e) {
                 if (currentTool === 'borrador') return;
                 isResizing = true;
+                hasMoved = false;
                 sX = e.clientX;
                 sY = e.clientY;
                 sWidth = el.offsetWidth;
                 sHeight = el.offsetHeight;
                 selectQuestion(qIdx);
-                e.preventDefault();
                 e.stopPropagation();
             });
 
             document.addEventListener('mousemove', function(e) {
                 if (!isMoving && !isResizing) return;
+                
+                // Ignorar el jitter del mouse para que los clics funcionen
+                if (!hasMoved && Math.abs(e.clientX - sX) < 4 && Math.abs(e.clientY - sY) < 4) {
+                    return;
+                }
+                hasMoved = true;
+
                 var dx = e.clientX - sX;
                 var dy = e.clientY - sY;
                 var overlayW = overlay.offsetWidth;
@@ -1264,7 +1296,7 @@
                     p.posX = (newL / overlayW) * 100.0;
                     p.posY = (newT / overlayH) * 100.0;
 
-                    if ((p.tipo === "OpcionMultiple" || p.tipo === "VerdaderoFalso") && p.opcionesJson) {
+                    if ((p.tipo === "OpcionMultiple" || p.tipo === "VerdaderoFalso" || p.tipo === "RespuestaLibre") && p.opcionesJson) {
                         try {
                             var opciones = JSON.parse(p.opcionesJson);
                             var diffX = p.posX - oldPosX;
@@ -1296,6 +1328,17 @@
                     p.width = (newW / overlayW) * 100.0;
                     p.height = (newH / overlayH) * 100.0;
 
+                    if (p.tipo === "RespuestaLibre" && p.opcionesJson) {
+                        try {
+                            var opciones = JSON.parse(p.opcionesJson);
+                            if (opciones.length > 0 && !p.tieneSubpreguntas) {
+                                opciones[0].w = p.width - 1;
+                                opciones[0].h = p.height - 1;
+                                p.opcionesJson = JSON.stringify(opciones);
+                            }
+                        } catch (ex) {}
+                    }
+
                     el.style.width = p.width + "%";
                     el.style.height = p.height + "%";
                 }
@@ -1303,9 +1346,14 @@
 
             document.addEventListener('mouseup', function(e) {
                 if (isMoving || isResizing) {
+                    var wasMoving = isMoving;
                     isMoving = false;
                     isResizing = false;
-                    renderOverlayControls();
+                    if (hasMoved) {
+                        renderOverlayControls();
+                    } else if (wasMoving) {
+                        handleBoxClick(e, qIdx);
+                    }
                 }
             });
         }
@@ -1313,20 +1361,28 @@
         // Permitir arrastrar los radio buttons individuales
         function makeSubOptionDraggable(el, qIdx, optIdx) {
             var isMoving = false;
+            var hasMoved = false;
             var sX, sY, sLeft, sTop;
 
             el.addEventListener('mousedown', function(e) {
+                if (currentTool === 'borrador') return;
                 isMoving = true;
+                hasMoved = false;
                 sX = e.clientX;
                 sY = e.clientY;
-                sLeft = el.offsetLeft + (el.offsetWidth/2); // centro
-                sTop = el.offsetTop + (el.offsetHeight/2); // centro
-                e.preventDefault();
+                sLeft = el.offsetLeft;
+                sTop = el.offsetTop;
                 e.stopPropagation();
             });
 
             document.addEventListener('mousemove', function(e) {
                 if (!isMoving) return;
+                
+                if (!hasMoved && Math.abs(e.clientX - sX) < 4 && Math.abs(e.clientY - sY) < 4) {
+                    return;
+                }
+                hasMoved = true;
+
                 var dx = e.clientX - sX;
                 var dy = e.clientY - sY;
                 var overlayW = overlay.offsetWidth;
@@ -1350,7 +1406,9 @@
             document.addEventListener('mouseup', function(e) {
                 if (isMoving) {
                     isMoving = false;
-                    renderOverlayControls();
+                    if (hasMoved) {
+                        renderOverlayControls();
+                    }
                 }
             });
         }
@@ -1359,12 +1417,14 @@
         function makeSubElementDraggableAndResizable(el, handle, p, optIdx) {
             var isMoving = false;
             var isResizing = false;
+            var hasMoved = false;
             var sX, sY, sLeft, sTop, sWidth, sHeight;
 
             el.addEventListener('mousedown', function(e) {
                 if (currentTool === 'borrador') return;
                 if (e.target === handle) return;
                 isMoving = true;
+                hasMoved = false;
                 sX = e.clientX;
                 sY = e.clientY;
                 sLeft = el.offsetLeft;
@@ -1375,6 +1435,7 @@
             handle.addEventListener('mousedown', function(e) {
                 if (currentTool === 'borrador') return;
                 isResizing = true;
+                hasMoved = false;
                 sX = e.clientX;
                 sY = e.clientY;
                 sWidth = el.offsetWidth;
@@ -1384,6 +1445,12 @@
 
             document.addEventListener('mousemove', function(e) {
                 if (!isMoving && !isResizing) return;
+                
+                if (!hasMoved && Math.abs(e.clientX - sX) < 4 && Math.abs(e.clientY - sY) < 4) {
+                    return;
+                }
+                hasMoved = true;
+
                 var dx = e.clientX - sX;
                 var dy = e.clientY - sY;
                 var overlayW = overlay.offsetWidth;
@@ -1423,7 +1490,9 @@
                 if (isMoving || isResizing) {
                     isMoving = false;
                     isResizing = false;
-                    renderOverlayControls();
+                    if (hasMoved) {
+                        renderOverlayControls();
+                    }
                 }
             });
         }
@@ -1483,11 +1552,62 @@
                 // Header
                 var qH = document.createElement("div");
                 qH.className = "q-header";
+                qH.style.display = "flex";
+                qH.style.justifyContent = "space-between";
                 
+                var titleWrapper = document.createElement("div");
+                titleWrapper.style.display = "flex";
+                titleWrapper.style.alignItems = "center";
+                titleWrapper.style.gap = "8px";
+
                 var titleSpan = document.createElement("span");
                 titleSpan.className = "q-title";
                 titleSpan.innerText = "Pregunta " + p.numeroPregunta;
+
+                var pageWrapper = document.createElement("div");
+                pageWrapper.style.display = "flex";
+                pageWrapper.style.alignItems = "center";
+                pageWrapper.style.gap = "4px";
+                pageWrapper.title = "Página del PDF donde se encuentra esta pregunta";
+
+                var pageLabel = document.createElement("span");
+                pageLabel.innerText = "Pág:";
+                pageLabel.style.fontSize = "11px";
+                pageLabel.style.color = "var(--text-muted)";
+
+                var pageInput = document.createElement("input");
+                pageInput.type = "number";
+                pageInput.min = "1";
+                pageInput.value = p.pagina || 1;
+                pageInput.style.width = "40px";
+                pageInput.style.fontSize = "11px";
+                pageInput.style.padding = "2px 4px";
+                pageInput.style.background = "rgba(0,0,0,0.3)";
+                pageInput.style.border = "1px solid var(--accent-color)";
+                pageInput.style.color = "var(--accent-color)";
+                pageInput.style.fontWeight = "bold";
+                pageInput.style.borderRadius = "4px";
+                pageInput.onchange = function(e) {
+                    var val = parseInt(this.value);
+                    if (!isNaN(val) && val >= 1) {
+                        p.pagina = val;
+                        renderOverlayControls(); // Refresca el canvas visual
+                    } else {
+                        this.value = p.pagina || 1;
+                    }
+                };
                 
+                pageWrapper.appendChild(pageLabel);
+                pageWrapper.appendChild(pageInput);
+                
+                titleWrapper.appendChild(titleSpan);
+                titleWrapper.appendChild(pageWrapper);
+                
+                var controlsWrapper = document.createElement("div");
+                controlsWrapper.style.display = "flex";
+                controlsWrapper.style.alignItems = "center";
+                controlsWrapper.style.gap = "8px";
+
                 var scoreInput = document.createElement("input");
                 scoreInput.type = "number";
                 scoreInput.step = "0.5";
@@ -1523,8 +1643,64 @@
                 ptosLabel.style.color = "var(--text-muted)";
                 scoreWrapper.appendChild(ptosLabel);
 
-                qH.appendChild(titleSpan);
-                qH.appendChild(scoreWrapper);
+                var arrowsDiv = document.createElement("div");
+                arrowsDiv.style.display = "flex";
+                arrowsDiv.style.flexDirection = "column";
+                arrowsDiv.style.gap = "2px";
+                arrowsDiv.style.marginLeft = "4px";
+                
+                var upBtn = document.createElement("button");
+                upBtn.innerHTML = "<i class='fa-solid fa-chevron-up' style='font-size:10px;'></i>";
+                upBtn.style.background = "none";
+                upBtn.style.border = "none";
+                upBtn.style.color = "var(--text-muted)";
+                upBtn.style.cursor = idx > 0 ? "pointer" : "default";
+                upBtn.style.opacity = idx > 0 ? "1" : "0.3";
+                upBtn.style.padding = "0";
+                upBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    if (idx > 0) {
+                        var temp = preguntas[idx];
+                        preguntas[idx] = preguntas[idx-1];
+                        preguntas[idx-1] = temp;
+                        preguntas.forEach((pq, i) => { pq.numeroPregunta = i + 1; });
+                        if (activeQuestionIndex === idx) activeQuestionIndex = idx - 1;
+                        else if (activeQuestionIndex === idx - 1) activeQuestionIndex = idx;
+                        renderOverlayControls();
+                        renderQuestionsForm();
+                    }
+                };
+
+                var downBtn = document.createElement("button");
+                downBtn.innerHTML = "<i class='fa-solid fa-chevron-down' style='font-size:10px;'></i>";
+                downBtn.style.background = "none";
+                downBtn.style.border = "none";
+                downBtn.style.color = "var(--text-muted)";
+                downBtn.style.cursor = idx < preguntas.length - 1 ? "pointer" : "default";
+                downBtn.style.opacity = idx < preguntas.length - 1 ? "1" : "0.3";
+                downBtn.style.padding = "0";
+                downBtn.onclick = function(e) {
+                    e.stopPropagation();
+                    if (idx < preguntas.length - 1) {
+                        var temp = preguntas[idx];
+                        preguntas[idx] = preguntas[idx+1];
+                        preguntas[idx+1] = temp;
+                        preguntas.forEach((pq, i) => { pq.numeroPregunta = i + 1; });
+                        if (activeQuestionIndex === idx) activeQuestionIndex = idx + 1;
+                        else if (activeQuestionIndex === idx + 1) activeQuestionIndex = idx;
+                        renderOverlayControls();
+                        renderQuestionsForm();
+                    }
+                };
+
+                arrowsDiv.appendChild(upBtn);
+                arrowsDiv.appendChild(downBtn);
+
+                controlsWrapper.appendChild(scoreWrapper);
+                controlsWrapper.appendChild(arrowsDiv);
+
+                qH.appendChild(titleWrapper);
+                qH.appendChild(controlsWrapper);
                 card.appendChild(qH);
 
                 // Enunciado
@@ -1648,47 +1824,6 @@
                     inputsDiv.appendChild(inputText);
                 }
 
-                // Toggle de Subpreguntas
-                var toggleDiv = document.createElement("div");
-                toggleDiv.style.gridColumn = "1 / -1";
-                toggleDiv.style.marginTop = "5px";
-                toggleDiv.style.display = "flex";
-                toggleDiv.style.alignItems = "center";
-                toggleDiv.style.gap = "8px";
-                
-                var chkSub = document.createElement("input");
-                chkSub.type = "checkbox";
-                chkSub.id = "chk-sub-" + idx;
-                chkSub.checked = p.tieneSubpreguntas === true;
-                chkSub.onchange = function() {
-                    var isChecking = this.checked;
-                    if (!isChecking) {
-                        var opcionesArr = [];
-                        try { opcionesArr = JSON.parse(p.opcionesJson) || []; } catch(e){}
-                        if (opcionesArr.length > 1) {
-                            // Revert check visualmente hasta confirmar
-                            this.checked = true;
-                            pendingToggleQuestion = p;
-                            document.getElementById("confirm-modal").style.display = "flex";
-                            return;
-                        }
-                    }
-                    p.tieneSubpreguntas = isChecking;
-                    renderOverlayControls();
-                    renderQuestionsForm();
-                };
-                
-                var lblSub = document.createElement("label");
-                lblSub.htmlFor = "chk-sub-" + idx;
-                lblSub.innerText = "¿Contiene subpreguntas (incisos)?";
-                lblSub.style.fontSize = "12px";
-                lblSub.style.color = "var(--text-muted)";
-                lblSub.style.cursor = "pointer";
-                
-                toggleDiv.appendChild(chkSub);
-                toggleDiv.appendChild(lblSub);
-                inputsDiv.appendChild(toggleDiv);
-
                 card.appendChild(inputsDiv);
 
                 card.onclick = function() {
@@ -1713,7 +1848,7 @@
             var boxes = document.querySelectorAll(".question-overlay-box");
             boxes.forEach((box, i) => {
                 // Filtramos por página
-                var filteredIndex = preguntas.filter(p => p.page === currentPageNum).indexOf(preguntas[idx]);
+                var filteredIndex = preguntas.filter(p => p.pagina === currentPageNum).indexOf(preguntas[idx]);
                 if (filteredIndex === i) box.classList.add("active");
                 else box.classList.remove("active");
             });
@@ -1721,7 +1856,17 @@
 
         // Recalcular el puntaje total del examen
         function recalcularPuntajeTotal() {
-            var total = preguntas.reduce((sum, p) => sum + (parseFloat(p.puntaje) || 0), 0);
+            var total = preguntas.reduce((sum, p) => {
+                var pto = parseFloat(p.puntaje) || 0;
+                try {
+                    var opciones = p.opcionesJson ? JSON.parse(p.opcionesJson) : [];
+                    var isInciso = (p.tipo === "RespuestaLibre" || p.tipo === "VerdaderoFalso") && opciones.length > 1;
+                    if (isInciso) {
+                        pto = pto * opciones.length;
+                    }
+                } catch(e) {}
+                return sum + pto;
+            }, 0);
             document.getElementById("total-score-indicator").innerText = total.toFixed(1) + " ptos";
         }
 
@@ -1787,7 +1932,7 @@
                     { label: "E", x: 37, y: 37, w: 2.5, h: 2.5 }
                 ]),
                 tieneSubpreguntas: false,
-                page: currentPageNum
+                pagina: currentPageNum
             };
 
             preguntas.push(p);
@@ -1843,14 +1988,8 @@
 
             for (let i = 0; i < preguntas.length; i++) {
                 let p = preguntas[i];
-                if (!p.puntaje || p.puntaje <= 0) {
-                    showGlassAlert("Falta Puntaje", "La Pregunta " + p.numeroPregunta + " debe tener un puntaje mayor a 0.");
-                    return;
-                }
-                if (!p.respuestaCorrecta || p.respuestaCorrecta.trim() === "") {
-                    showGlassAlert("Falta Respuesta", "No has definido la respuesta correcta para la Pregunta " + p.numeroPregunta + ".");
-                    return;
-                }
+                // Quitada la validación estricta de puntaje y respuesta 
+                // para permitir guardar la versión como borrador (draft)
             }
 
             var loader = document.getElementById("ocr-loader");

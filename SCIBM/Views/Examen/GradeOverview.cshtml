@@ -1,7 +1,7 @@
 @model SCIBM.Models.Examen
 @using Newtonsoft.Json
 @{
-    ViewBag.Title = $"Revisión de Calificaciones: {Model.Titulo}";
+    ViewBag.Title = $"Revisión de Calificaciones: {Model.NombreVersion}";
     ViewBag.Subtitle = "Valide las respuestas extraídas y resuelva observaciones antes de guardar";
     var matriculados = ViewBag.AlumnosMatriculados as IEnumerable<SCIBM.Models.AlumnoMatriculado>;
     var tempFiles = ViewBag.TempFiles as List<string>;
@@ -222,9 +222,23 @@
 
             <!-- PANEL: VISTA PREVIA PDF -->
             <div class="panel-column">
-                <h4 style="font-size:13px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Vista del Documento</h4>
-                <div class="pdf-preview-box">
-                    <canvas id="preview-canvas"></canvas>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <h4 style="font-size:13px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin:0;">Vista del Documento</h4>
+                    <div style="display:flex; align-items:center;">
+                        <button class="btn" style="background:rgba(255,255,255,0.1); color:white; border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" onclick="changePdfPage(-1)">◀ Ant</button>
+                        <span id="pdf-page-indicator" style="font-size:12px; font-weight:bold; margin:0 8px; color:var(--text-muted);">Pág 1/1</span>
+                        <button class="btn" style="background:rgba(255,255,255,0.1); color:white; border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" onclick="changePdfPage(1)">Sig ▶</button>
+                        <button id="btn-colocar-sello" class="btn" style="background:#ff9f1c; color:white; border:none; padding:4px 10px; font-size:12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-left:12px;" onclick="toggleSelloModo()">Colocar Sello</button>
+                        <button id="btn-guardar-examen" class="btn" style="background:#2ec4b6; color:white; border:none; padding:4px 10px; font-size:12px; border-radius:4px; font-weight:bold; cursor:pointer; display:none; margin-left:12px;" onclick="confirmarExamenActual()">Confirmar Examen</button>
+                    </div>
+                </div>
+                <div class="pdf-preview-box" id="pdf-preview-box">
+                    <div id="canvas-wrapper" style="position: relative; display: inline-block;">
+                        <canvas id="preview-canvas" style="display: block;"></canvas>
+                        <div id="pdf-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden;">
+                            <!-- Aquí se inyectarán los sellos -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -285,6 +299,9 @@
             <text>
             plantillaPreguntas.push({
                 numeroPregunta: @p.NumeroPregunta,
+                inciso: @Html.Raw(JsonConvert.SerializeObject(p.Inciso)),
+                pagina: @p.Pagina,
+                preguntaPadreId: '@(p.PreguntaPadreId?.ToString() ?? "")',
                 enunciado: @Html.Raw(JsonConvert.SerializeObject(p.Enunciado)),
                 tipo: @Html.Raw(JsonConvert.SerializeObject(p.Tipo)),
                 respuestaCorrecta: @Html.Raw(JsonConvert.SerializeObject(p.RespuestaCorrecta)),
@@ -324,8 +341,11 @@
                 resultadosAlumnos.forEach(res => {
                     var matchedAlumno = fuzzyMatchAlumno(res.nombreAlumnoRaw);
                     res.alumnoMatriculadoId = matchedAlumno ? matchedAlumno.id : null;
-                    res.tieneObservacion = matchedAlumno === null;
-                    res.observacion = res.tieneObservacion ? "No se encontró coincidencia con ningún alumno matriculado" : "";
+                    
+                    if (!res.tieneObservacion) {
+                        res.tieneObservacion = matchedAlumno === null;
+                        res.observacion = res.tieneObservacion ? "No se encontró coincidencia con ningún alumno matriculado" : "";
+                    }
                 });
                 
                 document.getElementById("scanned-count-indicator").innerText = `${resultadosAlumnos.length} Calificados (IA)`;
@@ -473,6 +493,7 @@
 
                         respuestasAlumno.push({
                             numeroPregunta: q.numeroPregunta,
+                            inciso: q.inciso || null,
                             respuestaDada: respuestaDetectada
                         });
                     }
@@ -565,13 +586,32 @@
                 // Calcular nota preliminar en vivo
                 var score = calcularNotaPreliminar(res);
 
+                var statusIcon = res.sellado ? `<i class="fa-solid fa-circle-check" style="color: #2ec4b6;" title="Revisado y Sellado"></i>` : `<i class="fa-solid fa-triangle-exclamation" style="color: #ff9f1c;" title="Falta Revisar"></i>`;
+
+                var actionsHtml = "";
+                if (res.tieneObservacion || !res.alumnoMatriculadoId) {
+                    actionsHtml += `<button onclick="event.stopPropagation(); matricularAlVuelo(${idx})" style="background:transparent; border:none; color:#2ec4b6; cursor:pointer; padding:2px 5px;" title="Matricular usando el nombre leído por IA"><i class="fa-solid fa-plus"></i></button>`;
+                }
+                actionsHtml += `<button onclick="event.stopPropagation(); eliminarExamen(${idx})" style="background:transparent; border:none; color:#ff5252; cursor:pointer; padding:2px 5px;" title="Eliminar examen del lote"><i class="fa-solid fa-minus"></i></button>`;
+
                 item.innerHTML = `
                     <div class="item-row">
-                        <strong style="font-size:14px; color:${res.tieneObservacion ? '#ff5252' : '#ffffff'};">${displayName}</strong>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            ${statusIcon}
+                            <strong style="font-size:14px; color:${res.tieneObservacion ? '#ff5252' : '#ffffff'};">${displayName}</strong>
+                        </div>
                         <span class="grade-badge" style="font-size:15px;">${score.toFixed(1)}</span>
                     </div>
-                    <div class="raw-name">PDF: ${res.fileName}</div>
-                    <div class="raw-name" style="color:var(--text-muted);">Leido OCR: "${res.nombreAlumnoRaw}"</div>
+                    <div class="raw-name" style="display:flex; justify-content:space-between; align-items:center; margin-top: 4px;">
+                        <div>
+                            <div>PDF: ${res.fileName}</div>
+                            <div style="color:var(--text-muted);">IA: "${res.nombreAlumnoRaw}"</div>
+                            ${res.tieneObservacion ? `<div style="color:#ff5252; font-size:11px; margin-top:2px; font-weight:normal;">Detalle: ${res.observacion}</div>` : ''}
+                        </div>
+                        <div style="display:flex; gap:5px; margin-right:5px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 4px;">
+                            ${actionsHtml}
+                        </div>
+                    </div>
                 `;
 
                 item.onclick = function() {
@@ -586,9 +626,12 @@
         function calcularNotaPreliminar(res) {
             var total = 0;
             res.respuestas.forEach(resp => {
-                var q = plantillaPreguntas.find(p => p.numeroPregunta === resp.numeroPregunta);
-                if (q) {
-                    var esCorrecto = q.respuestaCorrecta.toUpperCase() === (resp.respuestaDada || "").toUpperCase();
+                var q = plantillaPreguntas.find(p =>
+                    p.numeroPregunta === resp.numeroPregunta &&
+                    (resp.inciso ? p.inciso === resp.inciso : !p.inciso)
+                );
+                if (q && q.puntaje > 0) {
+                    var esCorrecto = (q.respuestaCorrecta || "").toUpperCase() === (resp.respuestaDada || "").toUpperCase();
                     if (resp.esCorrectoManual) esCorrecto = true;
                     if (esCorrecto) total += q.puntaje;
                 }
@@ -632,19 +675,24 @@
             container.innerHTML = "";
 
             res.respuestas.forEach((resp, rIdx) => {
-                var q = plantillaPreguntas.find(p => p.numeroPregunta === resp.numeroPregunta);
-                if (!q) return;
+                var q = plantillaPreguntas.find(p =>
+                    p.numeroPregunta === resp.numeroPregunta &&
+                    (resp.inciso ? p.inciso === resp.inciso : !p.inciso)
+                );
+                if (!q || q.puntaje === 0) return; // Saltar contenedores padre o no encontrados
 
-                var esCorrecto = q.respuestaCorrecta.toUpperCase() === (resp.respuestaDada || "").toUpperCase();
+                var esCorrecto = (q.respuestaCorrecta || "").toUpperCase() === (resp.respuestaDada || "").toUpperCase();
                 if (resp.esCorrectoManual) esCorrecto = true;
                 
                 var item = document.createElement("div");
                 item.className = "answer-verify-item " + (esCorrecto ? "correct" : "incorrect");
 
                 var optHtml = "";
-                if (q.tipo === "OpcionMultiple" || q.tipo === "VerdaderoFalso" || q.respuestaCorrecta.toUpperCase() === "V" || q.respuestaCorrecta.toUpperCase() === "F") {
+                var isCheckOrSelect = q.tipo === "OpcionMultiple" || q.tipo === "VerdaderoFalso" || (q.respuestaCorrecta && (q.respuestaCorrecta.toUpperCase() === "V" || q.respuestaCorrecta.toUpperCase() === "F"));
+                
+                if (isCheckOrSelect) {
                     var labels = ["A", "B", "C", "D", "E"];
-                    if (q.tipo === "VerdaderoFalso" || q.respuestaCorrecta.toUpperCase() === "V" || q.respuestaCorrecta.toUpperCase() === "F") {
+                    if (q.tipo === "VerdaderoFalso" || (q.respuestaCorrecta && (q.respuestaCorrecta.toUpperCase() === "V" || q.respuestaCorrecta.toUpperCase() === "F"))) {
                         labels = ["V", "F"];
                     }
                     var options = "";
@@ -663,9 +711,12 @@
                                </label>`;
                 }
 
+                var label = `Pregunta ${q.numeroPregunta}`;
+                if (q.inciso) label += ` — Inciso ${q.inciso}`;
+
                 item.innerHTML = `
                     <div>
-                        <div style="font-weight:600; font-size:13.5px;">Pregunta ${q.numeroPregunta}</div>
+                        <div style="font-weight:600; font-size:13.5px;">${label}</div>
                         <div style="font-size:12px; color:var(--text-muted);">
                             Correcta: <strong style="color:#2ec4b6;">${q.respuestaCorrecta}</strong> | Peso: ${q.puntaje.toFixed(1)} pt
                         </div>
@@ -718,14 +769,20 @@
 
         // Renderizar vista previa del PDF
         var previewPdfDoc = null;
+        var currentPdfPage = 1;
+        var totalPdfPages = 1;
+
         function renderPdfPreview(url) {
             var pCanvas = document.getElementById("preview-canvas");
             var pCtx = pCanvas.getContext("2d");
+            currentPdfPage = 1;
 
             pdfjsLib.getDocument(url).promise.then(function(pdf) {
                 previewPdfDoc = pdf;
-                pdf.getPage(1).then(function(page) {
-                    // Renderizamos a escala miniatura
+                totalPdfPages = pdf.numPages;
+                document.getElementById("pdf-page-indicator").innerText = "Pág " + currentPdfPage + "/" + totalPdfPages;
+                
+                pdf.getPage(currentPdfPage).then(function(page) {
                     var viewport = page.getViewport({ scale: 0.65 });
                     pCanvas.width = viewport.width;
                     pCanvas.height = viewport.height;
@@ -733,12 +790,336 @@
                     page.render({
                         canvasContext: pCtx,
                         viewport: viewport
+                    }).promise.then(function() {
+                        renderPdfOverlay(viewport.width, viewport.height);
                     });
                 });
             });
         }
 
-        // 4. Guardar notas definitivas en el servidor vía AJAX
+        function changePdfPage(delta) {
+            if (!previewPdfDoc) return;
+            var newPage = currentPdfPage + delta;
+            if (newPage >= 1 && newPage <= totalPdfPages) {
+                currentPdfPage = newPage;
+                document.getElementById("pdf-page-indicator").innerText = "Pág " + currentPdfPage + "/" + totalPdfPages;
+                
+                var pCanvas = document.getElementById("preview-canvas");
+                var pCtx = pCanvas.getContext("2d");
+                
+                // Si cambiamos de página salimos del modo sello
+                if (selloModoActivo) confirmarExamenActual();
+                
+                previewPdfDoc.getPage(currentPdfPage).then(function(page) {
+                    var viewport = page.getViewport({ scale: 0.65 });
+                    pCanvas.width = viewport.width;
+                    pCanvas.height = viewport.height;
+
+                    page.render({
+                        canvasContext: pCtx,
+                        viewport: viewport
+                    }).promise.then(function() {
+                        renderPdfOverlay(viewport.width, viewport.height);
+                    });
+                });
+            }
+        }
+
+        // ============================================
+        // 5. FLUJO DE SELLADO INTERACTIVO
+        // ============================================
+        var selloModoActivo = false;
+        var selloGlobal = { x: @Model.StampX, y: @Model.StampY, w: @Model.StampWidth, h: @Model.StampHeight };
+        if (selloGlobal.w === 0) selloGlobal = { x: 50, y: 50, w: 20, h: 10 }; // Default if empty
+
+        function toggleSelloModo() {
+            var btnColocar = document.getElementById("btn-colocar-sello");
+            var btnGuardar = document.getElementById("btn-guardar-examen");
+            var canvasWrap = document.getElementById("canvas-wrapper");
+            
+            selloModoActivo = true;
+            btnColocar.style.display = "none";
+            btnGuardar.style.display = "inline-block";
+            canvasWrap.style.cursor = "crosshair"; // Simular cursor de sello
+            
+            // Evento para estampar al hacer clic en el canvas
+            canvasWrap.onmousedown = function(e) {
+                if (selloModoActivo && e.target.id === "preview-canvas") {
+                    var rect = canvasWrap.getBoundingClientRect();
+                    var xPos = ((e.clientX - rect.left) / rect.width) * 100;
+                    var yPos = ((e.clientY - rect.top) / rect.height) * 100;
+                    
+                    var res = resultadosAlumnos[activeStudentIndex];
+                    if (!res.stamp) res.stamp = { ...selloGlobal };
+                    res.stamp.x = xPos;
+                    res.stamp.y = yPos;
+                    
+                    selloModoActivo = false;
+                    canvasWrap.style.cursor = "default";
+                    canvasWrap.onmousedown = null; // Quitar evento
+                    
+                    renderPdfOverlay(document.getElementById("preview-canvas").width, document.getElementById("preview-canvas").height);
+                }
+            };
+        }
+
+        function confirmarExamenActual() {
+            var res = resultadosAlumnos[activeStudentIndex];
+            res.sellado = true; // Marca como revisado
+            
+            var btnColocar = document.getElementById("btn-colocar-sello");
+            var btnGuardar = document.getElementById("btn-guardar-examen");
+            var canvasWrap = document.getElementById("canvas-wrapper");
+            
+            selloModoActivo = false;
+            canvasWrap.style.cursor = "default";
+            canvasWrap.onmousedown = null;
+            btnColocar.style.display = "inline-block";
+            btnGuardar.style.display = "none";
+            
+            if (confirm("Se ha guardado la posición de los sellos. ¿Pasar al siguiente examen?")) {
+                if (activeStudentIndex < resultadosAlumnos.length - 1) {
+                    selectStudent(activeStudentIndex + 1);
+                }
+            } else {
+                renderScannedList();
+            }
+        }
+
+        function renderPdfOverlay(w, h) {
+            var overlay = document.getElementById("pdf-overlay");
+            overlay.innerHTML = ""; // Limpiar
+            
+            // Ocultar botón de sello si no estamos en la página 1
+            if (currentPdfPage !== 1) {
+                document.getElementById("btn-colocar-sello").style.display = "none";
+            } else if (!selloModoActivo) {
+                document.getElementById("btn-colocar-sello").style.display = "inline-block";
+            }
+            overlay.style.pointerEvents = "none"; // CRÍTICO: Debe ser none para dejar pasar el clic al canvas
+            var res = resultadosAlumnos[activeStudentIndex];
+            
+            // 1. Dibujar Marks (Checks/X) de las preguntas
+            if (res.respuestas) {
+                res.respuestas.forEach((r, idx) => {
+                    var q = plantillaPreguntas.find(p =>
+                        p.numeroPregunta === r.numeroPregunta &&
+                        (r.inciso ? p.inciso === r.inciso : !p.inciso)
+                    );
+                    
+                    if (!q || q.puntaje === 0) return; // No es calificable o es contenedor
+                    if (q.pagina !== currentPdfPage) return; // Solo dibujar en la página actual
+
+                    var isCorrect = r.esCorrectoManual !== undefined && r.esCorrectoManual !== null 
+                                    ? r.esCorrectoManual 
+                                    : ((r.respuestaDada || "").toUpperCase() === (q.respuestaCorrecta || "").toUpperCase());
+                    
+                    var mark = document.createElement("div");
+                    mark.style.position = "absolute";
+                    mark.style.left = (q.posX) + "%";
+                    mark.style.top = (q.posY) + "%";
+                    mark.style.fontSize = "16px";
+                    mark.style.fontWeight = "bold";
+                    mark.style.cursor = "move";
+                    mark.style.textShadow = "0px 0px 3px white";
+                    mark.style.pointerEvents = "auto"; // Habilitar clics solo en el elemento
+                    
+                    if (isCorrect) {
+                        mark.style.color = "#2ec4b6";
+                        mark.innerHTML = `<i class="fa-solid fa-check"></i>`;
+                    } else {
+                        mark.style.color = "#ff5252";
+                        mark.innerHTML = `<i class="fa-solid fa-xmark"></i> <span style="font-size:10px;">Cor: ${q.respuestaCorrecta}</span>`;
+                    }
+                    
+                    makeDraggable(mark, null, function(newX, newY) {
+                        // Guardar la nueva posición si se mueve
+                        if(!res.correctionStamps) res.correctionStamps = {};
+                        res.correctionStamps[idx] = { x: (newX/w)*100, y: (newY/h)*100 };
+                    });
+                    
+                    // Restaurar pos custom si existe
+                    if(res.correctionStamps && res.correctionStamps[idx]) {
+                        mark.style.left = res.correctionStamps[idx].x + "%";
+                        mark.style.top = res.correctionStamps[idx].y + "%";
+                    }
+
+                    overlay.appendChild(mark);
+                });
+            }
+
+            // 2. Dibujar Sello de Nota Final (SOLO EN PÁGINA 1)
+            if (currentPdfPage !== 1) return;
+
+            if (!res.stamp) res.stamp = { ...selloGlobal };
+            
+            var stampDiv = document.createElement("div");
+            stampDiv.style.position = "absolute";
+            stampDiv.style.left = res.stamp.x + "%";
+            stampDiv.style.top = res.stamp.y + "%";
+            stampDiv.style.width = res.stamp.w + "%";
+            stampDiv.style.height = res.stamp.h + "%";
+            stampDiv.style.border = "2px dashed #ff9f1c";
+            stampDiv.style.backgroundColor = "rgba(255, 159, 28, 0.2)";
+            stampDiv.style.color = "#ff9f1c";
+            stampDiv.style.display = "flex";
+            stampDiv.style.alignItems = "center";
+            stampDiv.style.justifyContent = "center";
+            stampDiv.style.fontWeight = "bold";
+            stampDiv.style.fontSize = "18px";
+            stampDiv.style.cursor = "move";
+            stampDiv.style.overflow = "hidden";
+            stampDiv.style.pointerEvents = "auto"; // Habilitar arrastre solo en la caja
+            
+            var resizeHandle = document.createElement("div");
+            resizeHandle.style.position = "absolute";
+            resizeHandle.style.right = "0";
+            resizeHandle.style.bottom = "0";
+            resizeHandle.style.width = "15px";
+            resizeHandle.style.height = "15px";
+            resizeHandle.style.cursor = "se-resize";
+            resizeHandle.style.backgroundColor = "transparent";
+            var score = calcularNotaPreliminar(res);
+            stampDiv.innerText = score.toFixed(1);
+            stampDiv.appendChild(resizeHandle);
+
+            makeDraggable(stampDiv, resizeHandle, function(newX, newY, newW, newH) {
+                res.stamp.x = (newX / w) * 100;
+                res.stamp.y = (newY / h) * 100;
+                if (newW) res.stamp.w = (newW / w) * 100;
+                if (newH) res.stamp.h = (newH / h) * 100;
+                selloGlobal = { ...res.stamp }; // Actualizar memoria global para el siguiente alumno
+            });
+
+            overlay.appendChild(stampDiv);
+        }
+
+        function makeDraggable(elmnt, handle, onUpdate) {
+            var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            var isResizing = false;
+            
+            if (handle) {
+                handle.onmousedown = function(e) {
+                    isResizing = true;
+                    e.stopPropagation();
+                    document.onmouseup = closeDragElement;
+                    document.onmousemove = elementResize;
+                };
+            }
+
+            elmnt.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                if (e.target === handle) return;
+                e = e || window.event;
+                e.preventDefault();
+                isResizing = false;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                if (isResizing) return;
+                e = e || window.event;
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+            
+            function elementResize(e) {
+                e = e || window.event;
+                e.preventDefault();
+                var w = e.clientX - elmnt.getBoundingClientRect().left;
+                var h = e.clientY - elmnt.getBoundingClientRect().top;
+                if(w < 50) w = 50;
+                if(h < 20) h = 20;
+                elmnt.style.width = w + "px";
+                elmnt.style.height = h + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+                if (onUpdate) onUpdate(elmnt.offsetLeft, elmnt.offsetTop, elmnt.offsetWidth, elmnt.offsetHeight);
+            }
+        }
+
+        // 4. Funciones de Accion Rápida (Matricular y Eliminar)
+        function matricularAlVuelo(idx) {
+            var res = resultadosAlumnos[idx];
+            var nombreLeido = res.nombreAlumnoRaw;
+            if (nombreLeido === "Ilegible / Sin Nombre" || nombreLeido === "Desconocido") {
+                alert("La IA no pudo leer un nombre válido. Escríbalo manualmente o intente de nuevo.");
+                return;
+            }
+
+            if (!confirm(`¿Deseas registrar a "${nombreLeido}" como nuevo alumno matriculado en este curso?`)) return;
+
+            var formData = new URLSearchParams();
+            formData.append('examenId', '@Model.Id');
+            formData.append('nombreCompleto', nombreLeido);
+
+            fetch('@Url.Action("RegistrarAlumnoRapido", "Examen")', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    // Agregarlo a la lista de matriculados en memoria
+                    matriculados.push({ id: data.alumnoId, nombreCompleto: data.nombreCompleto });
+                    
+                    // Asociar al PDF actual
+                    res.alumnoMatriculadoId = data.alumnoId;
+                    res.tieneObservacion = false;
+                    res.observacion = "";
+                    
+                    // Actualizar dropdown si es el alumno seleccionado activo
+                    if (activeStudentIndex === idx) {
+                        var sel = document.getElementById("student-match-select");
+                        var opt = document.createElement('option');
+                        opt.value = data.alumnoId;
+                        opt.innerHTML = data.nombreCompleto;
+                        sel.appendChild(opt);
+                        sel.value = data.alumnoId;
+                        document.getElementById("warning-match-el").style.display = "none";
+                    }
+
+                    renderScannedList();
+                } else {
+                    alert(data.message || "Error al registrar alumno");
+                }
+            })
+            .catch(e => alert("Error de red."));
+        }
+
+        function eliminarExamen(idx) {
+            if (!confirm("¿Seguro que deseas descartar este examen escaneado de la lista? No se guardará.")) return;
+            
+            // Eliminar elemento del array
+            resultadosAlumnos.splice(idx, 1);
+            
+            if (resultadosAlumnos.length === 0) {
+                document.getElementById("breakdown-panel-el").style.display = "none";
+            } else {
+                if (activeStudentIndex === idx) {
+                    // Seleccionar el primero si borramos el actual
+                    selectStudent(0);
+                } else if (activeStudentIndex > idx) {
+                    activeStudentIndex--; // Ajustar índice activo
+                }
+            }
+            renderScannedList();
+        }
+
+        // 5. Guardar notas definitivas en el servidor vía AJAX
         function guardarNotasFinales() {
             var loader = document.getElementById("grader-loader");
             var loaderTitle = document.getElementById("loader-title");

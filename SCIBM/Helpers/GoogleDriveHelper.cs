@@ -100,11 +100,35 @@ namespace SCIBM.Helpers
             return null;
         }
 
-        // 3. Subir archivo PDF a Google Drive usando carga Multipart
+        // 3. Subir archivo PDF a Google Drive usando carga Multipart (O SOBREESCRIBIR SI EXISTE)
         public static async Task<string> UploadPdfFileAsync(string fileName, string localFilePath, string parentFolderId, string accessToken)
         {
-            var uploadUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
+            // A) Buscar si ya existe un archivo con ese nombre en esa carpeta
+            string query = $"name = '{fileName}' and '{parentFolderId}' in parents and trashed = false";
+            var searchUrl = $"https://www.googleapis.com/drive/v3/files?q={Uri.EscapeDataString(query)}&fields=files(id)";
             
+            var searchReq = new HttpRequestMessage(HttpMethod.Get, searchUrl);
+            searchReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            string existingFileId = null;
+            var searchRes = await client.SendAsync(searchReq);
+            if (searchRes.IsSuccessStatusCode)
+            {
+                var json = JObject.Parse(await searchRes.Content.ReadAsStringAsync());
+                var files = json["files"] as JArray;
+                if (files != null && files.Count > 0)
+                {
+                    existingFileId = files[0]["id"]?.ToString();
+                }
+            }
+
+            // B) Configurar URL y Método (POST para nuevo, PATCH para existente)
+            string uploadUrl = string.IsNullOrEmpty(existingFileId) 
+                ? "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
+                : $"https://www.googleapis.com/upload/drive/v3/files/{existingFileId}?uploadType=multipart";
+            
+            var method = string.IsNullOrEmpty(existingFileId) ? HttpMethod.Post : new HttpMethod("PATCH");
+
             byte[] fileBytes;
             using (var stream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read))
             {
@@ -113,7 +137,7 @@ namespace SCIBM.Helpers
             }
 
             var boundary = "scibm_multipart_boundary_" + Guid.NewGuid().ToString("N");
-            var request = new HttpRequestMessage(HttpMethod.Post, uploadUrl);
+            var request = new HttpRequestMessage(method, uploadUrl);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
             var multipartContent = new MultipartContent("related", boundary);
@@ -125,7 +149,9 @@ namespace SCIBM.Helpers
                 { "mimeType", "application/pdf" }
             };
 
-            if (!string.IsNullOrEmpty(parentFolderId))
+            // Solo agregamos el parent si es un archivo NUEVO (POST). 
+            // Si es PATCH, cambiar parents causa error a menos que se use addParents/removeParents.
+            if (string.IsNullOrEmpty(existingFileId) && !string.IsNullOrEmpty(parentFolderId))
             {
                 metadata.Add("parents", new JArray { parentFolderId });
             }

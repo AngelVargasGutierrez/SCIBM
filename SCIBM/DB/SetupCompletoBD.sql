@@ -114,6 +114,7 @@ CREATE TABLE Pregunta (
     PreguntaPadreId UNIQUEIDENTIFIER NULL,
     Inciso NVARCHAR(10) NULL,
     NumeroPregunta INT NOT NULL,
+    Pagina INT NOT NULL DEFAULT 1,
     Enunciado NVARCHAR(MAX) NOT NULL,
     Tipo NVARCHAR(30) NOT NULL,
     RespuestaCorrecta NVARCHAR(150) NOT NULL,
@@ -126,7 +127,7 @@ CREATE TABLE Pregunta (
     CONSTRAINT PK_Pregunta PRIMARY KEY (Id),
     CONSTRAINT FK_Pregunta_Examen FOREIGN KEY (ExamenId) REFERENCES Examen(Id) ON DELETE CASCADE,
     CONSTRAINT FK_Pregunta_PreguntaPadre FOREIGN KEY (PreguntaPadreId) REFERENCES Pregunta(Id),
-    CONSTRAINT UQ_Examen_NumeroPregunta UNIQUE (ExamenId, NumeroPregunta)
+    CONSTRAINT UQ_Examen_NumeroPregunta UNIQUE (ExamenId, NumeroPregunta, Inciso)
 );
 
 -- 11. Crear Tabla ExamenAlumno

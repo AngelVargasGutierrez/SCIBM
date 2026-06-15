@@ -254,6 +254,9 @@ namespace SCIBM.Models
         public int NumeroPregunta { get; set; }
 
         [Required]
+        public int Pagina { get; set; }
+
+        [Required]
         public string Enunciado { get; set; }
 
         [Required]

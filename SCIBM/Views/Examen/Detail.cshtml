@@ -95,6 +95,32 @@
         color: #ff5252;
         border: 1px solid rgba(255, 82, 82, 0.25);
     }
+
+    /* CUSTOM FILE INPUT */
+    .file-upload-custom {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px 10px;
+        border: 2px dashed rgba(100, 223, 223, 0.3);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.02);
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        color: var(--text-muted);
+        text-align: center;
+        gap: 8px;
+    }
+    .file-upload-custom:hover {
+        background: rgba(100, 223, 223, 0.08);
+        border-color: var(--primary-glow);
+        color: white;
+    }
+    .file-upload-custom i {
+        font-size: 28px;
+        color: var(--primary-glow);
+    }
 </style>
 
 <!-- VOLVER A LA UNIDAD -->
@@ -229,27 +255,32 @@
                     }
                 </div>
 
-                @if (string.IsNullOrEmpty(Model.RutaPdfOriginal) && totalPreguntas == 0)
+                @if (!string.IsNullOrEmpty(Model.RutaPdfOriginal) || totalPreguntas > 0)
                 {
-                    <h4 style="font-size: 14px; margin-bottom: 10px; color: var(--accent-color);">Subir Plantilla PDF</h4>
-                    <form action="@Url.Action("SubirPlantillaExistente", "Examen")" method="POST" enctype="multipart/form-data">
-                        <input type="hidden" name="examenId" value="@Model.Id" />
-                        
-                        <div class="form-group" style="margin-bottom: 10px;">
-                            <input type="file" id="pdfFile" name="pdfFile" accept=".pdf" class="form-input" style="padding: 8px; font-size: 13px;" required />
-                        </div>
-
-                        <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px;">
-                            <i class="fa-solid fa-upload"></i> Subir PDF en blanco y calibrar
-                        </button>
-                    </form>
-                }
-                else
-                {
-                    <a href="@Url.Action("ScanTemplate", "Examen", new { examenId = Model.Id })" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; margin-bottom: 10px;">
-                        <i class="fa-solid fa-pen-to-square"></i> Calibrar / Editar Respuestas (Clásico)
+                    <a href="@Url.Action("ScanTemplate", "Examen", new { id = Model.Id })" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; margin-bottom: 15px;">
+                        <i class="fa-solid fa-pen-to-square"></i> Editar Calibración (Clásico)
                     </a>
+                    
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                        ¿Te equivocaste de archivo? Puedes sobrescribir la plantilla (se borrará la calibración actual):
+                    </div>
                 }
+
+                <form action="@Url.Action("SubirPlantillaExistente", "Examen")" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="examenId" value="@Model.Id" />
+                    
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label for="pdfFile" class="file-upload-custom">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span id="pdfFile-display" style="font-weight: 500; font-size: 12px;">Haz clic para subir un nuevo PDF en blanco</span>
+                        </label>
+                        <input type="file" id="pdfFile" name="pdfFile" accept=".pdf" style="display: none;" required onchange="updateFileName(this)" />
+                    </div>
+
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px;">
+                        <i class="fa-solid fa-upload"></i> Subir PDF y Calibrar
+                    </button>
+                </form>
 
                 <div class="panel-divider" style="margin: 20px 0;"></div>
                 
@@ -259,7 +290,11 @@
                     <input type="hidden" name="titulo" value="@Model.NombreVersion" />
                     
                     <div class="form-group" style="margin-bottom: 10px;">
-                        <input type="file" id="pdfSolucionarioUpdate" name="pdfFile" accept=".pdf" class="form-input" style="padding: 8px; font-size: 13px;" required />
+                        <label for="pdfSolucionarioUpdate" class="file-upload-custom" style="padding: 15px 10px;">
+                            <i class="fa-solid fa-brain"></i>
+                            <span id="pdfSolucionarioUpdate-display" style="font-weight: 500; font-size: 12px;">Haz clic para subir solucionario (.pdf)</span>
+                        </label>
+                        <input type="file" id="pdfSolucionarioUpdate" name="pdfFile" accept=".pdf" style="display: none;" required onchange="updateFileName(this)" />
                     </div>
 
                     <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; background: linear-gradient(135deg, #1A2980, #26D0CE); border: none;">
@@ -272,36 +307,21 @@
         <!-- CARGAR EXAMENES DE ALUMNOS -->
         <div class="glass-card" style="padding: 24px;">
             <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--primary-glow);">
-                <i class="fa-solid fa-graduation-cap"></i> Calificar Exámenes
+                <i class="fa-solid fa-brain"></i> Calificación con IA (Gemini)
             </h3>
             <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 15px;">
-                Selecciona los archivos PDF de los alumnos escaneados en papel. Puedes seleccionar múltiples archivos a la vez.
-            </p>
-
-            <form action="@Url.Action("CalificarExamenes", "Examen")" method="POST" enctype="multipart/form-data" onsubmit="showCalificarLoading(event)">
-                <input type="hidden" name="examenId" value="@Model.Id" />
-                
-                <div class="form-group" style="margin-bottom: 15px;">
-                    <label for="archivosAlumnos">Subir PDFs de Alumnos (Plantilla Clásica)</label>
-                    <input type="file" id="archivosAlumnos" name="archivosAlumnos" accept=".pdf" class="form-input" style="padding: 8px; font-size: 13px;" multiple required />
-                </div>
-
-                <button type="submit" class="btn btn-primary" id="calificar-btn" style="width: 100%; padding: 8px 12px; font-size: 13px;">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i> Calificar con Plantilla
-                </button>
-            </form>
-
-            <div class="panel-divider"></div>
-            <h4 style="font-size: 14px; margin-bottom: 10px; color: #26D0CE;"><i class="fa-solid fa-brain"></i> Calificación IA (Gemini)</h4>
-            <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 15px;">
-                Gemini leerá cada hoja y la comparará automáticamente con el solucionario.
+                Selecciona los archivos PDF de los alumnos escaneados en papel. Gemini leerá cada hoja y la comparará automáticamente con el solucionario. Puedes seleccionar múltiples archivos a la vez.
             </p>
 
             <form action="@Url.Action("CalificarAlumnosGemini", "Examen")" method="POST" enctype="multipart/form-data" onsubmit="showCalificarLoading(event)">
                 <input type="hidden" name="examenId" value="@Model.Id" />
                 
                 <div class="form-group" style="margin-bottom: 15px;">
-                    <input type="file" id="archivosAlumnosIA" name="archivosAlumnos" accept=".pdf" class="form-input" style="padding: 8px; font-size: 13px;" multiple required />
+                    <label for="archivosAlumnosIA" class="file-upload-custom" style="padding: 15px 10px;">
+                        <i class="fa-solid fa-robot"></i>
+                        <span id="archivosAlumnosIA-display" style="font-weight: 500; font-size: 12px;">Haz clic para seleccionar exámenes a procesar con IA</span>
+                    </label>
+                    <input type="file" id="archivosAlumnosIA" name="archivosAlumnos" accept=".pdf" style="display: none;" multiple required onchange="updateFileName(this)" />
                 </div>
 
                 <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; background: linear-gradient(135deg, #1A2980, #26D0CE); border: none;">
@@ -403,6 +423,21 @@
 
 @section scripts {
     <script>
+        function updateFileName(input) {
+            var display = document.getElementById(input.id + "-display");
+            if (input.files && input.files.length > 1) {
+                display.innerText = input.files.length + " archivos seleccionados";
+                display.style.color = "var(--primary-glow)";
+            }
+            else if (input.files && input.files.length === 1) {
+                display.innerText = input.files[0].name;
+                display.style.color = "var(--primary-glow)";
+            } else {
+                display.innerText = "Haz clic para seleccionar archivo(s)";
+                display.style.color = "";
+            }
+        }
+
         function showCalificarLoading(e) {
             document.getElementById("loading-text").innerText = "Escaneando y calificando exámenes de alumnos...";
             document.getElementById("loading-overlay").classList.add("active");

@@ -8,21 +8,26 @@ Este documento presenta el diseño relacional y el script DDL en **SQL Server** 
 
 El diseño sigue las reglas de la **Tercera Forma Normal (3NF)**:
 1. **Docente:** Almacena la cuenta de Google, tokens y carpeta raíz.
-2. **Curso:** Pertenece a un Docente.
-3. **AlumnoMatriculado:** Lista de alumnos cargados por Excel vinculados a un curso. Evita duplicación mediante restricción única.
-4. **Unidad:** Unidades dinámicas creadas para cada curso.
-5. **Examen:** Plantilla de examen asociada a una Unidad (relación 1-a-1: un examen por unidad).
-6. **Pregunta:** Lista de preguntas por plantilla con coordenadas y puntajes individuales.
-7. **ExamenAlumno:** Registro de exámenes cargados y calificados de los estudiantes, vinculado al alumno matriculado (permite nulo si está observado).
-8. **RespuestaAlumno:** Respuestas individuales de cada estudiante para cada pregunta.
+2. **Ciclo Académico:** Agrupación temporal (ej: "2024-I") que pertenece a un Docente.
+3. **Curso:** Pertenece a un Ciclo Académico.
+4. **Sección:** División de un curso (ej: "Sección A").
+5. **AlumnoMatriculado:** Lista de alumnos cargados por Excel vinculados a una sección. Evita duplicación mediante restricción única.
+6. **Unidad:** Unidades dinámicas creadas para cada sección.
+7. **Examen:** Plantilla de examen asociada a una Unidad. Soporta versiones múltiples (ej: "Fila A", "Fila B").
+8. **Pregunta:** Lista de preguntas por plantilla con coordenadas y puntajes individuales. Soporta recursividad (PreguntaPadre e Incisos).
+9. **ExamenAlumno:** Registro de exámenes cargados y calificados de los estudiantes, vinculado al alumno matriculado (permite nulo si está observado).
+10. **RespuestaAlumno:** Respuestas individuales de cada estudiante para cada pregunta e inciso.
 
 ```mermaid
 erDiagram
-    Docente ||--o{ Curso : "crea"
-    Curso ||--o{ AlumnoMatriculado : "tiene matriculados"
-    Curso ||--o{ Unidad : "contiene"
-    Unidad ||--|| Examen : "tiene examen"
+    Docente ||--o{ CicloAcademico : "crea"
+    CicloAcademico ||--o{ Curso : "contiene"
+    Curso ||--o{ Seccion : "contiene"
+    Seccion ||--o{ AlumnoMatriculado : "tiene matriculados"
+    Seccion ||--o{ Unidad : "contiene"
+    Unidad ||--o{ Examen : "tiene versiones de examen"
     Examen ||--o{ Pregunta : "define"
+    Pregunta ||--o{ Pregunta : "tiene sub-preguntas (incisos)"
     Examen ||--o{ ExamenAlumno : "califica"
     ExamenAlumno ||--o{ RespuestaAlumno : "contiene"
     AlumnoMatriculado ||--o{ ExamenAlumno : "se asocia a"
@@ -35,7 +40,7 @@ erDiagram
 A continuación, se presenta el script SQL completo para crear las tablas, llaves primarias, llaves foráneas, restricciones de unicidad e índices para optimizar la búsqueda.
 
 ```sql
--- 1. Tabla de Docentes (Usuarios del sistema)
+-- 1. Crear Tabla Docente (La raíz del sistema)
 CREATE TABLE Docente (
     Email NVARCHAR(150) NOT NULL,
     Nombre NVARCHAR(100) NOT NULL,
@@ -46,126 +51,139 @@ CREATE TABLE Docente (
     CONSTRAINT PK_Docente PRIMARY KEY (Email)
 );
 
--- 2. Tabla de Cursos
+-- 2. Crear Tabla CicloAcademico
+CREATE TABLE CicloAcademico (
+    Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    Nombre NVARCHAR(50) NOT NULL,
+    DocenteEmail NVARCHAR(150) NOT NULL,
+    DriveFolderId NVARCHAR(100) NULL,
+    CONSTRAINT PK_CicloAcademico PRIMARY KEY (Id),
+    CONSTRAINT FK_CicloAcademico_Docente FOREIGN KEY (DocenteEmail) REFERENCES Docente(Email) ON DELETE CASCADE
+);
+
+-- 3. Crear Tabla Curso
 CREATE TABLE Curso (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     Nombre NVARCHAR(150) NOT NULL,
     Codigo NVARCHAR(50) NOT NULL,
-    DocenteEmail NVARCHAR(150) NOT NULL,
+    CicloAcademicoId UNIQUEIDENTIFIER NOT NULL,
     DriveFolderId NVARCHAR(100) NULL,
     CONSTRAINT PK_Curso PRIMARY KEY (Id),
-    CONSTRAINT FK_Curso_Docente FOREIGN KEY (DocenteEmail) 
-        REFERENCES Docente(Email) ON DELETE CASCADE
+    CONSTRAINT FK_Curso_CicloAcademico FOREIGN KEY (CicloAcademicoId) REFERENCES CicloAcademico(Id) ON DELETE CASCADE
 );
 
--- 3. Tabla de Alumnos Matriculados (Cargados por Excel)
-CREATE TABLE AlumnoMatriculado (
+-- 4. Crear Tabla Seccion
+CREATE TABLE Seccion (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     CursoId UNIQUEIDENTIFIER NOT NULL,
+    Nombre NVARCHAR(100) NOT NULL,
+    DriveFolderId NVARCHAR(100) NULL,
+    CONSTRAINT PK_Seccion PRIMARY KEY (Id),
+    CONSTRAINT FK_Seccion_Curso FOREIGN KEY (CursoId) REFERENCES Curso(Id) ON DELETE CASCADE
+);
+
+-- 5. Crear Tabla AlumnoMatriculado
+CREATE TABLE AlumnoMatriculado (
+    Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    SeccionId UNIQUEIDENTIFIER NOT NULL,
     NombreCompleto NVARCHAR(250) NOT NULL,
     Apellidos NVARCHAR(120) NOT NULL,
     Nombres NVARCHAR(120) NOT NULL,
     CONSTRAINT PK_AlumnoMatriculado PRIMARY KEY (Id),
-    CONSTRAINT FK_AlumnoMatriculado_Curso FOREIGN KEY (CursoId) 
-        REFERENCES Curso(Id) ON DELETE CASCADE,
-    -- Evitar duplicar el mismo alumno en el mismo curso
-    CONSTRAINT UQ_Curso_Alumno UNIQUE (CursoId, NombreCompleto)
+    CONSTRAINT FK_AlumnoMatriculado_Seccion FOREIGN KEY (SeccionId) REFERENCES Seccion(Id) ON DELETE CASCADE,
+    CONSTRAINT UQ_Seccion_Alumno UNIQUE (SeccionId, NombreCompleto)
 );
 
--- 4. Tabla de Unidades (Dinámicas)
+-- 6. Crear Tabla Unidad
 CREATE TABLE Unidad (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
-    CursoId UNIQUEIDENTIFIER NOT NULL,
-    NombreUnidad NVARCHAR(50) NOT NULL, -- Ej: 'U1', 'U1R', 'U2'
+    SeccionId UNIQUEIDENTIFIER NOT NULL,
+    NombreUnidad NVARCHAR(50) NOT NULL, 
     DriveFolderId NVARCHAR(100) NULL,
     CONSTRAINT PK_Unidad PRIMARY KEY (Id),
-    CONSTRAINT FK_Unidad_Curso FOREIGN KEY (CursoId) 
-        REFERENCES Curso(Id) ON DELETE CASCADE,
-    -- Evitar duplicar el nombre de la unidad dentro de un mismo curso
-    CONSTRAINT UQ_Curso_Unidad UNIQUE (CursoId, NombreUnidad)
+    CONSTRAINT FK_Unidad_Seccion FOREIGN KEY (SeccionId) REFERENCES Seccion(Id) ON DELETE CASCADE,
+    CONSTRAINT UQ_Seccion_Unidad UNIQUE (SeccionId, NombreUnidad)
 );
 
--- 5. Tabla de Exámenes (Plantillas)
+-- 7. Crear Tabla Examen (Versiones Múltiples)
 CREATE TABLE Examen (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     UnidadId UNIQUEIDENTIFIER NOT NULL,
-    Titulo NVARCHAR(150) NOT NULL,
-    RutaPdfOriginal NVARCHAR(250) NOT NULL, -- Ruta física en el servidor
+    NombreVersion NVARCHAR(100) NOT NULL,
+    DriveFolderId NVARCHAR(100) NULL,
+    RutaPdfOriginal NVARCHAR(250) NOT NULL,
     DriveFileIdBlanco NVARCHAR(100) NULL,
     DriveFileIdSolucionario NVARCHAR(100) NULL,
     SincronizadoDrive BIT NOT NULL DEFAULT 0,
-    -- Coordenadas de calibración para la caja de estampado de nota
     StampX FLOAT NOT NULL DEFAULT 450,
     StampY FLOAT NOT NULL DEFAULT 50,
     StampWidth FLOAT NOT NULL DEFAULT 100,
     StampHeight FLOAT NOT NULL DEFAULT 40,
     CONSTRAINT PK_Examen PRIMARY KEY (Id),
-    CONSTRAINT FK_Examen_Unidad FOREIGN KEY (UnidadId) 
-        REFERENCES Unidad(Id) ON DELETE CASCADE,
-    -- Relación de 1 examen por unidad
-    CONSTRAINT UQ_Unidad_Examen UNIQUE (UnidadId)
+    CONSTRAINT FK_Examen_Unidad FOREIGN KEY (UnidadId) REFERENCES Unidad(Id) ON DELETE CASCADE,
+    CONSTRAINT UQ_Unidad_Version UNIQUE (UnidadId, NombreVersion)
 );
 
--- 6. Tabla de Preguntas (Definidas en la plantilla del examen)
+-- 8. Crear Tabla Pregunta (Soporte para Sub-preguntas / Incisos)
 CREATE TABLE Pregunta (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     ExamenId UNIQUEIDENTIFIER NOT NULL,
+    PreguntaPadreId UNIQUEIDENTIFIER NULL,
+    Inciso NVARCHAR(10) NULL,
     NumeroPregunta INT NOT NULL,
+    Pagina INT NOT NULL DEFAULT 1,
     Enunciado NVARCHAR(MAX) NOT NULL,
-    Tipo NVARCHAR(30) NOT NULL, -- 'OpcionMultiple' o 'RespuestaLibre'
-    RespuestaCorrecta NVARCHAR(150) NOT NULL, -- Ej: 'A', 'B', o texto
-    Puntaje FLOAT NOT NULL, -- Puntaje/peso de la pregunta extraído por OCR
-    -- Coordenadas de la pregunta en la página del PDF
+    Tipo NVARCHAR(30) NOT NULL,
+    RespuestaCorrecta NVARCHAR(150) NOT NULL,
+    Puntaje FLOAT NOT NULL,
     PosX FLOAT NOT NULL,
     PosY FLOAT NOT NULL,
     Width FLOAT NOT NULL,
     Height FLOAT NOT NULL,
-    OpcionesJson NVARCHAR(MAX) NULL, -- Guarda coordenadas de sub-opciones (A, B, C, D, E) en formato JSON
+    OpcionesJson NVARCHAR(MAX) NULL,
     CONSTRAINT PK_Pregunta PRIMARY KEY (Id),
-    CONSTRAINT FK_Pregunta_Examen FOREIGN KEY (ExamenId) 
-        REFERENCES Examen(Id) ON DELETE CASCADE,
-    -- Evitar repetir el número de pregunta en el mismo examen
-    CONSTRAINT UQ_Examen_NumeroPregunta UNIQUE (ExamenId, NumeroPregunta)
+    CONSTRAINT FK_Pregunta_Examen FOREIGN KEY (ExamenId) REFERENCES Examen(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_Pregunta_PreguntaPadre FOREIGN KEY (PreguntaPadreId) REFERENCES Pregunta(Id),
+    CONSTRAINT UQ_Examen_NumeroPregunta UNIQUE (ExamenId, NumeroPregunta, Inciso)
 );
 
--- 7. Tabla de Exámenes de Alumnos (Calificaciones de hojas escaneadas)
+-- 9. Crear Tabla ExamenAlumno
 CREATE TABLE ExamenAlumno (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     ExamenId UNIQUEIDENTIFIER NOT NULL,
-    NombreAlumno NVARCHAR(250) NOT NULL, -- Nombre en bruto extraído por OCR
-    AlumnoMatriculadoId UNIQUEIDENTIFIER NULL, -- FK de asociación (Nulo si está observado)
-    Nota FLOAT NOT NULL, -- Suma de puntajes de respuestas correctas
-    RutaPdfRespuesta NVARCHAR(250) NOT NULL, -- Archivo local del alumno
+    NombreAlumno NVARCHAR(250) NOT NULL,
+    AlumnoMatriculadoId UNIQUEIDENTIFIER NULL,
+    Nota FLOAT NOT NULL,
+    RutaPdfRespuesta NVARCHAR(250) NOT NULL,
     DriveFileId NVARCHAR(100) NULL,
     SincronizadoDrive BIT NOT NULL DEFAULT 0,
     TieneObservacion BIT NOT NULL DEFAULT 0,
-    Observacion NVARCHAR(250) NULL, -- Razón de error si TieneObservacion es 1
+    Observacion NVARCHAR(250) NULL,
     FechaCalificacion DATETIME NOT NULL DEFAULT GETDATE(),
     CONSTRAINT PK_ExamenAlumno PRIMARY KEY (Id),
-    CONSTRAINT FK_ExamenAlumno_Examen FOREIGN KEY (ExamenId) 
-        REFERENCES Examen(Id) ON DELETE CASCADE,
-    CONSTRAINT FK_ExamenAlumno_Matricula FOREIGN KEY (AlumnoMatriculadoId) 
-        REFERENCES AlumnoMatriculado(Id) ON DELETE NO ACTION
+    CONSTRAINT FK_ExamenAlumno_Examen FOREIGN KEY (ExamenId) REFERENCES Examen(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_ExamenAlumno_Alumno FOREIGN KEY (AlumnoMatriculadoId) REFERENCES AlumnoMatriculado(Id)
 );
 
--- 8. Tabla de Respuestas dadas por los Alumnos
+-- 10. Crear Tabla RespuestaAlumno
 CREATE TABLE RespuestaAlumno (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     ExamenAlumnoId UNIQUEIDENTIFIER NOT NULL,
     NumeroPregunta INT NOT NULL,
-    RespuestaDada NVARCHAR(150) NOT NULL, -- Lo que marcó o escribió
-    EsCorrecta BIT NOT NULL, -- Comparación automática
+    Inciso NVARCHAR(10) NULL,
+    RespuestaDada NVARCHAR(150) NOT NULL,
+    EsCorrecta BIT NOT NULL,
     CONSTRAINT PK_RespuestaAlumno PRIMARY KEY (Id),
-    CONSTRAINT FK_RespuestaAlumno_ExamenAlumno FOREIGN KEY (ExamenAlumnoId) 
-        REFERENCES ExamenAlumno(Id) ON DELETE CASCADE,
-    -- Evita registrar dos respuestas para la misma pregunta de un alumno
-    CONSTRAINT UQ_ExamenAlumno_NumeroPregunta UNIQUE (ExamenAlumnoId, NumeroPregunta)
+    CONSTRAINT FK_RespuestaAlumno_ExamenAlumno FOREIGN KEY (ExamenAlumnoId) REFERENCES ExamenAlumno(Id) ON DELETE CASCADE
 );
 
--- 9. Índices para optimizar velocidad de reportes y consultas
-CREATE INDEX IX_Curso_DocenteEmail ON Curso(DocenteEmail);
-CREATE INDEX IX_AlumnoMatriculado_CursoId ON AlumnoMatriculado(CursoId);
-CREATE INDEX IX_Unidad_CursoId ON Unidad(CursoId);
+-- 11. Índices para optimizar velocidad de reportes y consultas
+CREATE INDEX IX_CicloAcademico_DocenteEmail ON CicloAcademico(DocenteEmail);
+CREATE INDEX IX_Curso_CicloAcademicoId ON Curso(CicloAcademicoId);
+CREATE INDEX IX_Seccion_CursoId ON Seccion(CursoId);
+CREATE INDEX IX_AlumnoMatriculado_SeccionId ON AlumnoMatriculado(SeccionId);
+CREATE INDEX IX_Unidad_SeccionId ON Unidad(SeccionId);
+CREATE INDEX IX_Examen_UnidadId ON Examen(UnidadId);
 CREATE INDEX IX_Pregunta_ExamenId ON Pregunta(ExamenId);
 CREATE INDEX IX_ExamenAlumno_ExamenId ON ExamenAlumno(ExamenId);
 CREATE INDEX IX_ExamenAlumno_Matricula ON ExamenAlumno(AlumnoMatriculadoId);
@@ -176,11 +194,12 @@ CREATE INDEX IX_RespuestaAlumno_ExamenAlumnoId ON RespuestaAlumno(ExamenAlumnoId
 
 ## Análisis de No Redundancia (Normalización)
 
-- **Emails como Llave Primaria en Docente:** Se aprovecha que el correo es único a nivel institucional para usarlo como llave e indexar directamente, reduciendo un JOIN con un ID artificial para las consultas de cursos creados.
-- **Relaciones Desacopladas:** La información física del alumno matriculado (Nombres, Apellidos, Curso al que pertenece) se guarda en la tabla `AlumnoMatriculado`. El registro de calificación (`ExamenAlumno`) solo almacena el ID del alumno matriculado (`AlumnoMatriculadoId`). No duplicamos el nombre normalizado del alumno en cada examen rendido.
-- **Separación de Preguntas y Respuestas:** El texto de la pregunta, puntajes y coordenadas se guardan una sola vez en `Pregunta`. El alumno solo almacena su respuesta (`RespuestaDada`) y si fue correcta (`EsCorrecta`) referenciando al número de la pregunta. Esto ahorra gigabytes de almacenamiento de texto redundante en bases de datos con miles de exámenes.
+- **Emails como Llave Primaria en Docente:** Se aprovecha que el correo es único a nivel institucional para usarlo como llave e indexar directamente, reduciendo un JOIN con un ID artificial.
+- **Relaciones Desacopladas (Nuevos Niveles):** La inclusión de `CicloAcademico` y `Seccion` permite una mejor organización semestral y separación de grupos de alumnos, reflejando el modelo académico real.
+- **Sub-preguntas y Exámenes (Versiones):** La tabla `Examen` ahora soporta "NombreVersion" (ej. Fila A y Fila B) asegurando unicidad por Unidad (`UQ_Unidad_Version`). La tabla `Pregunta` ahora soporta `PreguntaPadreId` e `Inciso`, lo cual permite descomponer preguntas complejas (1a, 1b) y guardarlas independientemente para calificar el puntaje fraccionado.
 - **Restricciones de Unicidad (`UNIQUE`):** 
-  - `UQ_Curso_Alumno` evita registrar al mismo alumno dos veces en un mismo curso.
-  - `UQ_Curso_Unidad` garantiza que el docente no cree dos unidades con el mismo nombre (ej: no dos `U1` en el mismo curso).
-  - `UQ_Examen_NumeroPregunta` e `UQ_ExamenAlumno_NumeroPregunta` protegen contra la inserción de datos duplicados por errores del bucle de parseo en el backend.
-- **Índices Estratégicos:** Se añadieron índices en las llaves foráneas comunes para acelerar la generación de reportes generales (consolidado de notas) y detallados (por pregunta), minimizando la carga de CPU de SQL Server en consultas complejas.
+  - `UQ_Seccion_Alumno` evita registrar al mismo alumno dos veces en la misma sección.
+  - `UQ_Seccion_Unidad` garantiza que el docente no cree dos unidades con el mismo nombre en la misma sección.
+  - `UQ_Examen_NumeroPregunta` protege contra inserciones de preguntas duplicadas.
+- **Separación de Preguntas y Respuestas:** El texto de la pregunta, puntajes y coordenadas se guardan una sola vez en `Pregunta`. El alumno solo almacena su respuesta y si fue correcta referenciando a la pregunta/inciso, ahorrando gigabytes de texto redundante.
+- **Índices Estratégicos:** Se añadieron índices en las llaves foráneas comunes para acelerar la generación de reportes generales (consolidado de notas por sección) y detallados (por pregunta).

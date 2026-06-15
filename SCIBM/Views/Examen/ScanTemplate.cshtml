@@ -290,6 +290,11 @@
         .btn-continuar { background: var(--accent-color); border: none; color: white; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size:13px; }
         .btn-continuar:hover { opacity: 0.9; }
 
+        /* CURSOR BORRADOR SVG BASE64 */
+        .modo-borrador, .modo-borrador * {
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path fill="%23ff5252" d="M16.24 3.56l4.2 4.2c.78.78.78 2.05 0 2.83l-8.49 8.49c-.78.78-2.05.78-2.83 0l-4.2-4.2c-.78-.78-.78-2.05 0-2.83l8.49-8.49c.78-.78 2.05-.78 2.83 0z"/><path stroke="%23333" stroke-width="2" d="M2 21h20"/></svg>') 0 24, auto !important;
+        }
+
         /* TOOLBAR FLOTANTE / HERRAMIENTAS */
         .editor-toolbar {
             display: flex;
@@ -430,8 +435,8 @@
 
     <!-- RIGHT COLUMN: FORM & CONFIGURATION -->
     <div class="glass-card panel-card">
-        <div class="panel-header">
-            <h2>Plantilla Examen</h2>
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
+            <h2 style="margin: 0; font-size: 16px;">Plantilla Examen</h2>
             <div style="font-size: 13px; color: var(--text-muted);">
                 Total: <strong id="total-score-indicator" style="color: var(--primary-glow);">0.0 ptos</strong>
             </div>
@@ -559,8 +564,12 @@
         function cargarPreguntasExistentes() {
             @if (Model.Preguntas != null && Model.Preguntas.Any())
             {
-                foreach (var p in Model.Preguntas.OrderBy(pr => pr.NumeroPregunta))
+                foreach (var p in Model.Preguntas.Where(x => x.PreguntaPadreId == null).OrderBy(pr => pr.NumeroPregunta))
                 {
+                    string safePuntaje = p.SubPreguntas.Any() 
+                        ? p.SubPreguntas.Sum(s => s.Puntaje).ToString(System.Globalization.CultureInfo.InvariantCulture) 
+                        : p.Puntaje.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
                     <text>
                     preguntas.push({
                         id: '@p.Id',
@@ -568,7 +577,7 @@
                         enunciado: @Html.Raw(JsonConvert.SerializeObject(p.Enunciado)),
                         tipo: @Html.Raw(JsonConvert.SerializeObject(p.Tipo)),
                         respuestaCorrecta: @Html.Raw(JsonConvert.SerializeObject(p.RespuestaCorrecta)),
-                        puntaje: @p.Puntaje.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        puntaje: @safePuntaje,
                         posX: @p.PosX.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         posY: @p.PosY.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         width: @p.Width.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -605,10 +614,13 @@
 
             if (toolName === 'texto' || toolName === 'opcion' || toolName === 'desarrollo' || toolName.startsWith('vf')) {
                 overlay.style.cursor = 'crosshair';
+                overlay.classList.remove('modo-borrador');
             } else if (toolName === 'borrador') {
-                overlay.style.cursor = 'url(https://cdn-icons-png.flaticon.com/32/2723/2723376.png) 0 32, auto';
+                overlay.style.cursor = '';
+                overlay.classList.add('modo-borrador');
             } else {
                 overlay.style.cursor = 'default';
+                overlay.classList.remove('modo-borrador');
             }
         }
 

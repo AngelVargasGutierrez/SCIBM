@@ -469,6 +469,105 @@ Devuelve ÚNICAMENTE un arreglo JSON válido (sin formato markdown adicional), e
             }
         }
 
+// POST: Examen/GuardarPlantilla
+        [HttpPost]
+        public async Task<ActionResult> GuardarPlantilla(Guid examenId, string preguntasJson, double stampX, double stampY, double stampWidth, double stampHeight)
+        {
+            if (Session["UserEmail"] == null) return Json(new { success = false, message = "No autorizado" });
+
+            try
+            {
+                using (var db = new ScibmContext())
+                {
+                    var examen = await db.Examenes.Include(e => e.Preguntas).FirstOrDefaultAsync(e => e.Id == examenId);
+                    if (examen == null) return Json(new { success = false, message = "Examen no encontrado" });
+
+                    examen.StampX = stampX;
+                    examen.StampY = stampY;
+                    examen.StampWidth = stampWidth;
+                    examen.StampHeight = stampHeight;
+
+                    // Borrar preguntas anteriores
+                    db.Preguntas.RemoveRange(examen.Preguntas);
+                    await db.SaveChangesAsync();
+
+                    var preguntasFront = JsonConvert.DeserializeObject<List<PreguntaTemp>>(preguntasJson);
+
+                    foreach(var pFront in preguntasFront)
+                    {
+                        string safeTipo = string.IsNullOrEmpty(pFront.Tipo) ? "OpcionMultiple" : pFront.Tipo;
+                        if (safeTipo.Length > 30) safeTipo = safeTipo.Substring(0, 30);
+
+                        string safeRespuesta = pFront.RespuestaCorrecta ?? "";
+                        if (safeRespuesta.Length > 150) safeRespuesta = safeRespuesta.Substring(0, 150);
+
+                        var pPadre = new Pregunta
+                        {
+                            Id = Guid.NewGuid(),
+                            ExamenId = examen.Id,
+                            PreguntaPadreId = null,
+                            Inciso = null,
+                            NumeroPregunta = pFront.NumeroPregunta,
+                            Enunciado = string.IsNullOrEmpty(pFront.Enunciado) ? $"Pregunta {pFront.NumeroPregunta}" : pFront.Enunciado,
+                            Tipo = safeTipo,
+                            RespuestaCorrecta = safeRespuesta,
+                            Puntaje = pFront.Puntaje > 0 ? pFront.Puntaje : 0.0,
+                            PosX = pFront.PosX,
+                            PosY = pFront.PosY,
+                            Width = pFront.Width,
+                            Height = pFront.Height,
+                            OpcionesJson = pFront.OpcionesJson
+                        };
+
+                        db.Preguntas.Add(pPadre);
+
+                        if (!string.IsNullOrEmpty(pFront.OpcionesJson) && pFront.OpcionesJson != "[]" && 
+                           (pFront.Tipo == "RespuestaLibre" || pFront.Tipo == "VerdaderoFalso"))
+                        {
+                            try {
+                                var opciones = JsonConvert.DeserializeObject<List<OpcionTemp>>(pFront.OpcionesJson);
+                                if (opciones != null && opciones.Count > 1) 
+                                {
+                                    double puntajeHijo = Math.Round(pFront.Puntaje / opciones.Count, 2);
+                                    pPadre.Puntaje = 0; // Contenedor padre no suma para no duplicar
+
+                                    foreach (var opt in opciones)
+                                    {
+                                        var pHija = new Pregunta
+                                        {
+                                            Id = Guid.NewGuid(),
+                                            ExamenId = examen.Id,
+                                            PreguntaPadreId = pPadre.Id,
+                                            Inciso = opt.label,
+                                            NumeroPregunta = pFront.NumeroPregunta,
+                                            Enunciado = $"{pPadre.Enunciado} - Inciso {opt.label}",
+                                            Tipo = pFront.Tipo,
+                                            RespuestaCorrecta = string.IsNullOrEmpty(opt.val) ? "Texto" : opt.val,
+                                            Puntaje = puntajeHijo,
+                                            PosX = opt.x,
+                                            PosY = opt.y,
+                                            Width = opt.w,
+                                            Height = opt.h,
+                                            OpcionesJson = "[]"
+                                        };
+                                        db.Preguntas.Add(pHija);
+                                    }
+                                }
+                            } catch {}
+                        }
+                    }
+
+                    await db.SaveChangesAsync();
+                    TempData["Success"] = "¡Plantilla de examen y coordenadas guardadas exitosamente!";
+                    return Json(new { success = true, redirectUrl = Url.Action("Detail", "Examen", new { id = examenId }) });
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
 // POST: Examen/ConfirmarSolucionario
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -1076,6 +1175,16 @@ Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
         public double Width { get; set; }
         public double Height { get; set; }
         public string OpcionesJson { get; set; }
+    }
+
+    public class OpcionTemp
+    {
+        public string label { get; set; }
+        public string val { get; set; }
+        public double x { get; set; }
+        public double y { get; set; }
+        public double w { get; set; }
+        public double h { get; set; }
     }
 
     public class ResultadoAlumnoTemp

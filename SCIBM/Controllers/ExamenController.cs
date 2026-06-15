@@ -1085,7 +1085,7 @@ Reglas del JSON:
                         }
 
                         // 4. Estampar la nota final y las correcciones en el PDF
-                        string notaTexto = $"Nota: {notaFinal.ToString("0.0")}";
+                        string notaTexto = notaFinal.ToString("0.0");
                         PdfStamperHelper.StampGradeAndCorrections(tempPhysicalPath, finalPhysicalPath, notaTexto, res.Stamp, correctionData);
 
                         // 4. Guardar registros en base de datos (Evitar duplicados)

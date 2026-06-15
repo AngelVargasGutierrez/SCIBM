@@ -123,9 +123,10 @@ namespace SCIBM.Helpers
                             if (w <= 0) w = 120;
                             if (h <= 0) h = 45;
 
-                            XColor bgColor = XColor.FromArgb(120, 255, 159, 28);
+                            // Rojo Pastel: RGB(255, 105, 97)
+                            XColor bgColor = XColor.FromArgb(120, 255, 105, 97);
                             XSolidBrush bgBrush = new XSolidBrush(bgColor);
-                            XPen borderPen = new XPen(XColor.FromArgb(255, 255, 159, 28), 2);
+                            XPen borderPen = new XPen(XColor.FromArgb(255, 255, 105, 97), 2);
                             borderPen.DashStyle = XDashStyle.Dash;
 
                             gfx.DrawRectangle(borderPen, bgBrush, x, y, w, h);
@@ -133,7 +134,9 @@ namespace SCIBM.Helpers
                             double fontSize = Math.Max(10, Math.Min(18, h * 0.4));
                             XFont font = new XFont("Arial", fontSize, XFontStyle.Bold);
                             XStringFormat format = new XStringFormat { LineAlignment = XLineAlignment.Center, Alignment = XStringAlignment.Center };
-                            gfx.DrawString(gradeText, font, new XSolidBrush(XColor.FromArgb(255, 255, 159, 28)), new XRect(x, y, w, h), format);
+                            
+                            // Texto en un rojo un poco más oscuro para que resalte sobre el fondo pastel: RGB(180, 50, 50)
+                            gfx.DrawString(gradeText, font, new XSolidBrush(XColor.FromArgb(255, 180, 50, 50)), new XRect(x, y, w, h), format);
                         }
                     }
 

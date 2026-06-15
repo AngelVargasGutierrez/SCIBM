@@ -374,6 +374,9 @@
             <button class="tool-btn" id="tool-texto" onclick="setTool('texto')">
                 <i class="fa-solid fa-i-cursor"></i> Espacio Blanco
             </button>
+            <button class="tool-btn" id="tool-desarrollo" onclick="setTool('desarrollo')">
+                <i class="fa-solid fa-pen-to-square"></i> Desarrollo
+            </button>
             <button class="tool-btn" id="tool-vf" onclick="setTool('vf')">
                 <i class="fa-solid fa-check-double"></i> Caja V/F
             </button>
@@ -600,7 +603,7 @@
             var btn = document.getElementById('tool-' + toolName);
             if (btn) btn.classList.add('active');
 
-            if (toolName === 'texto' || toolName === 'opcion' || toolName.startsWith('vf')) {
+            if (toolName === 'texto' || toolName === 'opcion' || toolName === 'desarrollo' || toolName.startsWith('vf')) {
                 overlay.style.cursor = 'crosshair';
             } else if (toolName === 'borrador') {
                 overlay.style.cursor = 'url(https://cdn-icons-png.flaticon.com/32/2723/2723376.png) 0 32, auto';
@@ -637,6 +640,22 @@
                     posY: py,
                     width: 30,
                     height: 5,
+                    opcionesJson: "[]",
+                    tieneSubpreguntas: false,
+                    page: currentPageNum
+                });
+            } else if (currentTool === 'desarrollo') {
+                preguntas.push({
+                    id: null,
+                    numeroPregunta: qNum,
+                    enunciado: "Pregunta Desarrollo " + qNum,
+                    tipo: "Desarrollo",
+                    respuestaCorrecta: "Respuesta Larga",
+                    puntaje: 5.0,
+                    posX: px,
+                    posY: py,
+                    width: 80,
+                    height: 20,
                     opcionesJson: "[]",
                     tieneSubpreguntas: false,
                     page: currentPageNum
@@ -1058,80 +1077,100 @@
                             overlay.appendChild(radio);
                         });
                     } catch (ex) {}
-                } else if (p.tipo === "RespuestaLibre") {
+                } else if (p.tipo === "RespuestaLibre" || p.tipo === "Desarrollo") {
                     var textbox = document.createElement("div");
                     textbox.className = "blank-textbox-overlay";
-                    textbox.style.left = "0";
-                    textbox.style.top = "100%";
-                    textbox.style.width = "100%";
-                    textbox.style.height = "25px";
-                    textbox.style.position = "absolute";
-                    textbox.style.backgroundColor = "rgba(72, 202, 228, 0.15)";
-                    textbox.style.border = "1px dashed var(--accent-color)";
-                    textbox.style.borderRadius = "4px";
-                    textbox.style.textAlign = "center";
-                    textbox.style.cursor = "text";
-                    textbox.style.marginTop = "2px";
-                    textbox.style.overflow = "hidden";
-                    textbox.innerText = p.respuestaCorrecta || "Texto";
-                    textbox.style.fontSize = "11px";
-                    textbox.style.fontWeight = "bold";
-                    textbox.style.lineHeight = "25px";
-                    textbox.style.color = "var(--text-color)";
+                    
+                    if (p.tipo === "Desarrollo") {
+                        textbox.style.left = "2%";
+                        textbox.style.top = "10%";
+                        textbox.style.width = "96%";
+                        textbox.style.height = "80%";
+                        textbox.style.position = "absolute";
+                        textbox.style.backgroundColor = "rgba(252, 163, 17, 0.1)";
+                        textbox.style.border = "2px dashed #fca311";
+                        textbox.style.borderRadius = "4px";
+                        textbox.style.display = "flex";
+                        textbox.style.alignItems = "center";
+                        textbox.style.justifyContent = "center";
+                        textbox.style.color = "#fca311";
+                        textbox.style.fontSize = "14px";
+                        textbox.style.fontWeight = "bold";
+                        textbox.style.textAlign = "center";
+                        textbox.innerText = "ZONA DE DESARROLLO\n(Calificación Manual)";
+                        box.appendChild(textbox);
+                    } else {
+                        textbox.style.left = "0";
+                        textbox.style.top = "100%";
+                        textbox.style.width = "100%";
+                        textbox.style.height = "25px";
+                        textbox.style.position = "absolute";
+                        textbox.style.backgroundColor = "rgba(72, 202, 228, 0.15)";
+                        textbox.style.border = "1px dashed var(--accent-color)";
+                        textbox.style.borderRadius = "4px";
+                        textbox.style.textAlign = "center";
+                        textbox.style.cursor = "text";
+                        textbox.style.marginTop = "2px";
+                        textbox.style.overflow = "hidden";
+                        textbox.innerText = p.respuestaCorrecta || "Texto";
+                        textbox.style.fontSize = "11px";
+                        textbox.style.fontWeight = "bold";
+                        textbox.style.lineHeight = "25px";
+                        textbox.style.color = "var(--text-color)";
 
-                    // Evitar que el drag de la caja padre interrumpa el doble clic
-                    textbox.onmousedown = function(e) {
-                        if (currentTool === 'mover') {
-                            e.stopPropagation();
-                        }
-                    };
-
-                    textbox.ondblclick = function(e) {
-                        if (currentTool === 'borrador') {
-                            preguntas.splice(idx, 1);
-                            activeQuestionIndex = -1;
-                            recalcularPuntajeTotal();
-                            renderOverlayControls();
-                            renderQuestionsForm();
-                            e.stopPropagation();
-                            return;
-                        }
-                        
-                        var currentVal = (p.respuestaCorrecta === "Texto" || p.respuestaCorrecta === "OK") ? "" : p.respuestaCorrecta;
-                        textbox.innerText = "";
-                        
-                        var inputEl = document.createElement("input");
-                        inputEl.type = "text";
-                        inputEl.value = currentVal;
-                        inputEl.style.width = "100%";
-                        inputEl.style.height = "100%";
-                        inputEl.style.background = "var(--bg-color)";
-                        inputEl.style.color = "var(--text-color)";
-                        inputEl.style.border = "none";
-                        inputEl.style.outline = "none";
-                        inputEl.style.textAlign = "center";
-                        inputEl.style.fontSize = "12px";
-                        inputEl.style.fontWeight = "bold";
-                        
-                        textbox.appendChild(inputEl);
-                        inputEl.focus();
-
-                        function saveText() {
-                            var val = inputEl.value.trim();
-                            p.respuestaCorrecta = val === "" ? "Texto" : val;
-                            renderOverlayControls();
-                            renderQuestionsForm();
-                        }
-
-                        inputEl.onblur = saveText;
-                        inputEl.onkeypress = function(ev) {
-                            if (ev.key === "Enter") saveText();
+                        // Evitar que el drag de la caja padre interrumpa el doble clic
+                        textbox.onmousedown = function(e) {
+                            if (currentTool === 'mover') {
+                                e.stopPropagation();
+                            }
                         };
 
-                        e.stopPropagation();
-                    };
+                        textbox.ondblclick = function(e) {
+                            if (currentTool === 'borrador') {
+                                preguntas.splice(idx, 1);
+                                activeQuestionIndex = -1;
+                                recalcularPuntajeTotal();
+                                renderOverlayControls();
+                                renderQuestionsForm();
+                                e.stopPropagation();
+                                return;
+                            }
+                            
+                            var currentVal = (p.respuestaCorrecta === "Texto" || p.respuestaCorrecta === "OK") ? "" : p.respuestaCorrecta;
+                            textbox.innerText = "";
+                            
+                            var inputEl = document.createElement("input");
+                            inputEl.type = "text";
+                            inputEl.value = currentVal;
+                            inputEl.style.width = "100%";
+                            inputEl.style.height = "100%";
+                            inputEl.style.background = "var(--bg-color)";
+                            inputEl.style.color = "var(--text-color)";
+                            inputEl.style.border = "none";
+                            inputEl.style.outline = "none";
+                            inputEl.style.textAlign = "center";
+                            inputEl.style.fontSize = "12px";
+                            inputEl.style.fontWeight = "bold";
+                            
+                            textbox.appendChild(inputEl);
+                            inputEl.focus();
 
-                    box.appendChild(textbox);
+                            function saveText() {
+                                var val = inputEl.value.trim();
+                                p.respuestaCorrecta = val === "" ? "Texto" : val;
+                                renderOverlayControls();
+                                renderQuestionsForm();
+                            }
+
+                            inputEl.onblur = saveText;
+                            inputEl.onkeypress = function(ev) {
+                                if (ev.key === "Enter") saveText();
+                            };
+
+                            e.stopPropagation();
+                        };
+                        box.appendChild(textbox);
+                    }
                 }
             });
         }
@@ -1288,12 +1327,95 @@
             preguntas.forEach((p, idx) => {
                 var card = document.createElement("div");
                 card.className = "question-card-item" + (activeQuestionIndex === idx ? " active" : "");
+                card.draggable = true;
+                
+                // Drag & Drop Events
+                card.ondragstart = function(e) {
+                    e.dataTransfer.setData("text/plain", idx);
+                    e.dataTransfer.effectAllowed = "move";
+                    this.style.opacity = "0.5";
+                };
+                card.ondragend = function(e) {
+                    this.style.opacity = "1";
+                };
+                card.ondragover = function(e) {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    this.style.borderTop = "2px solid var(--accent-color)";
+                };
+                card.ondragleave = function(e) {
+                    this.style.borderTop = "";
+                };
+                card.ondrop = function(e) {
+                    e.preventDefault();
+                    this.style.borderTop = "";
+                    var draggedIdx = parseInt(e.dataTransfer.getData("text/plain"));
+                    if (draggedIdx !== idx) {
+                        // Reordenar array
+                        var draggedItem = preguntas.splice(draggedIdx, 1)[0];
+                        preguntas.splice(idx, 0, draggedItem);
+                        
+                        // Renumerar preguntas
+                        preguntas.forEach((pq, i) => { pq.numeroPregunta = i + 1; });
+                        
+                        if (activeQuestionIndex === draggedIdx) {
+                            activeQuestionIndex = idx;
+                        } else if (activeQuestionIndex !== -1) {
+                            // Reset selection to avoid confusion
+                            activeQuestionIndex = -1;
+                            document.getElementById("delete-q-btn").disabled = true;
+                        }
+
+                        renderOverlayControls();
+                        renderQuestionsForm();
+                    }
+                };
                 
                 // Header
                 var qH = document.createElement("div");
                 qH.className = "q-header";
-                qH.innerHTML = `<span class="q-title">Pregunta ${p.numeroPregunta}</span>
-                                <span style="font-size:12px; color:var(--accent-color); font-weight:bold;">${p.puntaje.toFixed(1)} ptos</span>`;
+                
+                var titleSpan = document.createElement("span");
+                titleSpan.className = "q-title";
+                titleSpan.innerText = "Pregunta " + p.numeroPregunta;
+                
+                var scoreInput = document.createElement("input");
+                scoreInput.type = "number";
+                scoreInput.step = "0.5";
+                scoreInput.min = "0";
+                scoreInput.value = p.puntaje;
+                scoreInput.style.width = "50px";
+                scoreInput.style.fontSize = "12px";
+                scoreInput.style.padding = "2px 4px";
+                scoreInput.style.background = "rgba(0,0,0,0.3)";
+                scoreInput.style.border = "1px solid var(--accent-color)";
+                scoreInput.style.color = "var(--accent-color)";
+                scoreInput.style.fontWeight = "bold";
+                scoreInput.style.borderRadius = "4px";
+                scoreInput.onchange = function() {
+                    var val = parseFloat(this.value);
+                    if (!isNaN(val) && val >= 0) {
+                        p.puntaje = val;
+                        recalcularPuntajeTotal();
+                    } else {
+                        this.value = p.puntaje;
+                    }
+                };
+                
+                var scoreWrapper = document.createElement("div");
+                scoreWrapper.style.display = "flex";
+                scoreWrapper.style.alignItems = "center";
+                scoreWrapper.style.gap = "4px";
+                scoreWrapper.appendChild(scoreInput);
+                
+                var ptosLabel = document.createElement("span");
+                ptosLabel.innerText = "ptos";
+                ptosLabel.style.fontSize = "12px";
+                ptosLabel.style.color = "var(--text-muted)";
+                scoreWrapper.appendChild(ptosLabel);
+
+                qH.appendChild(titleSpan);
+                qH.appendChild(scoreWrapper);
                 card.appendChild(qH);
 
                 // Enunciado
@@ -1313,7 +1435,8 @@
                 selectTipo.className = "form-select";
                 selectTipo.innerHTML = `<option value="OpcionMultiple" ${p.tipo === "OpcionMultiple" ? "selected" : ""}>Opción Múltiple</option>
                                         <option value="VerdaderoFalso" ${p.tipo === "VerdaderoFalso" ? "selected" : ""}>Verdadero/Falso Múltiple</option>
-                                        <option value="RespuestaLibre" ${p.tipo === "RespuestaLibre" ? "selected" : ""}>Espacio Blanco</option>`;
+                                        <option value="RespuestaLibre" ${p.tipo === "RespuestaLibre" ? "selected" : ""}>Espacio Blanco</option>
+                                        <option value="Desarrollo" ${p.tipo === "Desarrollo" ? "selected" : ""}>Desarrollo</option>`;
                 selectTipo.onchange = function() {
                     p.tipo = this.value;
                     if (p.tipo === "OpcionMultiple") {
@@ -1368,6 +1491,19 @@
                     
                     subqDiv.innerHTML = subHtml;
                     inputsDiv.appendChild(subqDiv);
+                } else if (p.tipo === "Desarrollo") {
+                    var textarea = document.createElement("textarea");
+                    textarea.className = "form-input";
+                    textarea.style.padding = "6px 10px";
+                    textarea.style.fontSize = "13px";
+                    textarea.style.height = "60px";
+                    textarea.style.resize = "vertical";
+                    textarea.value = p.respuestaCorrecta;
+                    textarea.placeholder = "Criterios de evaluación o respuesta esperada";
+                    textarea.oninput = function() {
+                        p.respuestaCorrecta = this.value;
+                    };
+                    inputsDiv.appendChild(textarea);
                 } else {
                     var inputText = document.createElement("input");
                     inputText.type = "text";
@@ -1457,7 +1593,7 @@
 
         // Recalcular el puntaje total del examen
         function recalcularPuntajeTotal() {
-            var total = preguntas.reduce((sum, p) => sum + p.Puntaje, 0);
+            var total = preguntas.reduce((sum, p) => sum + (parseFloat(p.puntaje) || 0), 0);
             document.getElementById("total-score-indicator").innerText = total.toFixed(1) + " ptos";
         }
 

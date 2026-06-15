@@ -234,6 +234,7 @@ namespace SCIBM.Models
         public Pregunta()
         {
             Id = Guid.NewGuid();
+            SubPreguntas = new HashSet<Pregunta>();
         }
 
         [Key]
@@ -242,6 +243,12 @@ namespace SCIBM.Models
         [Required]
         [ForeignKey("Examen")]
         public Guid ExamenId { get; set; }
+
+        [ForeignKey("PreguntaPadre")]
+        public Guid? PreguntaPadreId { get; set; }
+
+        [StringLength(10)]
+        public string Inciso { get; set; }
 
         [Required]
         public int NumeroPregunta { get; set; }
@@ -265,10 +272,12 @@ namespace SCIBM.Models
         public double Width { get; set; }
         public double Height { get; set; }
 
-        public string OpcionesJson { get; set; } // Coordenadas sub-opciones
+        public string OpcionesJson { get; set; } // [{"label":"A","x":10,"y":20,"w":5,"h":5},...]
 
         // Propiedades de navegación
         public virtual Examen Examen { get; set; }
+        public virtual Pregunta PreguntaPadre { get; set; }
+        public virtual ICollection<Pregunta> SubPreguntas { get; set; }
     }
 
     public class ExamenAlumno
@@ -337,6 +346,9 @@ namespace SCIBM.Models
 
         [Required]
         public int NumeroPregunta { get; set; }
+
+        [StringLength(10)]
+        public string Inciso { get; set; }
 
         [Required]
         [StringLength(150)]

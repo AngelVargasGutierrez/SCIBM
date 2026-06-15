@@ -87,6 +87,8 @@ CREATE TABLE Examen (
 CREATE TABLE Pregunta (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     ExamenId UNIQUEIDENTIFIER NOT NULL,
+    PreguntaPadreId UNIQUEIDENTIFIER NULL,
+    Inciso NVARCHAR(10) NULL,
     NumeroPregunta INT NOT NULL,
     Enunciado NVARCHAR(MAX) NOT NULL,
     Tipo NVARCHAR(30) NOT NULL,
@@ -99,6 +101,7 @@ CREATE TABLE Pregunta (
     OpcionesJson NVARCHAR(MAX) NULL,
     CONSTRAINT PK_Pregunta PRIMARY KEY (Id),
     CONSTRAINT FK_Pregunta_Examen FOREIGN KEY (ExamenId) REFERENCES Examen(Id) ON DELETE CASCADE,
+    CONSTRAINT FK_Pregunta_PreguntaPadre FOREIGN KEY (PreguntaPadreId) REFERENCES Pregunta(Id),
     CONSTRAINT UQ_Examen_NumeroPregunta UNIQUE (ExamenId, NumeroPregunta)
 );
 
@@ -125,6 +128,7 @@ CREATE TABLE RespuestaAlumno (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     ExamenAlumnoId UNIQUEIDENTIFIER NOT NULL,
     NumeroPregunta INT NOT NULL,
+    Inciso NVARCHAR(10) NULL,
     RespuestaDada NVARCHAR(150) NOT NULL,
     EsCorrecta BIT NOT NULL,
     CONSTRAINT PK_RespuestaAlumno PRIMARY KEY (Id),

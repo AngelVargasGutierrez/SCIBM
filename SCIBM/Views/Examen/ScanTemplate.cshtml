@@ -256,6 +256,40 @@
             transition: width 0.3s ease;
         }
 
+        /* CONFIRM MODAL */
+        #confirm-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(11, 19, 43, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 4000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .confirm-box {
+            background: var(--sidebar-bg);
+            border: 1px solid var(--glass-border);
+            padding: 30px;
+            border-radius: 12px;
+            width: 400px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            color: white;
+        }
+        .confirm-box i {
+            font-size: 40px;
+            color: #fca311;
+            margin-bottom: 15px;
+        }
+        .confirm-box h3 { margin-top: 0; color: white; }
+        .confirm-box p { color: var(--text-muted); font-size: 14px; margin-bottom: 25px; }
+        .confirm-btns { display: flex; gap: 15px; justify-content: center; }
+        .btn-cancelar { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size:13px; }
+        .btn-cancelar:hover { background: rgba(255,255,255,0.1); }
+        .btn-continuar { background: var(--accent-color); border: none; color: white; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size:13px; }
+        .btn-continuar:hover { opacity: 0.9; }
+
         /* TOOLBAR FLOTANTE / HERRAMIENTAS */
         .editor-toolbar {
             display: flex;
@@ -341,7 +375,13 @@
                 <i class="fa-solid fa-i-cursor"></i> Espacio Blanco
             </button>
             <button class="tool-btn" id="tool-vf" onclick="setTool('vf')">
-                <i class="fa-solid fa-check-double"></i> Verdadero/Falso
+                <i class="fa-solid fa-check-double"></i> Caja V/F
+            </button>
+            <button class="tool-btn" id="tool-vf-v" onclick="setTool('vf-v')" style="display:none; margin-left:-5px; padding-left:10px; border-left:1px solid rgba(255,255,255,0.1)">
+                <i class="fa-regular fa-circle-check"></i> V
+            </button>
+            <button class="tool-btn" id="tool-vf-f" onclick="setTool('vf-f')" style="display:none; margin-left:-5px; padding-left:10px;">
+                <i class="fa-regular fa-circle-xmark"></i> F
             </button>
             <div style="width: 1px; background: rgba(255,255,255,0.1); margin: 0 5px;"></div>
             <button class="tool-btn tool-btn-danger" id="tool-borrador" onclick="setTool('borrador')">
@@ -426,9 +466,22 @@
         <p id="alert-message" style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Mensaje de error.</p>
         <button class="btn btn-primary" onclick="closeAlertModal()" style="width: 100%;">Entendido</button>
     </div>
-</div>
+    </div>
 
-@section scripts {
+    <!-- Confirm Modal -->
+    <div id="confirm-modal">
+        <div class="confirm-box">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <h3>¿Cambiar configuración?</h3>
+            <p>¿Seguro que desea quitar las subpreguntas? Se quedará solo con la primera opción registrada y lo demás se limpiará.</p>
+            <div class="confirm-btns">
+                <button class="btn-cancelar" onclick="cancelConfirmToggle()">Cancelar</button>
+                <button class="btn-continuar" onclick="proceedConfirmToggle()">Continuar</button>
+            </div>
+        </div>
+    </div>
+
+@section Scripts {
     <!-- PDF.js y Tesseract.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
@@ -532,9 +585,22 @@
         function setTool(toolName) {
             currentTool = toolName;
             document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById('tool-' + toolName).classList.add('active');
+            
+            if (toolName.startsWith('vf')) {
+                document.getElementById('tool-vf').classList.add('active');
+                document.getElementById('tool-vf-v').style.display = 'inline-block';
+                document.getElementById('tool-vf-f').style.display = 'inline-block';
+            } else {
+                var vBtn = document.getElementById('tool-vf-v');
+                var fBtn = document.getElementById('tool-vf-f');
+                if (vBtn) vBtn.style.display = 'none';
+                if (fBtn) fBtn.style.display = 'none';
+            }
 
-            if (toolName === 'texto' || toolName === 'opcion' || toolName === 'vf') {
+            var btn = document.getElementById('tool-' + toolName);
+            if (btn) btn.classList.add('active');
+
+            if (toolName === 'texto' || toolName === 'opcion' || toolName.startsWith('vf')) {
                 overlay.style.cursor = 'crosshair';
             } else if (toolName === 'borrador') {
                 overlay.style.cursor = 'url(https://cdn-icons-png.flaticon.com/32/2723/2723376.png) 0 32, auto';
@@ -563,15 +629,16 @@
                 preguntas.push({
                     id: null,
                     numeroPregunta: qNum,
-                    enunciado: "Texto en blanco " + qNum,
+                    enunciado: "Pregunta Abierta " + qNum,
                     tipo: "RespuestaLibre",
                     respuestaCorrecta: "Texto",
                     puntaje: 1.0,
                     posX: px,
                     posY: py,
-                    width: 20,
-                    height: 3,
+                    width: 30,
+                    height: 5,
                     opcionesJson: "[]",
+                    tieneSubpreguntas: false,
                     page: currentPageNum
                 });
             } else if (currentTool === 'opcion') {
@@ -586,13 +653,8 @@
                     posY: py,
                     width: 30,
                     height: 6,
-                    opcionesJson: JSON.stringify([
-                        { label: "A", x: px + 2, y: py + 5, w: 2.5, h: 2.5 },
-                        { label: "B", x: px + 7, y: py + 5, w: 2.5, h: 2.5 },
-                        { label: "C", x: px + 12, y: py + 5, w: 2.5, h: 2.5 },
-                        { label: "D", x: px + 17, y: py + 5, w: 2.5, h: 2.5 },
-                        { label: "E", x: px + 22, y: py + 5, w: 2.5, h: 2.5 }
-                    ]),
+                    opcionesJson: "[]",
+                    tieneSubpreguntas: false,
                     page: currentPageNum
                 });
             } else if (currentTool === 'vf') {
@@ -601,16 +663,14 @@
                     numeroPregunta: qNum,
                     enunciado: "Verdadero/Falso " + qNum,
                     tipo: "VerdaderoFalso",
-                    respuestaCorrecta: "V",
-                    puntaje: 1.0,
+                    respuestaCorrecta: "",
+                    puntaje: 0,
                     posX: px,
                     posY: py,
-                    width: 15,
-                    height: 5,
-                    opcionesJson: JSON.stringify([
-                        { label: "V", x: px + 2, y: py + 3, w: 2.5, h: 2.5 },
-                        { label: "F", x: px + 8, y: py + 3, w: 2.5, h: 2.5 }
-                    ]),
+                    width: 30,
+                    height: 10,
+                    opcionesJson: "[]",
+                    tieneSubpreguntas: false,
                     page: currentPageNum
                 });
             }
@@ -619,7 +679,9 @@
             recalcularPuntajeTotal();
             renderOverlayControls();
             renderQuestionsForm();
-            setTool('mover'); // Regresar a mover después de insertar
+            
+            // Ya no forzamos setTool('mover') para permitir clics múltiples rápidos
+            // (Ej: dibujar la caja, y de inmediato hacer clic adentro para las opciones)
         });
 
         // 2. Ejecutar Escaneo Inicial con Gemini Vision API
@@ -867,6 +929,55 @@
                         e.stopPropagation();
                         return;
                     }
+
+                    // Punto 1: Clic dinámico para crear opciones dentro de la caja
+                    if (activeQuestionIndex === idx) {
+                        if (currentTool === 'opcion' && p.tipo === "OpcionMultiple") {
+                            var rect = overlay.getBoundingClientRect();
+                            var px = ((e.clientX - rect.left) / rect.width) * 100.0;
+                            var py = ((e.clientY - rect.top) / rect.height) * 100.0;
+
+                            var opciones = [];
+                            try { opciones = JSON.parse(p.opcionesJson) || []; } catch(ex){}
+                            
+                            // Letras secuenciales: 65 = 'A', 66 = 'B'...
+                            var nextChar = String.fromCharCode(65 + opciones.length); 
+                            
+                            opciones.push({ label: nextChar, x: px, y: py, w: 2.5, h: 2.5 });
+                            p.opcionesJson = JSON.stringify(opciones);
+                            
+                            if (opciones.length === 1) {
+                                p.respuestaCorrecta = nextChar;
+                            }
+
+                            renderOverlayControls();
+                            renderQuestionsForm();
+                            e.stopPropagation();
+                            return;
+                        }
+
+                        // Punto 2: Clic dinámico para incisos V/F
+                        if ((currentTool === 'vf-v' || currentTool === 'vf-f') && p.tipo === "VerdaderoFalso") {
+                            var rect = overlay.getBoundingClientRect();
+                            var px = ((e.clientX - rect.left) / rect.width) * 100.0;
+                            var py = ((e.clientY - rect.top) / rect.height) * 100.0;
+
+                            var opciones = [];
+                            try { opciones = JSON.parse(p.opcionesJson) || []; } catch(ex){}
+                            
+                            var nextChar = String.fromCharCode(97 + opciones.length); // 97 = 'a'
+                            var val = currentTool === 'vf-v' ? 'V' : 'F';
+                            
+                            opciones.push({ label: nextChar, val: val, x: px, y: py, w: 2.5, h: 2.5 });
+                            p.opcionesJson = JSON.stringify(opciones);
+                            
+                            renderOverlayControls();
+                            renderQuestionsForm();
+                            e.stopPropagation();
+                            return;
+                        }
+                    }
+
                     selectQuestion(idx);
                     e.stopPropagation();
                 };
@@ -882,28 +993,64 @@
                         var opciones = JSON.parse(p.opcionesJson);
                         opciones.forEach((opt, optIdx) => {
                             var radio = document.createElement("div");
-                            radio.className = "option-radio-overlay" + (p.respuestaCorrecta === opt.label ? " selected" : "");
-                            radio.style.left = opt.x + "%";
-                            radio.style.top = opt.y + "%";
-                            radio.innerText = opt.label;
-                            radio.style.fontSize = "9px";
-                            radio.style.fontWeight = "bold";
-                            radio.style.color = p.respuestaCorrecta === opt.label ? "#0b132b" : "#2ec4b6";
+                            
+                            if (p.tipo === "VerdaderoFalso") {
+                                radio.className = "option-radio-overlay selected";
+                                radio.style.left = opt.x + "%";
+                                radio.style.top = opt.y + "%";
+                                radio.innerText = opt.label + " (" + opt.val + ")";
+                                radio.style.fontSize = "8px";
+                                radio.style.width = "auto";
+                                radio.style.padding = "0 4px";
+                                radio.style.borderRadius = "4px";
+                                radio.style.color = "#0b132b";
+                                radio.style.whiteSpace = "nowrap";
 
-                            radio.onclick = function(e) {
-                                if (currentTool === 'borrador') {
-                                    // Borrar solo la opción en lugar de toda la pregunta
-                                    opciones.splice(optIdx, 1);
-                                    p.opcionesJson = JSON.stringify(opciones);
-                                    renderOverlayControls();
+                                radio.onclick = function(e) {
+                                    if (currentTool === 'borrador') {
+                                        opciones.splice(optIdx, 1);
+                                        // Reordenar a, b, c
+                                        opciones.forEach((o, i) => { o.label = String.fromCharCode(97 + i); });
+                                        p.opcionesJson = JSON.stringify(opciones);
+                                        renderOverlayControls();
+                                        renderQuestionsForm();
+                                        e.stopPropagation();
+                                        return;
+                                    }
                                     e.stopPropagation();
-                                    return;
-                                }
-                                p.respuestaCorrecta = opt.label;
-                                renderOverlayControls();
-                                renderQuestionsForm();
-                                e.stopPropagation();
-                            };
+                                };
+                            } else {
+                                radio.className = "option-radio-overlay" + (p.respuestaCorrecta === opt.label ? " selected" : "");
+                                radio.style.left = opt.x + "%";
+                                radio.style.top = opt.y + "%";
+                                radio.innerText = opt.label;
+                                radio.style.fontSize = "9px";
+                                radio.style.fontWeight = "bold";
+                                radio.style.color = p.respuestaCorrecta === opt.label ? "#0b132b" : "#2ec4b6";
+
+                                radio.onclick = function(e) {
+                                    if (currentTool === 'borrador') {
+                                        // Borrar la opción y reordenar las letras para evitar huecos (A, C, D -> A, B, C)
+                                        opciones.splice(optIdx, 1);
+                                        opciones.forEach((o, i) => { o.label = String.fromCharCode(65 + i); });
+                                        p.opcionesJson = JSON.stringify(opciones);
+                                        
+                                        // Si borró la respuesta correcta, asignar la nueva A (si existe)
+                                        if (!opciones.some(o => o.label === p.respuestaCorrecta)) {
+                                            p.respuestaCorrecta = opciones.length > 0 ? opciones[0].label : "";
+                                        }
+                                        
+                                        renderOverlayControls();
+                                        renderQuestionsForm();
+                                        e.stopPropagation();
+                                        return;
+                                    }
+                                    p.respuestaCorrecta = opt.label;
+                                    renderOverlayControls();
+                                    renderQuestionsForm();
+                                    e.stopPropagation();
+                                };
+                            }
 
                             // Permitir mover la sub-opción
                             makeSubOptionDraggable(radio, idx, optIdx);
@@ -1165,18 +1312,13 @@
                 var selectTipo = document.createElement("select");
                 selectTipo.className = "form-select";
                 selectTipo.innerHTML = `<option value="OpcionMultiple" ${p.tipo === "OpcionMultiple" ? "selected" : ""}>Opción Múltiple</option>
+                                        <option value="VerdaderoFalso" ${p.tipo === "VerdaderoFalso" ? "selected" : ""}>Verdadero/Falso Múltiple</option>
                                         <option value="RespuestaLibre" ${p.tipo === "RespuestaLibre" ? "selected" : ""}>Espacio Blanco</option>`;
                 selectTipo.onchange = function() {
                     p.tipo = this.value;
                     if (p.tipo === "OpcionMultiple") {
                         p.respuestaCorrecta = "A";
-                        // Inicializar opciones
-                        var opciones = [];
-                        var labels = ["A", "B", "C", "D", "E"];
-                        for (var i = 0; i < 5; i++) {
-                            opciones.push({ label: labels[i], x: p.posX + (i * 5) + 2, y: p.posY + p.height + 2, w: 2.5, h: 2.5 });
-                        }
-                        p.opcionesJson = JSON.stringify(opciones);
+                        p.opcionesJson = "[]";
                     } else {
                         p.respuestaCorrecta = "OK";
                         p.opcionesJson = "[]";
@@ -1190,17 +1332,42 @@
                 if (p.tipo === "OpcionMultiple") {
                     var selectResp = document.createElement("select");
                     selectResp.className = "form-select";
-                    var labels = ["A", "B", "C", "D", "E"];
+                    
+                    var opcionesArr = [];
+                    try { opcionesArr = JSON.parse(p.opcionesJson) || []; } catch(e){}
+                    
                     var html = "";
-                    labels.forEach(l => {
-                        html += `<option value="${l}" ${p.respuestaCorrecta === l ? "selected" : ""}>Opción ${l}</option>`;
+                    opcionesArr.forEach(l => {
+                        html += `<option value="${l.label}" ${p.respuestaCorrecta === l.label ? "selected" : ""}>Opción ${l.label}</option>`;
                     });
+                    if (opcionesArr.length === 0) html = `<option value="">(Vacío)</option>`;
+                    
                     selectResp.innerHTML = html;
                     selectResp.onchange = function() {
                         p.respuestaCorrecta = this.value;
                         renderOverlayControls();
                     };
                     inputsDiv.appendChild(selectResp);
+                } else if (p.tipo === "VerdaderoFalso") {
+                    var subqDiv = document.createElement("div");
+                    subqDiv.style.gridColumn = "1 / -1";
+                    subqDiv.style.fontSize = "12px";
+                    subqDiv.style.background = "rgba(0,0,0,0.2)";
+                    subqDiv.style.padding = "8px";
+                    subqDiv.style.borderRadius = "4px";
+                    
+                    var opcionesArr = [];
+                    try { opcionesArr = JSON.parse(p.opcionesJson) || []; } catch(e){}
+                    
+                    var subHtml = "<strong style='color:var(--accent-color);'>Incisos Creados:</strong><ul style='margin:5px 0 0 20px; padding:0;'>";
+                    opcionesArr.forEach(l => {
+                        subHtml += `<li>Inciso <b>${l.label}</b>: Correcta es <b style='color:#fff'>${l.val}</b></li>`;
+                    });
+                    if(opcionesArr.length === 0) subHtml += "<li>(Usa las herramientas V o F para crear incisos)</li>";
+                    subHtml += "</ul>";
+                    
+                    subqDiv.innerHTML = subHtml;
+                    inputsDiv.appendChild(subqDiv);
                 } else {
                     var inputText = document.createElement("input");
                     inputText.type = "text";
@@ -1211,12 +1378,52 @@
                     inputText.placeholder = "Respuesta Correcta";
                     inputText.oninput = function() {
                         p.respuestaCorrecta = this.value;
-                        // Actualizar texto en tiempo real
                         var tb = overlay.querySelector(".blank-textbox-overlay");
                         if (tb) tb.innerText = this.value;
                     };
                     inputsDiv.appendChild(inputText);
                 }
+
+                // Toggle de Subpreguntas
+                var toggleDiv = document.createElement("div");
+                toggleDiv.style.gridColumn = "1 / -1";
+                toggleDiv.style.marginTop = "5px";
+                toggleDiv.style.display = "flex";
+                toggleDiv.style.alignItems = "center";
+                toggleDiv.style.gap = "8px";
+                
+                var chkSub = document.createElement("input");
+                chkSub.type = "checkbox";
+                chkSub.id = "chk-sub-" + idx;
+                chkSub.checked = p.tieneSubpreguntas === true;
+                chkSub.onchange = function() {
+                    var isChecking = this.checked;
+                    if (!isChecking) {
+                        var opcionesArr = [];
+                        try { opcionesArr = JSON.parse(p.opcionesJson) || []; } catch(e){}
+                        if (opcionesArr.length > 1) {
+                            // Revert check visualmente hasta confirmar
+                            this.checked = true;
+                            pendingToggleQuestion = p;
+                            document.getElementById("confirm-modal").style.display = "flex";
+                            return;
+                        }
+                    }
+                    p.tieneSubpreguntas = isChecking;
+                    renderOverlayControls();
+                    renderQuestionsForm();
+                };
+                
+                var lblSub = document.createElement("label");
+                lblSub.htmlFor = "chk-sub-" + idx;
+                lblSub.innerText = "¿Contiene subpreguntas (incisos)?";
+                lblSub.style.fontSize = "12px";
+                lblSub.style.color = "var(--text-muted)";
+                lblSub.style.cursor = "pointer";
+                
+                toggleDiv.appendChild(chkSub);
+                toggleDiv.appendChild(lblSub);
+                inputsDiv.appendChild(toggleDiv);
 
                 card.appendChild(inputsDiv);
 
@@ -1254,6 +1461,43 @@
             document.getElementById("total-score-indicator").innerText = total.toFixed(1) + " ptos";
         }
 
+        // Lógica Global Modal Confirmación Toggle
+        var pendingToggleQuestion = null;
+
+        function cancelConfirmToggle() {
+            pendingToggleQuestion = null;
+            document.getElementById("confirm-modal").style.display = "none";
+        }
+
+        function proceedConfirmToggle() {
+            if (pendingToggleQuestion) {
+                pendingToggleQuestion.tieneSubpreguntas = false;
+                var opcionesArr = [];
+                try { opcionesArr = JSON.parse(pendingToggleQuestion.opcionesJson) || []; } catch(e){}
+                
+                if (opcionesArr.length > 1) {
+                    // Mantener solo el primer elemento
+                    var firstOpt = opcionesArr[0];
+                    if (pendingToggleQuestion.tipo === "VerdaderoFalso") {
+                        firstOpt.label = "a";
+                    } else if (pendingToggleQuestion.tipo === "OpcionMultiple") {
+                        firstOpt.label = "A";
+                    }
+                    pendingToggleQuestion.opcionesJson = JSON.stringify([firstOpt]);
+                    
+                    // Ajustar respuesta correcta si es necesario
+                    if (pendingToggleQuestion.tipo === "OpcionMultiple") {
+                        pendingToggleQuestion.respuestaCorrecta = "A";
+                    }
+                }
+                
+                pendingToggleQuestion = null;
+                document.getElementById("confirm-modal").style.display = "none";
+                renderOverlayControls();
+                renderQuestionsForm();
+            }
+        }
+
         // Añadir una pregunta de forma manual en el visor
         function addManualControl() {
             var qNum = preguntas.length > 0 ? Math.max(...preguntas.map(p => p.numeroPregunta)) + 1 : 1;
@@ -1276,6 +1520,7 @@
                     { label: "D", x: 32, y: 37, w: 2.5, h: 2.5 },
                     { label: "E", x: 37, y: 37, w: 2.5, h: 2.5 }
                 ]),
+                tieneSubpreguntas: false,
                 page: currentPageNum
             };
 

@@ -261,11 +261,12 @@ namespace SCIBM.Controllers
                     
                     string prompt = @"Eres un asistente de OCR avanzado para exámenes. Analiza la primera página de este examen en blanco.
 Identifica todas las preguntas. Para cada pregunta, extrae:
-1. 'numeroPregunta' (int).
+1. 'numeroPregunta' (int): Identifica el número de la pregunta. Puede estar en números arábigos (1, 2, 3...) o romanos (I, II, III, IV...). Conviértelo siempre a un entero (ej: III -> 3).
 2. 'enunciado' (texto de la pregunta).
-3. 'tipo': Puede ser 'OpcionMultiple', 'VerdaderoFalso', o 'RespuestaLibre' (líneas en blanco largas como _______).
-4. 'posX', 'posY', 'width', 'height': Coordenadas relativas en porcentaje (0.0 a 100.0) de la ubicación aproximada del bloque de respuestas (las letras, paréntesis o líneas).
-5. 'opciones': Si es OpcionMultiple o VerdaderoFalso, detecta exactamente cuántas alternativas hay. 
+3. 'tipo': Puede ser 'OpcionMultiple', 'VerdaderoFalso', 'RespuestaLibre' (espacios, líneas o huecos cortos para llenar palabras) o 'Desarrollo' (grandes rectángulos o áreas extensas vacías destinadas a redactar párrafos completos).
+4. 'puntaje' (float): Busca dentro del texto de la pregunta cualquier mención a puntos (ptos, puntos, pts, etc). Si la encuentras, extrae SOLO el número y asígnalo aquí. Si no encuentras nada, pon 0.0.
+5. 'posX', 'posY', 'width', 'height': Coordenadas relativas en porcentaje (0.0 a 100.0) de la ubicación aproximada del bloque de respuestas (las letras, paréntesis o líneas). Para Desarrollo, intenta abarcar todo el espacio destinado a la respuesta.
+6. 'opciones': Si es OpcionMultiple o VerdaderoFalso, detecta exactamente cuántas alternativas hay. 
    Devuelve un array de objetos JSON para las opciones. Por ejemplo, si hay A, B, C, D, devuelve 4 opciones. Si es VerdaderoFalso, devuelve 2 ('V', 'F'). 
    Cada opción debe tener 'label', 'x', 'y' (coordenadas relativas X, Y relativas al ancho y alto total del documento, no de la pregunta), 'w' (2.5), 'h' (2.5). Pon las coordenadas lo más precisas posible sobre las letras o paréntesis vacíos.
    Para RespuestaLibre, el array de opciones debe estar vacío.
@@ -274,13 +275,14 @@ Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
 {
   ""preguntas"": [
     {
-      ""numeroPregunta"": 1,
-      ""enunciado"": ""¿Qué es la célula?"",
-      ""tipo"": ""OpcionMultiple"",
-      ""posX"": 10.5, ""posY"": 20.0, ""width"": 50.0, ""height"": 15.0,
-      ""opciones"": [
-        { ""label"": ""A"", ""x"": 12.0, ""y"": 25.0, ""w"": 2.5, ""h"": 2.5 },
-        { ""label"": ""B"", ""x"": 12.0, ""y"": 28.0, ""w"": 2.5, ""h"": 2.5 }
+      "numeroPregunta": 1,
+      "enunciado": "¿Qué es la célula? (2 ptos)",
+      "tipo": "OpcionMultiple",
+      "puntaje": 2.0,
+      "posX": 10.5, "posY": 20.0, "width": 50.0, "height": 15.0,
+      "opciones": [
+        { "label": "A", "x": 12.0, "y": 25.0, "w": 2.5, "h": 2.5 },
+        { "label": "B", "x": 12.0, "y": 28.0, "w": 2.5, "h": 2.5 }
       ]
     }
   ]

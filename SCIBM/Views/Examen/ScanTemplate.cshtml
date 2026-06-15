@@ -735,13 +735,16 @@
                             numeroPregunta: pq.numeroPregunta,
                             enunciado: pq.enunciado || "Pregunta " + pq.numeroPregunta,
                             tipo: pq.tipo || "OpcionMultiple",
-                            respuestaCorrecta: (pq.tipo === "RespuestaLibre") ? "Texto" : (pq.opciones && pq.opciones.length > 0 ? pq.opciones[0].label : "A"),
-                            puntaje: 1.0,
+                            respuestaCorrecta: (pq.tipo === "RespuestaLibre") ? "Texto" : 
+                                               (pq.tipo === "Desarrollo") ? "Criterios de evaluación" : 
+                                               (pq.opciones && pq.opciones.length > 0 ? pq.opciones[0].label : "A"),
+                            puntaje: pq.puntaje || 0.0,
                             posX: pq.posX || 10,
                             posY: pq.posY || 10,
                             width: pq.width || 30,
                             height: pq.height || 6,
                             opcionesJson: JSON.stringify(pq.opciones || []),
+                            tieneSubpreguntas: (pq.opciones && pq.opciones.length > 1),
                             page: 1
                         });
                     });
@@ -995,6 +998,26 @@
                             e.stopPropagation();
                             return;
                         }
+
+                        // Punto 5: Clic dinámico para incisos RespuestaLibre
+                        if (currentTool === 'texto' && p.tipo === "RespuestaLibre") {
+                            var rect = overlay.getBoundingClientRect();
+                            var px = ((e.clientX - rect.left) / rect.width) * 100.0;
+                            var py = ((e.clientY - rect.top) / rect.height) * 100.0;
+
+                            var opciones = [];
+                            try { opciones = JSON.parse(p.opcionesJson) || []; } catch(ex){}
+                            
+                            var nextChar = String.fromCharCode(97 + opciones.length); // 97 = 'a'
+                            
+                            opciones.push({ label: nextChar, val: "Texto", x: px, y: py, w: 15, h: 4 });
+                            p.opcionesJson = JSON.stringify(opciones);
+                            
+                            renderOverlayControls();
+                            renderQuestionsForm();
+                            e.stopPropagation();
+                            return;
+                        }
                     }
 
                     selectQuestion(idx);
@@ -1007,13 +1030,88 @@
                 overlay.appendChild(box);
 
                 // 2. Renderizar sub-elementos de respuesta según tipo
-                if ((p.tipo === "OpcionMultiple" || p.tipo === "VerdaderoFalso") && p.opcionesJson) {
+                if ((p.tipo === "OpcionMultiple" || p.tipo === "VerdaderoFalso" || p.tipo === "RespuestaLibre") && p.opcionesJson) {
                     try {
                         var opciones = JSON.parse(p.opcionesJson);
                         opciones.forEach((opt, optIdx) => {
                             var radio = document.createElement("div");
                             
-                            if (p.tipo === "VerdaderoFalso") {
+                            if (p.tipo === "RespuestaLibre") {
+                                radio.className = "blank-textbox-overlay";
+                                radio.style.position = "absolute";
+                                radio.style.left = opt.x + "%";
+                                radio.style.top = opt.y + "%";
+                                radio.style.width = opt.w + "%";
+                                radio.style.height = opt.h + "%";
+                                radio.style.backgroundColor = "rgba(72, 202, 228, 0.15)";
+                                radio.style.border = "1px dashed var(--accent-color)";
+                                radio.style.borderRadius = "4px";
+                                radio.style.textAlign = "center";
+                                radio.style.cursor = "text";
+                                radio.style.overflow = "hidden";
+                                radio.innerText = opt.label + ") " + opt.val;
+                                radio.style.fontSize = "11px";
+                                radio.style.fontWeight = "bold";
+                                radio.style.color = "var(--text-color)";
+
+                                radio.onclick = function(e) {
+                                    if (currentTool === 'borrador') {
+                                        opciones.splice(optIdx, 1);
+                                        // Reordenar a, b, c
+                                        opciones.forEach((o, i) => { o.label = String.fromCharCode(97 + i); });
+                                        p.opcionesJson = JSON.stringify(opciones);
+                                        renderOverlayControls();
+                                        renderQuestionsForm();
+                                        e.stopPropagation();
+                                        return;
+                                    }
+                                    e.stopPropagation();
+                                };
+
+                                // Permitir editar texto con doble clic
+                                radio.ondblclick = function(e) {
+                                    var currentVal = opt.val === "Texto" ? "" : opt.val;
+                                    radio.innerText = "";
+                                    
+                                    var inputEl = document.createElement("input");
+                                    inputEl.type = "text";
+                                    inputEl.value = currentVal;
+                                    inputEl.style.width = "100%";
+                                    inputEl.style.height = "100%";
+                                    inputEl.style.background = "var(--bg-color)";
+                                    inputEl.style.color = "var(--text-color)";
+                                    inputEl.style.border = "none";
+                                    inputEl.style.outline = "none";
+                                    inputEl.style.textAlign = "center";
+                                    inputEl.style.fontSize = "12px";
+                                    inputEl.style.fontWeight = "bold";
+                                    
+                                    radio.appendChild(inputEl);
+                                    inputEl.focus();
+
+                                    function saveText() {
+                                        var val = inputEl.value.trim();
+                                        opt.val = val === "" ? "Texto" : val;
+                                        p.opcionesJson = JSON.stringify(opciones);
+                                        renderOverlayControls();
+                                        renderQuestionsForm();
+                                    }
+
+                                    inputEl.onblur = saveText;
+                                    inputEl.onkeypress = function(ev) {
+                                        if (ev.key === "Enter") saveText();
+                                    };
+
+                                    e.stopPropagation();
+                                };
+
+                                // Resize handle para el sub-elemento
+                                var subHandle = document.createElement("div");
+                                subHandle.className = "resize-handle";
+                                radio.appendChild(subHandle);
+                                
+                                makeSubElementDraggableAndResizable(radio, subHandle, p, optIdx);
+                            } else if (p.tipo === "VerdaderoFalso") {
                                 radio.className = "option-radio-overlay selected";
                                 radio.style.left = opt.x + "%";
                                 radio.style.top = opt.y + "%";
@@ -1038,6 +1136,7 @@
                                     }
                                     e.stopPropagation();
                                 };
+                                makeSubOptionDraggable(radio, idx, optIdx);
                             } else {
                                 radio.className = "option-radio-overlay" + (p.respuestaCorrecta === opt.label ? " selected" : "");
                                 radio.style.left = opt.x + "%";
@@ -1069,108 +1168,33 @@
                                     renderQuestionsForm();
                                     e.stopPropagation();
                                 };
+                                makeSubOptionDraggable(radio, idx, optIdx);
                             }
-
-                            // Permitir mover la sub-opción
-                            makeSubOptionDraggable(radio, idx, optIdx);
 
                             overlay.appendChild(radio);
                         });
                     } catch (ex) {}
-                } else if (p.tipo === "RespuestaLibre" || p.tipo === "Desarrollo") {
+                } else if (p.tipo === "Desarrollo") {
                     var textbox = document.createElement("div");
                     textbox.className = "blank-textbox-overlay";
                     
-                    if (p.tipo === "Desarrollo") {
-                        textbox.style.left = "2%";
-                        textbox.style.top = "10%";
-                        textbox.style.width = "96%";
-                        textbox.style.height = "80%";
-                        textbox.style.position = "absolute";
-                        textbox.style.backgroundColor = "rgba(252, 163, 17, 0.1)";
-                        textbox.style.border = "2px dashed #fca311";
-                        textbox.style.borderRadius = "4px";
-                        textbox.style.display = "flex";
-                        textbox.style.alignItems = "center";
-                        textbox.style.justifyContent = "center";
-                        textbox.style.color = "#fca311";
-                        textbox.style.fontSize = "14px";
-                        textbox.style.fontWeight = "bold";
-                        textbox.style.textAlign = "center";
-                        textbox.innerText = "ZONA DE DESARROLLO\n(Calificación Manual)";
-                        box.appendChild(textbox);
-                    } else {
-                        textbox.style.left = "0";
-                        textbox.style.top = "100%";
-                        textbox.style.width = "100%";
-                        textbox.style.height = "25px";
-                        textbox.style.position = "absolute";
-                        textbox.style.backgroundColor = "rgba(72, 202, 228, 0.15)";
-                        textbox.style.border = "1px dashed var(--accent-color)";
-                        textbox.style.borderRadius = "4px";
-                        textbox.style.textAlign = "center";
-                        textbox.style.cursor = "text";
-                        textbox.style.marginTop = "2px";
-                        textbox.style.overflow = "hidden";
-                        textbox.innerText = p.respuestaCorrecta || "Texto";
-                        textbox.style.fontSize = "11px";
-                        textbox.style.fontWeight = "bold";
-                        textbox.style.lineHeight = "25px";
-                        textbox.style.color = "var(--text-color)";
-
-                        // Evitar que el drag de la caja padre interrumpa el doble clic
-                        textbox.onmousedown = function(e) {
-                            if (currentTool === 'mover') {
-                                e.stopPropagation();
-                            }
-                        };
-
-                        textbox.ondblclick = function(e) {
-                            if (currentTool === 'borrador') {
-                                preguntas.splice(idx, 1);
-                                activeQuestionIndex = -1;
-                                recalcularPuntajeTotal();
-                                renderOverlayControls();
-                                renderQuestionsForm();
-                                e.stopPropagation();
-                                return;
-                            }
-                            
-                            var currentVal = (p.respuestaCorrecta === "Texto" || p.respuestaCorrecta === "OK") ? "" : p.respuestaCorrecta;
-                            textbox.innerText = "";
-                            
-                            var inputEl = document.createElement("input");
-                            inputEl.type = "text";
-                            inputEl.value = currentVal;
-                            inputEl.style.width = "100%";
-                            inputEl.style.height = "100%";
-                            inputEl.style.background = "var(--bg-color)";
-                            inputEl.style.color = "var(--text-color)";
-                            inputEl.style.border = "none";
-                            inputEl.style.outline = "none";
-                            inputEl.style.textAlign = "center";
-                            inputEl.style.fontSize = "12px";
-                            inputEl.style.fontWeight = "bold";
-                            
-                            textbox.appendChild(inputEl);
-                            inputEl.focus();
-
-                            function saveText() {
-                                var val = inputEl.value.trim();
-                                p.respuestaCorrecta = val === "" ? "Texto" : val;
-                                renderOverlayControls();
-                                renderQuestionsForm();
-                            }
-
-                            inputEl.onblur = saveText;
-                            inputEl.onkeypress = function(ev) {
-                                if (ev.key === "Enter") saveText();
-                            };
-
-                            e.stopPropagation();
-                        };
-                        box.appendChild(textbox);
-                    }
+                    textbox.style.left = "2%";
+                    textbox.style.top = "10%";
+                    textbox.style.width = "96%";
+                    textbox.style.height = "80%";
+                    textbox.style.position = "absolute";
+                    textbox.style.backgroundColor = "rgba(252, 163, 17, 0.1)";
+                    textbox.style.border = "2px dashed #fca311";
+                    textbox.style.borderRadius = "4px";
+                    textbox.style.display = "flex";
+                    textbox.style.alignItems = "center";
+                    textbox.style.justifyContent = "center";
+                    textbox.style.color = "#fca311";
+                    textbox.style.fontSize = "14px";
+                    textbox.style.fontWeight = "bold";
+                    textbox.style.textAlign = "center";
+                    textbox.innerText = "ZONA DE DESARROLLO\n(Calificación Manual)";
+                    box.appendChild(textbox);
                 }
             });
         }
@@ -1314,6 +1338,79 @@
             document.addEventListener('mouseup', function(e) {
                 if (isMoving) {
                     isMoving = false;
+                    renderOverlayControls();
+                }
+            });
+        }
+
+        // Hacer que las subcajas de texto sean arrastrables y redimensionables
+        function makeSubElementDraggableAndResizable(el, handle, p, optIdx) {
+            var isMoving = false;
+            var isResizing = false;
+            var sX, sY, sLeft, sTop, sWidth, sHeight;
+
+            el.addEventListener('mousedown', function(e) {
+                if (currentTool === 'borrador') return;
+                if (e.target === handle) return;
+                isMoving = true;
+                sX = e.clientX;
+                sY = e.clientY;
+                sLeft = el.offsetLeft;
+                sTop = el.offsetTop;
+                e.stopPropagation();
+            });
+
+            handle.addEventListener('mousedown', function(e) {
+                if (currentTool === 'borrador') return;
+                isResizing = true;
+                sX = e.clientX;
+                sY = e.clientY;
+                sWidth = el.offsetWidth;
+                sHeight = el.offsetHeight;
+                e.stopPropagation();
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!isMoving && !isResizing) return;
+                var dx = e.clientX - sX;
+                var dy = e.clientY - sY;
+                var overlayW = overlay.offsetWidth;
+                var overlayH = overlay.offsetHeight;
+                
+                var opciones = [];
+                try { opciones = JSON.parse(p.opcionesJson); } catch(ex){}
+
+                if (isMoving) {
+                    var newL = sLeft + dx;
+                    var newT = sTop + dy;
+
+                    opciones[optIdx].x = (newL / overlayW) * 100.0;
+                    opciones[optIdx].y = (newT / overlayH) * 100.0;
+                    p.opcionesJson = JSON.stringify(opciones);
+
+                    el.style.left = opciones[optIdx].x + "%";
+                    el.style.top = opciones[optIdx].y + "%";
+                }
+
+                if (isResizing) {
+                    var newW = sWidth + dx;
+                    var newH = sHeight + dy;
+                    if (newW < 10) newW = 10;
+                    if (newH < 10) newH = 10;
+
+                    opciones[optIdx].w = (newW / overlayW) * 100.0;
+                    opciones[optIdx].h = (newH / overlayH) * 100.0;
+                    p.opcionesJson = JSON.stringify(opciones);
+
+                    el.style.width = opciones[optIdx].w + "%";
+                    el.style.height = opciones[optIdx].h + "%";
+                }
+            });
+
+            document.addEventListener('mouseup', function(e) {
+                if (isMoving || isResizing) {
+                    isMoving = false;
+                    isResizing = false;
                     renderOverlayControls();
                 }
             });
@@ -1504,6 +1601,26 @@
                         p.respuestaCorrecta = this.value;
                     };
                     inputsDiv.appendChild(textarea);
+                } else if (p.tipo === "RespuestaLibre") {
+                    var subqDiv = document.createElement("div");
+                    subqDiv.style.gridColumn = "1 / -1";
+                    subqDiv.style.fontSize = "12px";
+                    subqDiv.style.background = "rgba(0,0,0,0.2)";
+                    subqDiv.style.padding = "8px";
+                    subqDiv.style.borderRadius = "4px";
+                    
+                    var opcionesArr = [];
+                    try { opcionesArr = JSON.parse(p.opcionesJson) || []; } catch(e){}
+                    
+                    var subHtml = "<strong style='color:var(--accent-color);'>Espacios Creados:</strong><ul style='margin:5px 0 0 20px; padding:0;'>";
+                    opcionesArr.forEach(l => {
+                        subHtml += `<li>Espacio <b>${l.label}</b>: Texto esperado es <b style='color:#fff'>${l.val}</b></li>`;
+                    });
+                    if(opcionesArr.length === 0) subHtml += "<li>(Usa la herramienta Espacio en Blanco para crear recuadros)</li>";
+                    subHtml += "</ul><div style='margin-top:5px; color:#aaa; font-size:10px;'>Doble clic en el espacio sobre el PDF para editar su texto.</div>";
+                    
+                    subqDiv.innerHTML = subHtml;
+                    inputsDiv.appendChild(subqDiv);
                 } else {
                     var inputText = document.createElement("input");
                     inputText.type = "text";
@@ -1514,8 +1631,7 @@
                     inputText.placeholder = "Respuesta Correcta";
                     inputText.oninput = function() {
                         p.respuestaCorrecta = this.value;
-                        var tb = overlay.querySelector(".blank-textbox-overlay");
-                        if (tb) tb.innerText = this.value;
+                        // Ya no intentamos sobreescribir blanks aquí, solo p.respuestaCorrecta por compatibilidad
                     };
                     inputsDiv.appendChild(inputText);
                 }
@@ -1618,6 +1734,8 @@
                         firstOpt.label = "a";
                     } else if (pendingToggleQuestion.tipo === "OpcionMultiple") {
                         firstOpt.label = "A";
+                    } else if (pendingToggleQuestion.tipo === "RespuestaLibre") {
+                        firstOpt.label = "a";
                     }
                     pendingToggleQuestion.opcionesJson = JSON.stringify([firstOpt]);
                     

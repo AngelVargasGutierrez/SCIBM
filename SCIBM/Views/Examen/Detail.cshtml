@@ -175,6 +175,7 @@
                                 <th>Estado Drive</th>
                                 <th>Observación</th>
                                 <th>Nota</th>
+                                <th style="width: 50px;"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -218,6 +219,14 @@
                                     </td>
                                     <td>
                                         <span class="grade-badge">@c.Nota.ToString("0.0")</span>
+                                    </td>
+                                    <td>
+                                        <a href="@Url.Action("ViewPdf", "Examen", new { id = c.Id })" target="_blank" class="btn btn-outline-info" style="padding: 4px 8px; margin-right: 4px;" title="Ver PDF Corregido">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </a>
+                                        <button class="btn btn-outline-danger" style="padding: 4px 8px;" onclick="eliminarCalificacion('@c.Id', '@(c.AlumnoMatriculadoId != null ? c.AlumnoMatriculado.NombreCompleto : c.NombreAlumno)')" title="Eliminar este registro">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
                                     </td>
                                 </tr>
                             }
@@ -441,6 +450,31 @@
         function showCalificarLoading(e) {
             document.getElementById("loading-text").innerText = "Escaneando y calificando exámenes de alumnos...";
             document.getElementById("loading-overlay").classList.add("active");
+        }
+
+        function confirmSync() {
+            if (confirm("¿Estás seguro de subir todos estos exámenes corregidos a la carpeta de Google Drive?")) {
+                document.getElementById('syncForm').submit();
+            }
+        }
+
+        function eliminarCalificacion(id, nombre) {
+            if (confirm("¿Estás seguro de eliminar la calificación de " + nombre + "? Esta acción no se puede deshacer.")) {
+                fetch('@Url.Action("DeleteCalificacion", "Examen")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'calificacionId=' + id
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        location.reload();
+                    } else {
+                        alert("Error: " + res.message);
+                    }
+                })
+                .catch(e => alert("Error de red al intentar eliminar."));
+            }
         }
 
         function showSyncLoading(e) {

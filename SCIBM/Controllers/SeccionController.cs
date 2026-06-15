@@ -421,7 +421,7 @@ namespace SCIBM.Controllers
 
                     foreach (var un in unidades)
                     {
-                        var examenDeUnidad = examenes.FirstOrDefault(e => e.Id == un.Id);
+                        var examenDeUnidad = examenes.FirstOrDefault(e => e.UnidadId == un.Id);
                         if (examenDeUnidad != null)
                         {
                             var notaAlumno = notas.FirstOrDefault(n => n.ExamenId == examenDeUnidad.Id && n.AlumnoMatriculadoId == al.Id);
@@ -501,7 +501,7 @@ namespace SCIBM.Controllers
                         int colIdx = 2;
                         foreach (var un in unidades)
                         {
-                            var examenDeUnidad = examenes.FirstOrDefault(e => e.Id == un.Id);
+                            var examenDeUnidad = examenes.FirstOrDefault(e => e.UnidadId == un.Id);
                             if (examenDeUnidad != null)
                             {
                                 var notaAlumno = notas.FirstOrDefault(n => n.ExamenId == examenDeUnidad.Id && n.AlumnoMatriculadoId == al.Id);

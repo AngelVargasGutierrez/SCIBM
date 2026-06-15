@@ -110,19 +110,24 @@ namespace SCIBM.Controllers
         }
 
         // GET: Unidad/Detail/5
-        public async Task<ActionResult> Detail(Guid id)
+        public async Task<ActionResult> Detail(Guid? id)
         {
             if (Session["UserEmail"] == null)
             {
                 return RedirectToAction("Login", "Auth");
             }
 
+            if (!id.HasValue)
+            {
+                return RedirectToAction("Index", "Ciclo");
+            }
+
             using (var db = new ScibmContext())
             {
                 var unidad = await db.Unidades
                     .Include(u => u.Seccion.Curso.CicloAcademico)
-                    .Include(u => u.Examenes)
-                    .FirstOrDefaultAsync(u => u.Id == id);
+                    .Include(u => u.Examenes.Select(e => e.Preguntas))
+                    .FirstOrDefaultAsync(u => u.Id == id.Value);
 
                 if (unidad == null || unidad.Seccion.Curso.CicloAcademico.DocenteEmail != Session["UserEmail"].ToString())
                 {

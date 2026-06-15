@@ -147,22 +147,74 @@ namespace SCIBM.Controllers
         }
 
         // GET: Curso/Detail/5
-        public async Task<ActionResult> Detail(Guid id)
+        public async Task<ActionResult> Detail(Guid? id)
         {
             if (Session["UserEmail"] == null)
                 return RedirectToAction("Login", "Auth");
+
+            if (!id.HasValue)
+                return RedirectToAction("Index", "Ciclo");
 
             using (var db = new ScibmContext())
             {
                 var curso = await db.Cursos
                     .Include(c => c.Secciones)
                     .Include(c => c.CicloAcademico)
-                    .FirstOrDefaultAsync(c => c.Id == id);
+                    .FirstOrDefaultAsync(c => c.Id == id.Value);
 
                 if (curso == null || curso.CicloAcademico.DocenteEmail != Session["UserEmail"].ToString())
                     return HttpNotFound("El curso no existe o no tiene permisos.");
 
                 return View(curso);
+            }
+        }
+
+        // POST: Curso/Rename
+        [HttpPost]
+        public async Task<ActionResult> Rename(Guid id, string newName)
+        {
+            if (Session["UserEmail"] == null)
+                return Json(new { success = false, message = "Sesión expirada." });
+
+            if (string.IsNullOrEmpty(newName))
+                return Json(new { success = false, message = "El nombre no puede estar vacío." });
+
+            string email = Session["UserEmail"].ToString();
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var curso = await db.Cursos.Include(c => c.CicloAcademico).FirstOrDefaultAsync(c => c.Id == id && c.CicloAcademico.DocenteEmail == email);
+                    if (curso == null)
+                        return Json(new { success = false, message = "Curso no encontrado o sin permisos." });
+
+                    bool exists = await db.Cursos.AnyAsync(c => c.CicloAcademicoId == curso.CicloAcademicoId && c.Nombre == newName && c.Id != id);
+                    if (exists)
+                        return Json(new { success = false, message = "Ya existe otro curso con este nombre en este ciclo." });
+
+                    curso.Nombre = newName;
+
+                    if (!string.IsNullOrEmpty(curso.DriveFolderId))
+                    {
+                        string accessToken = await GetValidAccessTokenAsync(db, email);
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            await GoogleDriveHelper.RenameFolderAsync(curso.DriveFolderId, newName, accessToken);
+                        }
+                    }
+
+                    await db.SaveChangesAsync();
+
+                    var cursosReload = await db.Cursos.Include(c => c.CicloAcademico).Where(c => c.CicloAcademico.DocenteEmail == email).ToListAsync();
+                    Session["MisCursos"] = cursosReload.ToDictionary(c => c.Id, c => c.Nombre);
+
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error al renombrar: " + ex.Message });
+                }
             }
         }
 

@@ -127,14 +127,52 @@
         color: #ff5252;
         border: 1px solid rgba(255, 82, 82, 0.25);
     }
+
+    .edit-btn {
+        color: white;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: all 0.2s ease;
+        padding: 4px;
+        margin-left: 8px;
+    }
+    .edit-btn:hover {
+        color: var(--accent-color);
+        opacity: 1;
+        transform: scale(1.1);
+    }
+    
+    /* CUSTOM FILE INPUT */
+    .file-upload-custom {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 25px;
+        border: 2px dashed rgba(100, 223, 223, 0.3);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.02);
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        color: var(--text-muted);
+        text-align: center;
+        gap: 10px;
+    }
+    .file-upload-custom:hover {
+        background: rgba(100, 223, 223, 0.08);
+        border-color: var(--primary-glow);
+        color: white;
+    }
+    .file-upload-custom i {
+        font-size: 32px;
+        color: var(--primary-glow);
+    }
 </style>
 
-<!-- VOLVER -->
-<div style="margin-bottom: 10px;">
-    <a href="@Url.Action("Detail", "Seccion", new { id = Model.SeccionId })" style="color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;">
-        <i class="fa-solid fa-arrow-left"></i> Volver a @Model.Seccion.Nombre (Curso @Model.Seccion.Curso.Nombre)
-    </a>
-</div>
+
 
 <!-- ALERTAS -->
 @if (TempData["Success"] != null)
@@ -153,9 +191,12 @@
 }
 
 <!-- ACTION BAR -->
-<div class="action-bar">
+<div class="action-bar" style="justify-content: space-between;">
+    <a href="@Url.Action("Detail", "Seccion", new { id = Model.SeccionId })" class="btn btn-secondary">
+        <i class="fa-solid fa-arrow-left"></i> Volver
+    </a>
     <button class="btn btn-primary" onclick="openModal()">
-        <i class="fa-solid fa-plus"></i> Nueva Versión de Examen
+        <i class="fa-solid fa-plus"></i> Nueva Versión
     </button>
 </div>
 
@@ -179,8 +220,11 @@ else
         @foreach (var v in Model.Examenes.OrderBy(e => e.NombreVersion))
         {
             <div class="course-card">
-                <div class="course-info">
-                    <h3 title="@v.NombreVersion">@v.NombreVersion</h3>
+                <div class="course-info" style="display: flex; align-items: center; justify-content: space-between;">
+                    <h3 title="@v.NombreVersion" style="margin-bottom: 0;">@v.NombreVersion</h3>
+                    <button class="edit-btn" onclick="openEditModal('@v.Id', '@v.NombreVersion')" title="Renombrar">
+                        <i class="fa-solid fa-pencil"></i>
+                    </button>
                 </div>
                 
                 <div class="course-stats">
@@ -221,19 +265,48 @@ else
                 <input type="text" id="nombreVersion" name="nombreVersion" class="form-input" placeholder="Ej: Fila A" required />
             </div>
 
-            <!-- Mantenemos la opción de subir la plantilla en blanco inmediatamente para no romper el flujo -->
             <div class="form-group">
-                <label for="pdfFile">Seleccionar Archivo PDF (Plantilla en blanco, opcional)</label>
-                <input type="file" id="pdfFile" name="pdfFile" accept=".pdf" class="form-input" style="padding: 8px;" />
-                <span style="font-size: 11px; color: var(--text-muted); margin-top: 4px; display: block;">Si no lo subes ahora, podrás subirlo o usar la IA desde el panel de la versión.</span>
+                <label style="display:block; margin-bottom: 8px;">Seleccionar Archivo PDF (Plantilla del examen)</label>
+                <label for="pdfFile" class="file-upload-custom">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span id="file-name-display" style="font-weight: 500;">Haz clic para buscar un archivo .pdf</span>
+                </label>
+                <input type="file" id="pdfFile" name="pdfFile" accept=".pdf" style="display: none;" required onchange="updateFileName(this)" />
             </div>
 
             <div id="modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
 
             <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px;">
                 <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-                <button type="submit" class="btn btn-primary" id="submit-btn">
+                <button type="submit" class="btn btn-primary" id="submit-btn" disabled>
                     <span>Crear Versión</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EDIT VERSION -->
+<div class="modal-overlay" id="edit-version-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Renombrar Versión</h3>
+            <button class="modal-close" onclick="closeEditModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <form id="edit-version-form" onsubmit="submitEditForm(event)">
+            <input type="hidden" id="edit-id" />
+            <div class="form-group">
+                <label for="edit-nombre">Nuevo Nombre</label>
+                <input type="text" id="edit-nombre" class="form-input" required />
+            </div>
+
+            <div id="edit-modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px;">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="edit-submit-btn">
+                    <span>Guardar Cambios</span>
                 </button>
             </div>
         </form>
@@ -260,6 +333,76 @@ else
             document.getElementById("add-version-modal").classList.remove("active");
             document.getElementById("create-version-form").reset();
             document.getElementById("modal-error").style.display = "none";
+            document.getElementById("file-name-display").innerText = "Haz clic para buscar un archivo .pdf";
+            document.getElementById("file-name-display").style.color = "";
+            document.getElementById("submit-btn").disabled = true;
+        }
+
+        function updateFileName(input) {
+            var display = document.getElementById("file-name-display");
+            var submitBtn = document.getElementById("submit-btn");
+            if (input.files && input.files.length > 0) {
+                display.innerText = input.files[0].name;
+                display.style.color = "var(--primary-glow)";
+                submitBtn.disabled = false;
+            } else {
+                display.innerText = "Haz clic para buscar un archivo .pdf";
+                display.style.color = "";
+                submitBtn.disabled = true;
+            }
+        }
+
+        function openEditModal(id, nombre) {
+            document.getElementById("edit-id").value = id;
+            document.getElementById("edit-nombre").value = nombre;
+            document.getElementById("edit-version-modal").classList.add("active");
+            document.getElementById("edit-nombre").focus();
+        }
+
+        function closeEditModal() {
+            document.getElementById("edit-version-modal").classList.remove("active");
+            document.getElementById("edit-version-form").reset();
+            document.getElementById("edit-modal-error").style.display = "none";
+        }
+
+        function submitEditForm(e) {
+            e.preventDefault();
+            
+            var submitBtn = document.getElementById("edit-submit-btn");
+            var originalHtml = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+            var id = document.getElementById("edit-id").value;
+            var newName = document.getElementById("edit-nombre").value;
+
+            fetch('@Url.Action("Rename", "Examen")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'id=' + encodeURIComponent(id) + '&newName=' + encodeURIComponent(newName)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                    var errDiv = document.getElementById("edit-modal-error");
+                    errDiv.innerText = data.message || "Ocurrió un error al renombrar.";
+                    errDiv.style.display = "block";
+                }
+            })
+            .catch(error => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHtml;
+                var errDiv = document.getElementById("edit-modal-error");
+                errDiv.innerText = "Error de conexión con el servidor.";
+                errDiv.style.display = "block";
+            });
         }
 
         function submitForm(e) {

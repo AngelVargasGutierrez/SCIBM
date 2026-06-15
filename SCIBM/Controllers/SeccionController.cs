@@ -93,11 +93,60 @@ namespace SCIBM.Controllers
             }
         }
 
+        // POST: Seccion/Rename
+        [HttpPost]
+        public async Task<ActionResult> Rename(Guid id, string newName)
+        {
+            if (Session["UserEmail"] == null)
+                return Json(new { success = false, message = "Sesión expirada." });
+
+            if (string.IsNullOrEmpty(newName))
+                return Json(new { success = false, message = "El nombre no puede estar vacío." });
+
+            string email = Session["UserEmail"].ToString();
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var seccion = await db.Secciones.Include(s => s.Curso.CicloAcademico).FirstOrDefaultAsync(s => s.Id == id && s.Curso.CicloAcademico.DocenteEmail == email);
+                    if (seccion == null)
+                        return Json(new { success = false, message = "Sección no encontrada o sin permisos." });
+
+                    bool exists = await db.Secciones.AnyAsync(s => s.CursoId == seccion.CursoId && s.Nombre == newName && s.Id != id);
+                    if (exists)
+                        return Json(new { success = false, message = "Ya existe otra sección con este nombre en este curso." });
+
+                    seccion.Nombre = newName;
+
+                    if (!string.IsNullOrEmpty(seccion.DriveFolderId))
+                    {
+                        string accessToken = await GetValidAccessTokenAsync(db, email);
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            await GoogleDriveHelper.RenameFolderAsync(seccion.DriveFolderId, newName, accessToken);
+                        }
+                    }
+
+                    await db.SaveChangesAsync();
+
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error al renombrar: " + ex.Message });
+                }
+            }
+        }
+
         // GET: Seccion/Detail/5
-        public async Task<ActionResult> Detail(Guid id)
+        public async Task<ActionResult> Detail(Guid? id)
         {
             if (Session["UserEmail"] == null)
                 return RedirectToAction("Login", "Auth");
+
+            if (!id.HasValue)
+                return RedirectToAction("Index", "Ciclo");
 
             using (var db = new ScibmContext())
             {
@@ -105,7 +154,7 @@ namespace SCIBM.Controllers
                     .Include(s => s.Curso)
                     .Include(s => s.AlumnosMatriculados)
                     .Include(s => s.Unidades)
-                    .FirstOrDefaultAsync(s => s.Id == id);
+                    .FirstOrDefaultAsync(s => s.Id == id.Value);
 
                 if (seccion == null || seccion.Curso.CicloAcademico.DocenteEmail != Session["UserEmail"].ToString())
                     return HttpNotFound("La sección no existe o no tiene permisos.");
@@ -122,43 +171,124 @@ namespace SCIBM.Controllers
             }
         }
 
+        private string FixMojibake(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return input;
+            
+            // Reemplazos manuales de caracteres que la conversión de bytes no puede procesar
+            // porque cayeron en el rango de caracteres de control C1 (como el \u0091 de la Ñ mayúscula)
+            input = input.Replace("Ã\u0091", "Ñ")
+                         .Replace("Ã\u00B1", "ñ")
+                         .Replace("Ã±", "ñ")
+                         .Replace("Ã‘", "Ñ");
+
+            if (input.Contains("Ã"))
+            {
+                // Reemplazos de emergencia comunes
+                input = input.Replace("Ã¡", "á")
+                             .Replace("Ã©", "é")
+                             .Replace("Ã\u00AD", "í")
+                             .Replace("Ã³", "ó")
+                             .Replace("Ãº", "ú")
+                             .Replace("Ã\u0081", "Á")
+                             .Replace("Ã\u0089", "É")
+                             .Replace("Ã\u008D", "Í")
+                             .Replace("Ã\u0093", "Ó")
+                             .Replace("Ã\u009A", "Ú");
+
+                try
+                {
+                    byte[] bytes = System.Text.Encoding.GetEncoding(28591).GetBytes(input); // ISO-8859-1
+                    string decoded = System.Text.Encoding.UTF8.GetString(bytes);
+                    if (!decoded.Contains("") && !decoded.Contains("?")) return decoded;
+                }
+                catch { }
+            }
+            return input;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult> CheckExamenesCalificados(Guid seccionId)
+        {
+            if (Session["UserEmail"] == null) return Json(new { hasGraded = false }, JsonRequestBehavior.AllowGet);
+            
+            using (var db = new ScibmContext())
+            {
+                bool hasGraded = await db.ExamenesAlumnos.AnyAsync(e => e.AlumnoMatriculado != null && e.AlumnoMatriculado.SeccionId == seccionId);
+                return Json(new { hasGraded = hasGraded }, JsonRequestBehavior.AllowGet);
+            }
+        }
+
         // POST: Seccion/ImportarAlumnos
         [HttpPost]
-        public async Task<ActionResult> ImportarAlumnos(Guid seccionId, HttpPostedFileBase archivoExcel)
+        public async Task<ActionResult> ImportarAlumnos(Guid seccionId, HttpPostedFileBase archivoExcel, string strategy = "Conservar")
         {
             if (Session["UserEmail"] == null)
-                return RedirectToAction("Login", "Auth");
+                return Json(new { success = false, message = "Sesión expirada. Por favor inicie sesión de nuevo." });
 
             if (archivoExcel == null || archivoExcel.ContentLength == 0)
             {
-                TempData["Error"] = "Debe seleccionar un archivo Excel válido.";
-                return RedirectToAction("Detail", new { id = seccionId });
+                return Json(new { success = false, message = "Debe seleccionar un archivo Excel válido." });
             }
 
             using (var db = new ScibmContext())
             {
                 var seccion = await db.Secciones.Include(s => s.Curso).FirstOrDefaultAsync(s => s.Id == seccionId);
                 if (seccion == null || seccion.Curso.CicloAcademico.DocenteEmail != Session["UserEmail"].ToString())
-                    return HttpNotFound();
+                    return Json(new { success = false, message = "Sección no encontrada o no tiene permisos." });
 
                 try
                 {
                     using (var package = new ExcelPackage(archivoExcel.InputStream))
                     {
                         var worksheet = package.Workbook.Worksheets.FirstOrDefault();
-                        if (worksheet == null)
+                        if (worksheet == null || worksheet.Dimension == null)
                         {
-                            TempData["Error"] = "El archivo Excel está vacío.";
-                            return RedirectToAction("Detail", new { id = seccionId });
+                            return Json(new { success = false, message = "Coloque la lista de alumnos en una sola columna sin encabezado en la primera hoja del archivo Excel." });
                         }
+
+                        // Limpieza inteligente
+                        var existingStudents = await db.AlumnosMatriculados.Where(a => a.SeccionId == seccionId).ToListAsync();
+                        foreach (var student in existingStudents)
+                        {
+                            if (strategy == "Continuar")
+                            {
+                                // Borrar a todos. Los examenes quedan sin alumno asociado.
+                                var exams = await db.ExamenesAlumnos.Where(e => e.AlumnoMatriculadoId == student.Id).ToListAsync();
+                                foreach (var ex in exams)
+                                {
+                                    ex.AlumnoMatriculadoId = null;
+                                    ex.TieneObservacion = true;
+                                    ex.Observacion = "Alumno eliminado al reemplazar Excel de matrícula.";
+                                }
+                                db.AlumnosMatriculados.Remove(student);
+                            }
+                            else // Conservar
+                            {
+                                // Borrar solo los que no tienen examen
+                                bool hasExams = await db.ExamenesAlumnos.AnyAsync(e => e.AlumnoMatriculadoId == student.Id);
+                                if (!hasExams)
+                                {
+                                    db.AlumnosMatriculados.Remove(student);
+                                }
+                            }
+                        }
+                        await db.SaveChangesAsync();
 
                         int rowCount = worksheet.Dimension.Rows;
                         int importedCount = 0;
+                        HashSet<string> addedNames = new HashSet<string>();
+
+                        // Pre-cargar los que quedaron
+                        var remainingStudents = await db.AlumnosMatriculados.Where(a => a.SeccionId == seccionId).Select(a => a.NombreCompleto).ToListAsync();
+                        foreach (var r in remainingStudents) addedNames.Add(r);
 
                         for (int row = 1; row <= rowCount; row++)
                         {
                             var cellValue = worksheet.Cells[row, 1].Value?.ToString()?.Trim();
                             if (string.IsNullOrEmpty(cellValue)) continue;
+
+                            cellValue = FixMojibake(cellValue); // CORRECCIÓN DE Ñ Y TILDES
 
                             string nombres = "";
                             string apellidos = "";
@@ -197,8 +327,7 @@ namespace SCIBM.Controllers
                                 nombreCompleto = $"{apellidos}, {nombres}";
                             }
 
-                            bool existe = await db.AlumnosMatriculados.AnyAsync(a => a.SeccionId == seccionId && a.NombreCompleto == nombreCompleto);
-                            if (!existe)
+                            if (!addedNames.Contains(nombreCompleto))
                             {
                                 var alumno = new AlumnoMatriculado
                                 {
@@ -208,20 +337,20 @@ namespace SCIBM.Controllers
                                     Nombres = nombres
                                 };
                                 db.AlumnosMatriculados.Add(alumno);
+                                addedNames.Add(nombreCompleto);
                                 importedCount++;
                             }
                         }
 
                         await db.SaveChangesAsync();
-                        TempData["Success"] = $"Se importaron con éxito {importedCount} alumnos.";
+                        TempData["Success"] = $"Se importaron con éxito {importedCount} alumnos y se limpió la lista antigua.";
+                        return Json(new { success = true });
                     }
                 }
                 catch (Exception ex)
                 {
-                    TempData["Error"] = "Error al procesar el archivo Excel: " + ex.Message;
+                    return Json(new { success = false, message = "Error al procesar el archivo Excel: " + ex.Message });
                 }
-
-                return RedirectToAction("Detail", new { id = seccionId });
             }
         }
 

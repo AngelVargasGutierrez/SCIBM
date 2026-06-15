@@ -154,5 +154,26 @@ namespace SCIBM.Helpers
 
             return null;
         }
+
+        // 4. Renombrar carpeta o archivo en Google Drive
+        public static async Task<bool> RenameFolderAsync(string folderId, string newName, string accessToken)
+        {
+            if (string.IsNullOrEmpty(folderId)) return false;
+
+            var updateUrl = $"https://www.googleapis.com/drive/v3/files/{folderId}";
+            var body = new JObject { { "name", newName } };
+
+            var request = new HttpRequestMessage(new HttpMethod("PATCH"), updateUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Content = new StringContent(body.ToString(), Encoding.UTF8, "application/json");
+
+            var response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                System.Diagnostics.Debug.WriteLine("Error renaming Drive folder: " + error);
+            }
+            return response.IsSuccessStatusCode;
+        }
     }
 }

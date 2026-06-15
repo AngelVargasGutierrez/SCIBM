@@ -41,6 +41,7 @@
     .student-list {
         max-height: 480px;
         overflow-y: auto;
+        overflow-x: auto;
         padding-right: 5px;
     }
     .student-item {
@@ -50,6 +51,7 @@
         padding: 10px 12px;
         border-radius: 8px;
         transition: background 0.2s;
+        min-width: max-content;
     }
     .student-item:hover {
         background: rgba(255, 255, 255, 0.02);
@@ -71,8 +73,6 @@
         font-size: 14px;
         font-weight: 500;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
     }
 
     /* UNITS PANEL */
@@ -147,6 +147,32 @@
         color: #ff5252;
         border: 1px solid rgba(255, 82, 82, 0.25);
     }
+
+    /* CUSTOM FILE INPUT */
+    .file-upload-custom {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 25px;
+        border: 2px dashed rgba(100, 223, 223, 0.3);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.02);
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        color: var(--text-muted);
+        text-align: center;
+        gap: 10px;
+    }
+    .file-upload-custom:hover {
+        background: rgba(100, 223, 223, 0.08);
+        border-color: var(--primary-glow);
+        color: white;
+    }
+    .file-upload-custom i {
+        font-size: 32px;
+        color: var(--primary-glow);
+    }
 </style>
 
 <!-- SUCCESS/ERROR MESSAGES -->
@@ -180,7 +206,10 @@
         {
             <div style="text-align: center; padding: 40px 10px; color: var(--text-muted); font-size: 14px;">
                 <i class="fa-solid fa-users" style="font-size: 36px; opacity: 0.3; margin-bottom: 12px; display: block;"></i>
-                No hay alumnos matriculados en este curso.
+                <div style="margin-bottom: 10px;">No hay alumnos matriculados en este curso.</div>
+                <div style="font-size: 12.5px; opacity: 0.7; max-width: 250px; margin: 0 auto; line-height: 1.5;">
+                    <strong>Nota:</strong> Solo archivos .xlsx, sin encabezado, con una sola columna en la primera hoja.
+                </div>
             </div>
         }
         else
@@ -207,9 +236,14 @@
     <div class="glass-card">
         <div class="panel-header">
             <h2>Unidades de Examen</h2>
-            <button class="btn btn-primary" onclick="openUnitModal()">
-                <i class="fa-solid fa-plus"></i> Nueva Unidad
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <a href="@Url.Action("Detail", "Curso", new { id = Model.CursoId })" class="btn btn-secondary">
+                    <i class="fa-solid fa-arrow-left"></i> Volver
+                </a>
+                <button class="btn btn-primary" onclick="openUnitModal()">
+                    <i class="fa-solid fa-plus"></i> Nueva Unidad
+                </button>
+            </div>
         </div>
 
         @if (!Model.Unidades.Any())
@@ -225,7 +259,8 @@
             <div class="units-grid">
                 @foreach (var un in Model.Unidades.OrderBy(u => u.NombreUnidad))
                 {
-                    var examen = examenes?.FirstOrDefault(e => e.Id == un.Id);
+                    var versiones = examenes?.Where(e => e.UnidadId == un.Id).ToList();
+                    var tieneVersiones = versiones != null && versiones.Any();
                     
                     <div class="unit-card">
                         <div>
@@ -238,28 +273,28 @@
                             </div>
                             
                             <div class="exam-status">
-                                @if (examen != null)
+                                @if (tieneVersiones)
                                 {
-                                    <span class="status-ok"><i class="fa-solid fa-circle-check"></i> Examen: @examen.Titulo</span>
+                                    <span class="status-ok"><i class="fa-solid fa-circle-check"></i> @versiones.Count versión(es)</span>
                                 }
                                 else
                                 {
-                                    <span class="status-warn"><i class="fa-solid fa-triangle-exclamation"></i> Falta configurar examen</span>
+                                    <span class="status-warn"><i class="fa-solid fa-triangle-exclamation"></i> Faltan versiones</span>
                                 }
                             </div>
                         </div>
 
                         <div>
-                            @if (examen != null)
+                            @if (tieneVersiones)
                             {
                                 <a href="@Url.Action("Detail", "Unidad", new { id = un.Id })" class="btn btn-secondary" style="width: 100%; font-size: 13px; padding: 8px 12px;">
-                                    Ver Examen <i class="fa-solid fa-arrow-right" style="margin-left: 6px; font-size: 11px;"></i>
+                                    Ver Versiones <i class="fa-solid fa-arrow-right" style="margin-left: 6px; font-size: 11px;"></i>
                                 </a>
                             }
                             else
                             {
                                 <a href="@Url.Action("Detail", "Unidad", new { id = un.Id })" class="btn btn-primary" style="width: 100%; font-size: 13px; padding: 8px 12px;">
-                                    Configurar Examen <i class="fa-solid fa-gear" style="margin-left: 6px; font-size: 11px;"></i>
+                                    Configurar Versiones <i class="fa-solid fa-gear" style="margin-left: 6px; font-size: 11px;"></i>
                                 </a>
                             }
                         </div>
@@ -279,8 +314,8 @@
             <button class="modal-close" onclick="closeImportModal()"><i class="fa-solid fa-xmark"></i></button>
         </div>
         
-        <form id="import-form" action="@Url.Action("ImportarAlumnos", "Seccion")" method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="seccionId" value="@Model.Id" />
+        <form id="import-form" onsubmit="submitImportForm(event)">
+            <input type="hidden" id="importSeccionId" name="seccionId" value="@Model.Id" />
             
             <div style="background: rgba(100, 223, 223, 0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(100, 223, 223, 0.15); margin-bottom: 20px; font-size: 13px; color: var(--text-muted);">
                 <i class="fa-solid fa-info-circle" style="color: var(--primary-glow); margin-right: 6px;"></i>
@@ -288,13 +323,19 @@
             </div>
 
             <div class="form-group">
-                <label for="archivoExcel">Seleccionar Archivo Excel</label>
-                <input type="file" id="archivoExcel" name="archivoExcel" accept=".xlsx" class="form-input" style="padding: 8px;" required />
+                <label style="display:block; margin-bottom: 8px;">Seleccionar Archivo Excel</label>
+                <label for="archivoExcel" class="file-upload-custom">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <span id="file-name-display" style="font-weight: 500;">Haz clic para buscar un archivo .xlsx</span>
+                </label>
+                <input type="file" id="archivoExcel" name="archivoExcel" accept=".xlsx" style="display: none;" required onchange="updateFileName(this)" />
             </div>
+
+            <div id="import-modal-error" style="color: #ff5252; font-size: 13px; margin-top: 15px; display: none;"></div>
 
             <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px;">
                 <button type="button" class="btn btn-secondary" onclick="closeImportModal()">Cancelar</button>
-                <button type="submit" class="btn btn-primary" onclick="showImportLoading()">Importar</button>
+                <button type="submit" class="btn btn-primary" id="import-submit-btn">Importar</button>
             </div>
         </form>
     </div>
@@ -328,6 +369,30 @@
     </div>
 </div>
 
+<!-- MODAL CONFLICT -->
+<div class="modal-overlay" id="conflict-modal">
+    <div class="modal-box" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3 style="color: #ffb703;"><i class="fa-solid fa-triangle-exclamation"></i> Reemplazo de Lista</h3>
+            <button class="modal-close" onclick="closeConflictModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="padding: 10px 0; color: var(--text-muted); font-size: 14px; line-height: 1.5;">
+            Se ha detectado que <strong>ya existen alumnos con exámenes calificados</strong> en esta sección. 
+            <br><br>
+            ¿Qué deseas hacer con la lista actual antes de importar?
+            <ul style="margin-top: 10px; padding-left: 20px;">
+                <li style="margin-bottom: 8px;"><strong>Continuar:</strong> Limpiará a TODOS los alumnos. Los exámenes calificados perderán a su alumno asociado.</li>
+                <li><strong>Conservar:</strong> Solo limpiará a los alumnos sin examen. Conservará a los ya calificados.</li>
+            </ul>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px;">
+            <button type="button" class="btn btn-secondary" onclick="closeConflictModal()">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="proceedImport('Conservar')" style="background: var(--accent-color); color: #0b132b;">Conservar</button>
+            <button type="button" class="btn btn-secondary" onclick="proceedImport('Continuar')" style="border-color: #ff5252; color: #ff5252;">Continuar</button>
+        </div>
+    </div>
+</div>
+
 @section scripts {
     <script>
         // MODAL IMPORT
@@ -337,12 +402,103 @@
         function closeImportModal() {
             document.getElementById("import-modal").classList.remove("active");
             document.getElementById("import-form").reset();
+            document.getElementById("import-modal-error").style.display = "none";
+            document.getElementById("file-name-display").innerText = "Haz clic para buscar un archivo .xlsx";
+            document.getElementById("file-name-display").style.color = "";
         }
-        function showImportLoading() {
-            // Se realiza un post clásico, mostramos un feedback rápido
-            document.querySelector("#import-form button[type='submit']").disabled = true;
-            document.querySelector("#import-form button[type='submit']").innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
-            document.getElementById("import-form").submit();
+        function updateFileName(input) {
+            var displaySpan = document.getElementById("file-name-display");
+            if (input.files && input.files.length > 0) {
+                displaySpan.innerText = input.files[0].name;
+                displaySpan.style.color = "#2ec4b6"; // Color accent
+            } else {
+                displaySpan.innerText = "Haz clic para buscar un archivo .xlsx";
+                displaySpan.style.color = "";
+            }
+        }
+        var currentFormData = null;
+        var currentSubmitBtn = null;
+        var currentOrigHtml = null;
+
+        function submitImportForm(e) {
+            e.preventDefault();
+            
+            currentSubmitBtn = document.getElementById("import-submit-btn");
+            currentOrigHtml = currentSubmitBtn.innerHTML;
+            
+            currentSubmitBtn.disabled = true;
+            currentSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
+            
+            var seccionId = document.getElementById("importSeccionId").value;
+            currentFormData = new FormData();
+            currentFormData.append('seccionId', seccionId);
+            currentFormData.append('archivoExcel', document.getElementById("archivoExcel").files[0]);
+
+            fetch('@Url.Action("CheckExamenesCalificados", "Seccion")?seccionId=' + seccionId)
+            .then(res => res.json())
+            .then(data => {
+                if (data.hasGraded) {
+                    document.getElementById("import-modal").classList.remove("active");
+                    document.getElementById("conflict-modal").classList.add("active");
+                    currentSubmitBtn.disabled = false;
+                    currentSubmitBtn.innerHTML = currentOrigHtml;
+                } else {
+                    proceedImport('Conservar');
+                }
+            })
+            .catch(err => {
+                proceedImport('Conservar'); // default on error
+            });
+        }
+
+        function closeConflictModal() {
+            document.getElementById("conflict-modal").classList.remove("active");
+            document.getElementById("import-form").reset();
+            document.getElementById("file-name-display").innerText = "Haz clic para buscar un archivo .xlsx";
+        }
+
+        function proceedImport(strategy) {
+            document.getElementById("conflict-modal").classList.remove("active");
+            currentFormData.set('strategy', strategy);
+            
+            if (currentSubmitBtn && !document.getElementById("conflict-modal").classList.contains("active")) {
+                currentSubmitBtn.disabled = true;
+                currentSubmitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Importando...';
+            } else {
+                document.body.style.cursor = "wait";
+            }
+
+            fetch('@Url.Action("ImportarAlumnos", "Seccion")', {
+                method: 'POST',
+                body: currentFormData
+            })
+            .then(response => response.text())
+            .then(text => {
+                try {
+                    var data = JSON.parse(text);
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        document.body.style.cursor = "default";
+                        if (currentSubmitBtn) { currentSubmitBtn.disabled = false; currentSubmitBtn.innerHTML = currentOrigHtml; }
+                        // Mostramos el modal de importación de nuevo con el error
+                        document.getElementById("import-modal").classList.add("active");
+                        var errDiv = document.getElementById("import-modal-error");
+                        errDiv.innerText = data.message || "Ocurrió un error al importar.";
+                        errDiv.style.display = "block";
+                    }
+                } catch(e) {
+                    document.write(text);
+                }
+            })
+            .catch(error => {
+                document.body.style.cursor = "default";
+                if (currentSubmitBtn) { currentSubmitBtn.disabled = false; currentSubmitBtn.innerHTML = currentOrigHtml; }
+                document.getElementById("import-modal").classList.add("active");
+                var errDiv = document.getElementById("import-modal-error");
+                errDiv.innerText = "Error de conexión con el servidor.";
+                errDiv.style.display = "block";
+            });
         }
 
         // MODAL UNIT
@@ -394,5 +550,22 @@
                 errDiv.style.display = "block";
             });
         }
+
+        // Auto-fade alerts after 3 seconds
+        setTimeout(function() {
+            var alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                alert.style.transition = "opacity 0.8s ease-out, margin-top 0.8s ease-out, height 0.8s ease-out, padding 0.8s ease-out, margin-bottom 0.8s ease-out";
+                alert.style.opacity = "0";
+                alert.style.height = "0";
+                alert.style.paddingTop = "0";
+                alert.style.paddingBottom = "0";
+                alert.style.marginTop = "0";
+                alert.style.marginBottom = "0";
+                alert.style.overflow = "hidden";
+                alert.style.border = "none";
+                setTimeout(() => alert.remove(), 800);
+            });
+        }, 3000);
     </script>
 }

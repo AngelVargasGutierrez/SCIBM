@@ -181,11 +181,11 @@
             font-size: 12px;
         }
 
-        /* USER FOOTER */
-        .user-footer {
+        /* USER PROFILE (TOP) */
+        .user-profile {
             padding: 20px;
             background: rgba(0, 0, 0, 0.15);
-            border-top: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--glass-border);
             display: flex;
             align-items: center;
             gap: 12px;
@@ -216,14 +216,33 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        /* SIDEBAR BOTTOM (LOGOUT) */
+        .sidebar-bottom {
+            padding: 20px;
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: center;
+        }
         .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             color: var(--text-muted);
-            font-size: 18px;
-            transition: color 0.2s ease;
+            font-size: 15px;
+            font-weight: 500;
+            transition: color 0.2s ease, background 0.2s ease;
             text-decoration: none;
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+        .logout-btn i {
+            font-size: 18px;
         }
         .logout-btn:hover {
             color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
         }
 
         /* MAIN WRAPPER */
@@ -366,6 +385,17 @@
             box-shadow: 0 0 15px rgba(0, 180, 216, 0.4);
             transform: translateY(-1px);
         }
+        .btn:disabled {
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .btn-primary:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.3);
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            box-shadow: none;
+            transform: none;
+        }
         .btn-secondary {
             background: rgba(255, 255, 255, 0.08);
             color: var(--text-color);
@@ -427,8 +457,17 @@
         <div>
             <!-- LOGO/BRAND -->
             <div class="brand">
-                <i class="fa-solid fa-microchip-scan"></i>
+                <img src="~/Content/images/logo_upt.png" alt="Logo UPT" style="height: 60px; object-fit: contain; margin: -10px 15px -10px -5px;" />
                 <span>SCIBM</span>
+            </div>
+
+            <!-- USER INFO PROFILE -->
+            <div class="user-profile">
+                <img src="@(Session["UserPicture"] ?? "/Content/images/user-default.png")" alt="Docente Avatar" class="user-avatar" />
+                <div class="user-info">
+                    <div class="user-name">@(Session["UserName"] ?? "Docente UPT")</div>
+                    <div class="user-role" title="@(Session["UserEmail"])">@(Session["UserEmail"] ?? "Invitado")</div>
+                </div>
             </div>
 
             <!-- MENU -->
@@ -482,15 +521,11 @@
             </ul>
         </div>
 
-        <!-- USER INFO FOOTER -->
-        <div class="user-footer">
-            <img src="@(Session["UserPicture"] ?? "/Content/images/user-default.png")" alt="Docente Avatar" class="user-avatar" />
-            <div class="user-info">
-                <div class="user-name">@(Session["UserName"] ?? "Docente UPT")</div>
-                <div class="user-role" title="@(Session["UserEmail"])">@(Session["UserEmail"] ?? "Invitado")</div>
-            </div>
+        <!-- LOGOUT FOOTER -->
+        <div class="sidebar-bottom">
             <a href="@Url.Action("Logout", "Auth")" class="logout-btn" title="Cerrar Sesión">
                 <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Cerrar Sesión</span>
             </a>
         </div>
     </aside>

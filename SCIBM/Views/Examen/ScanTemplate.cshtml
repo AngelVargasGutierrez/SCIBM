@@ -1,7 +1,7 @@
 @model SCIBM.Models.Examen
 @using Newtonsoft.Json
 @{
-    ViewBag.Title = $"Calibración: {Model.Titulo}";
+    ViewBag.Title = $"Calibración: {Model.NombreVersion}";
     ViewBag.Subtitle = "Defina la grilla de respuestas y el área de estampado de notas";
 }
 
@@ -255,6 +255,73 @@
             width: 0%;
             transition: width 0.3s ease;
         }
+
+        /* TOOLBAR FLOTANTE / HERRAMIENTAS */
+        .editor-toolbar {
+            display: flex;
+            gap: 10px;
+            background: rgba(11, 19, 43, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            margin-bottom: 15px;
+            justify-content: center;
+        }
+        .tool-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid transparent;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tool-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .tool-btn.active {
+            background: rgba(72, 202, 228, 0.2);
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            box-shadow: 0 0 10px rgba(72, 202, 228, 0.2);
+        }
+        .tool-btn-danger {
+            color: #ff5252;
+        }
+        .tool-btn-danger:hover {
+            background: rgba(255, 82, 82, 0.1);
+        }
+        .tool-btn-danger.active {
+            background: rgba(255, 82, 82, 0.2);
+            border-color: #ff5252;
+            box-shadow: 0 0 10px rgba(255, 82, 82, 0.2);
+        }
+
+        /* RESIZE HANDLES */
+        .resize-handle {
+            position: absolute;
+            right: -5px;
+            bottom: -5px;
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent-color);
+            border-radius: 2px;
+            cursor: se-resize;
+            display: none; /* Se muestra solo cuando está activo */
+        }
+        .question-overlay-box.active .resize-handle {
+            display: block;
+        }
+        
+        .question-card-item {
+            cursor: pointer;
+        }
     </style>
 }
 
@@ -263,6 +330,25 @@
 
     <!-- LEFT COLUMN: PDF VIEW -->
     <div class="glass-card viewer-card">
+        <div class="editor-toolbar">
+            <button class="tool-btn active" id="tool-mover" onclick="setTool('mover')">
+                <i class="fa-solid fa-arrow-pointer"></i> Puntero
+            </button>
+            <button class="tool-btn" id="tool-opcion" onclick="setTool('opcion')">
+                <i class="fa-regular fa-circle-dot"></i> Opción Múltiple
+            </button>
+            <button class="tool-btn" id="tool-texto" onclick="setTool('texto')">
+                <i class="fa-solid fa-i-cursor"></i> Espacio Blanco
+            </button>
+            <button class="tool-btn" id="tool-vf" onclick="setTool('vf')">
+                <i class="fa-solid fa-check-double"></i> Verdadero/Falso
+            </button>
+            <div style="width: 1px; background: rgba(255,255,255,0.1); margin: 0 5px;"></div>
+            <button class="tool-btn tool-btn-danger" id="tool-borrador" onclick="setTool('borrador')">
+                <i class="fa-solid fa-eraser"></i> Borrador
+            </button>
+        </div>
+
         <div class="viewer-toolbar">
             <div style="display: flex; gap: 8px;">
                 <button class="btn btn-secondary" style="padding: 8px 14px;" onclick="changePage(-1)">
@@ -277,9 +363,7 @@
             </div>
             
             <div style="display: flex; gap: 10px;">
-                <button class="btn btn-secondary" style="padding: 8px 14px; font-size: 13px;" onclick="addManualControl()">
-                    <i class="fa-solid fa-crosshairs"></i> Añadir Control Manual
-                </button>
+                <!-- Manual Delete button moved to toolbar, but keeping this for quick access -->
                 <button class="btn btn-danger" style="padding: 8px 14px; font-size: 13px;" onclick="deleteSelectedQuestion()" id="delete-q-btn" disabled>
                     <i class="fa-solid fa-trash-can"></i>
                 </button>
@@ -331,6 +415,16 @@
     <p id="ocr-loader-subtitle" style="color: var(--text-muted); font-size: 14.5px;">Cargando documento PDF...</p>
     <div class="progress-bar">
         <div class="progress-fill" id="ocr-progress-bar"></div>
+    </div>
+</div>
+
+<!-- GLASS ALERT MODAL -->
+<div class="progress-overlay" id="glass-alert-modal" style="display: none; z-index: 3000;">
+    <div class="glass-card" style="max-width: 400px; text-align: center; padding: 30px; animation: slideUp 0.3s ease-out;">
+        <i id="alert-icon" class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff5252; margin-bottom: 15px;"></i>
+        <h3 id="alert-title" style="margin-bottom: 10px; color: white;">Atención</h3>
+        <p id="alert-message" style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Mensaje de error.</p>
+        <button class="btn btn-primary" onclick="closeAlertModal()" style="width: 100%;">Entendido</button>
     </div>
 </div>
 
@@ -432,117 +526,154 @@
             recalcularPuntajeTotal();
         }
 
-        // 2. Ejecutar OCR inicial para autodetectar preguntas usando Tesseract.js
+        // Estado del editor visual
+        var currentTool = 'mover';
+
+        function setTool(toolName) {
+            currentTool = toolName;
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('tool-' + toolName).classList.add('active');
+
+            if (toolName === 'texto' || toolName === 'opcion' || toolName === 'vf') {
+                overlay.style.cursor = 'crosshair';
+            } else if (toolName === 'borrador') {
+                overlay.style.cursor = 'url(https://cdn-icons-png.flaticon.com/32/2723/2723376.png) 0 32, auto';
+            } else {
+                overlay.style.cursor = 'default';
+            }
+        }
+
+        // Lógica Click-to-Drop en el Canvas (Overlay)
+        overlay.addEventListener('mousedown', function(e) {
+            // Ignorar clics si no se hizo en el overlay directamente (ej. si se hizo clic en una pregunta existente)
+            if (e.target !== overlay) return;
+
+            if (currentTool === 'mover' || currentTool === 'borrador') return;
+
+            var rect = overlay.getBoundingClientRect();
+            var x = e.clientX - rect.left;
+            var y = e.clientY - rect.top;
+
+            var px = (x / rect.width) * 100.0;
+            var py = (y / rect.height) * 100.0;
+
+            var qNum = preguntas.length > 0 ? Math.max(...preguntas.map(p => p.numeroPregunta)) + 1 : 1;
+
+            if (currentTool === 'texto') {
+                preguntas.push({
+                    id: null,
+                    numeroPregunta: qNum,
+                    enunciado: "Texto en blanco " + qNum,
+                    tipo: "RespuestaLibre",
+                    respuestaCorrecta: "Texto",
+                    puntaje: 1.0,
+                    posX: px,
+                    posY: py,
+                    width: 20,
+                    height: 3,
+                    opcionesJson: "[]",
+                    page: currentPageNum
+                });
+            } else if (currentTool === 'opcion') {
+                preguntas.push({
+                    id: null,
+                    numeroPregunta: qNum,
+                    enunciado: "Opción Múltiple " + qNum,
+                    tipo: "OpcionMultiple",
+                    respuestaCorrecta: "A",
+                    puntaje: 1.0,
+                    posX: px,
+                    posY: py,
+                    width: 30,
+                    height: 6,
+                    opcionesJson: JSON.stringify([
+                        { label: "A", x: px + 2, y: py + 5, w: 2.5, h: 2.5 },
+                        { label: "B", x: px + 7, y: py + 5, w: 2.5, h: 2.5 },
+                        { label: "C", x: px + 12, y: py + 5, w: 2.5, h: 2.5 },
+                        { label: "D", x: px + 17, y: py + 5, w: 2.5, h: 2.5 },
+                        { label: "E", x: px + 22, y: py + 5, w: 2.5, h: 2.5 }
+                    ]),
+                    page: currentPageNum
+                });
+            } else if (currentTool === 'vf') {
+                preguntas.push({
+                    id: null,
+                    numeroPregunta: qNum,
+                    enunciado: "Verdadero/Falso " + qNum,
+                    tipo: "VerdaderoFalso",
+                    respuestaCorrecta: "V",
+                    puntaje: 1.0,
+                    posX: px,
+                    posY: py,
+                    width: 15,
+                    height: 5,
+                    opcionesJson: JSON.stringify([
+                        { label: "V", x: px + 2, y: py + 3, w: 2.5, h: 2.5 },
+                        { label: "F", x: px + 8, y: py + 3, w: 2.5, h: 2.5 }
+                    ]),
+                    page: currentPageNum
+                });
+            }
+
+            preguntas.sort((a, b) => a.numeroPregunta - b.numeroPregunta);
+            recalcularPuntajeTotal();
+            renderOverlayControls();
+            renderQuestionsForm();
+            setTool('mover'); // Regresar a mover después de insertar
+        });
+
+        // 2. Ejecutar Escaneo Inicial con Gemini Vision API
         async function ejecutarOcrInicial() {
             var loader = document.getElementById("ocr-loader");
             var loaderTitle = document.getElementById("ocr-loader-title");
             var loaderSubtitle = document.getElementById("ocr-loader-subtitle");
             var fill = document.getElementById("ocr-progress-bar");
 
-            loaderTitle.innerText = "Analizando examen...";
-            loaderSubtitle.innerText = "Extrayendo estructura de preguntas (OCR)...";
-            fill.style.width = "60%";
+            loaderTitle.innerText = "Analizando estructura con IA...";
+            loaderSubtitle.innerText = "Gemini Vision está leyendo el PDF...";
+            fill.style.width = "40%";
 
             try {
-                // Renderizar la página 1 a una imagen virtual para que Tesseract la procese
-                var page = await pdfDoc.getPage(1);
-                var viewport = page.getViewport({ scale: 1.5 });
-                var virtualCanvas = document.createElement("canvas");
-                virtualCanvas.width = viewport.width;
-                virtualCanvas.height = viewport.height;
-                var vCtx = virtualCanvas.getContext("2d");
-                
-                await page.render({ canvasContext: vCtx, viewport: viewport }).promise;
-                var dataUrl = virtualCanvas.toDataURL();
-                
-                fill.style.width = "75%";
-                
-                // Ejecutar Tesseract OCR
-                var worker = await Tesseract.createWorker();
-                await worker.loadLanguage('spa');
-                await worker.initialize('spa');
-                
-                var ocrResult = await worker.recognize(dataUrl);
-                var paragraphs = ocrResult.data.paragraphs;
-                await worker.terminate();
+                var formData = new FormData();
+                formData.append('examenId', examenId);
+
+                var response = await fetch('@Url.Action("ScanTemplateWithGemini", "Examen")', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("Error HTTP " + response.status);
+                var data = await response.json();
 
                 fill.style.width = "90%";
 
-                var numQ = 1;
-                for (var idx = 0; idx < paragraphs.length; idx++) {
-                    var para = paragraphs[idx];
-                    var text = para.text.trim();
-                    
-                    // Buscar si el párrafo empieza con un número de pregunta: ej "1.", "2)", "3.-"
-                    var match = text.match(/^(\d+)\s*[\.\-\)]\s*([\s\S]+)/);
-                    if (match) {
-                        var qNum = parseInt(match[1]);
-                        var qText = match[0];
-                        
-                        // Coordenadas relativas en porcentaje
-                        var bbox = para.bbox;
-                        var px = (bbox.x0 / viewport.width) * 100.0;
-                        var py = (bbox.y0 / viewport.height) * 100.0;
-                        var pw = ((bbox.x1 - bbox.x0) / viewport.width) * 100.0;
-                        var ph = ((bbox.y1 - bbox.y0) / viewport.height) * 100.0;
-
-                        // Determinar si es de opción múltiple (si el texto contiene opciones tipo A, B, C, D)
-                        var esMultiple = text.match(/\b[A-E]\s*[\.\-\)]/i) !== null;
-                        
-                        // Generar sub-opciones simuladas o detectadas
-                        var opciones = [];
-                        if (esMultiple) {
-                            // Crear 5 opciones separadas vertical/horizontalmente debajo del cuadro de la pregunta
-                            var labels = ["A", "B", "C", "D", "E"];
-                            for (var optIdx = 0; optIdx < 5; optIdx++) {
-                                opciones.push({
-                                    label: labels[optIdx],
-                                    // Separadas por 5% horizontalmente a la derecha del inicio
-                                    x: px + (optIdx * 5) + 2, 
-                                    y: py + ph + 2, // Justo debajo
-                                    w: 2.5,
-                                    h: 2.5
-                                });
-                            }
-                        }
-
-                        // Buscar si tiene puntos indicados
-                        var ptMatch = text.match(/(?:[\(\[\{])\s*(\d+(?:\.\d+)?)\s*(?:ptos|puntos|pts|pt|p)\s*(?:[\)\]\}])|(\d+(?:\.\d+)?)\s*(?:ptos|puntos|pts|pt|p)\b/i);
-                        var pts = 1.0;
-                        if (ptMatch) {
-                            var val = ptMatch[1] || ptMatch[2];
-                            pts = parseFloat(val);
-                        }
-
+                if (data && data.preguntas && data.preguntas.length > 0) {
+                    data.preguntas.forEach(pq => {
                         preguntas.push({
-                            numeroPregunta: qNum,
-                            enunciado: qText,
-                            tipo: esMultiple ? "OpcionMultiple" : "RespuestaLibre",
-                            respuestaCorrecta: esMultiple ? "A" : "OK",
-                            puntaje: pts,
-                            posX: px,
-                            posY: py,
-                            width: pw + 2,
-                            height: ph + 1.5,
-                            opcionesJson: JSON.stringify(opciones),
+                            id: null,
+                            numeroPregunta: pq.numeroPregunta,
+                            enunciado: pq.enunciado || "Pregunta " + pq.numeroPregunta,
+                            tipo: pq.tipo || "OpcionMultiple",
+                            respuestaCorrecta: (pq.tipo === "RespuestaLibre") ? "Texto" : (pq.opciones && pq.opciones.length > 0 ? pq.opciones[0].label : "A"),
+                            puntaje: 1.0,
+                            posX: pq.posX || 10,
+                            posY: pq.posY || 10,
+                            width: pq.width || 30,
+                            height: pq.height || 6,
+                            opcionesJson: JSON.stringify(pq.opciones || []),
                             page: 1
                         });
-                        numQ++;
-                    }
-                }
-
-                // Si no se detectó nada, crear una pregunta inicial
-                if (preguntas.length === 0) {
+                    });
+                } else {
+                    // Si Gemini falló o no vio nada, instanciar una por defecto
                     preguntas.push({
+                        id: null,
                         numeroPregunta: 1,
-                        enunciado: "Pregunta 1. Escribe el enunciado aquí...",
+                        enunciado: "Pregunta 1",
                         tipo: "OpcionMultiple",
                         respuestaCorrecta: "A",
                         puntaje: 2.0,
-                        posX: 10,
-                        posY: 15,
-                        width: 70,
-                        height: 6,
+                        posX: 10, posY: 15, width: 70, height: 6,
                         opcionesJson: JSON.stringify([
                             { label: "A", x: 12, y: 22, w: 2.5, h: 2.5 },
                             { label: "B", x: 17, y: 22, w: 2.5, h: 2.5 },
@@ -554,16 +685,18 @@
                     });
                 }
 
-                // Ordenar por número de pregunta
                 preguntas.sort((a, b) => a.numeroPregunta - b.numeroPregunta);
-                
                 recalcularPuntajeTotal();
                 renderPage(1);
                 loader.style.display = "none";
             } catch (err) {
-                console.error("Error en OCR:", err);
-                loader.style.display = "none";
-                renderPage(1);
+                console.error("Error al usar Gemini:", err);
+                loaderTitle.innerText = "Error de IA";
+                loaderSubtitle.innerText = "Hubo un problema de red. Pasando al modo manual.";
+                setTimeout(() => {
+                    loader.style.display = "none";
+                    renderPage(1);
+                }, 3000);
             }
         }
 
@@ -719,18 +852,32 @@
                 numBadge.innerText = p.numeroPregunta;
                 box.appendChild(numBadge);
 
+                // Resize handle solo para la caja principal
+                var rHandle = document.createElement("div");
+                rHandle.className = "resize-handle";
+                box.appendChild(rHandle);
+
                 box.onclick = function(e) {
+                    if (currentTool === 'borrador') {
+                        preguntas.splice(idx, 1);
+                        activeQuestionIndex = -1;
+                        recalcularPuntajeTotal();
+                        renderOverlayControls();
+                        renderQuestionsForm();
+                        e.stopPropagation();
+                        return;
+                    }
                     selectQuestion(idx);
                     e.stopPropagation();
                 };
 
-                // Permitir arrastrar/mover la caja del control en porcentaje mediante el ratón
-                makeElementDraggable(box, idx);
+                // Permitir arrastrar/mover y redimensionar la caja
+                makeElementDraggableAndResizable(box, rHandle, idx);
 
                 overlay.appendChild(box);
 
                 // 2. Renderizar sub-elementos de respuesta según tipo
-                if (p.tipo === "OpcionMultiple" && p.opcionesJson) {
+                if ((p.tipo === "OpcionMultiple" || p.tipo === "VerdaderoFalso") && p.opcionesJson) {
                     try {
                         var opciones = JSON.parse(p.opcionesJson);
                         opciones.forEach((opt, optIdx) => {
@@ -744,6 +891,14 @@
                             radio.style.color = p.respuestaCorrecta === opt.label ? "#0b132b" : "#2ec4b6";
 
                             radio.onclick = function(e) {
+                                if (currentTool === 'borrador') {
+                                    // Borrar solo la opción en lugar de toda la pregunta
+                                    opciones.splice(optIdx, 1);
+                                    p.opcionesJson = JSON.stringify(opciones);
+                                    renderOverlayControls();
+                                    e.stopPropagation();
+                                    return;
+                                }
                                 p.respuestaCorrecta = opt.label;
                                 renderOverlayControls();
                                 renderQuestionsForm();
@@ -759,26 +914,90 @@
                 } else if (p.tipo === "RespuestaLibre") {
                     var textbox = document.createElement("div");
                     textbox.className = "blank-textbox-overlay";
-                    textbox.style.left = p.posX + "%";
-                    textbox.style.top = (p.posY + p.height + 0.5) + "%";
-                    textbox.style.width = Math.min(25, p.width) + "%";
-                    textbox.style.height = "3.2%";
+                    textbox.style.left = "0";
+                    textbox.style.top = "100%";
+                    textbox.style.width = "100%";
+                    textbox.style.height = "25px";
+                    textbox.style.position = "absolute";
+                    textbox.style.backgroundColor = "rgba(72, 202, 228, 0.15)";
+                    textbox.style.border = "1px dashed var(--accent-color)";
+                    textbox.style.borderRadius = "4px";
+                    textbox.style.textAlign = "center";
+                    textbox.style.cursor = "text";
+                    textbox.style.marginTop = "2px";
+                    textbox.style.overflow = "hidden";
                     textbox.innerText = p.respuestaCorrecta || "Texto";
-                    textbox.style.fontSize = "10px";
-                    textbox.style.lineHeight = "2";
+                    textbox.style.fontSize = "11px";
+                    textbox.style.fontWeight = "bold";
+                    textbox.style.lineHeight = "25px";
+                    textbox.style.color = "var(--text-color)";
 
-                    overlay.appendChild(textbox);
+                    // Evitar que el drag de la caja padre interrumpa el doble clic
+                    textbox.onmousedown = function(e) {
+                        if (currentTool === 'mover') {
+                            e.stopPropagation();
+                        }
+                    };
+
+                    textbox.ondblclick = function(e) {
+                        if (currentTool === 'borrador') {
+                            preguntas.splice(idx, 1);
+                            activeQuestionIndex = -1;
+                            recalcularPuntajeTotal();
+                            renderOverlayControls();
+                            renderQuestionsForm();
+                            e.stopPropagation();
+                            return;
+                        }
+                        
+                        var currentVal = (p.respuestaCorrecta === "Texto" || p.respuestaCorrecta === "OK") ? "" : p.respuestaCorrecta;
+                        textbox.innerText = "";
+                        
+                        var inputEl = document.createElement("input");
+                        inputEl.type = "text";
+                        inputEl.value = currentVal;
+                        inputEl.style.width = "100%";
+                        inputEl.style.height = "100%";
+                        inputEl.style.background = "var(--bg-color)";
+                        inputEl.style.color = "var(--text-color)";
+                        inputEl.style.border = "none";
+                        inputEl.style.outline = "none";
+                        inputEl.style.textAlign = "center";
+                        inputEl.style.fontSize = "12px";
+                        inputEl.style.fontWeight = "bold";
+                        
+                        textbox.appendChild(inputEl);
+                        inputEl.focus();
+
+                        function saveText() {
+                            var val = inputEl.value.trim();
+                            p.respuestaCorrecta = val === "" ? "Texto" : val;
+                            renderOverlayControls();
+                            renderQuestionsForm();
+                        }
+
+                        inputEl.onblur = saveText;
+                        inputEl.onkeypress = function(ev) {
+                            if (ev.key === "Enter") saveText();
+                        };
+
+                        e.stopPropagation();
+                    };
+
+                    box.appendChild(textbox);
                 }
             });
         }
 
-        // Hacer que las cajas de preguntas sean arrastrables
-        function makeElementDraggable(el, qIdx) {
+        // Hacer que las cajas de preguntas sean arrastrables y redimensionables
+        function makeElementDraggableAndResizable(el, handle, qIdx) {
             var isMoving = false;
-            var sX, sY, sLeft, sTop;
+            var isResizing = false;
+            var sX, sY, sLeft, sTop, sWidth, sHeight;
 
             el.addEventListener('mousedown', function(e) {
-                if (e.target.className === "question-badge-number") return;
+                if (currentTool === 'borrador') return;
+                if (e.target === handle || e.target.className === "question-badge-number") return;
                 isMoving = true;
                 sX = e.clientX;
                 sY = e.clientY;
@@ -789,49 +1008,83 @@
                 e.stopPropagation();
             });
 
+            handle.addEventListener('mousedown', function(e) {
+                if (currentTool === 'borrador') return;
+                isResizing = true;
+                sX = e.clientX;
+                sY = e.clientY;
+                sWidth = el.offsetWidth;
+                sHeight = el.offsetHeight;
+                selectQuestion(qIdx);
+                e.preventDefault();
+                e.stopPropagation();
+            });
+
             document.addEventListener('mousemove', function(e) {
-                if (!isMoving) return;
+                if (!isMoving && !isResizing) return;
                 var dx = e.clientX - sX;
                 var dy = e.clientY - sY;
                 var overlayW = overlay.offsetWidth;
                 var overlayH = overlay.offsetHeight;
-
-                var newL = sLeft + dx;
-                var newT = sTop + dy;
-
-                if (newL < 0) newL = 0;
-                if (newT < 0) newT = 0;
-                if (newL + el.offsetWidth > overlayW) newL = overlayW - el.offsetWidth;
-                if (newT + el.offsetHeight > overlayH) newT = overlayH - el.offsetHeight;
-
                 var p = preguntas[qIdx];
-                var oldPosX = p.posX;
-                var oldPosY = p.posY;
-                p.posX = (newL / overlayW) * 100.0;
-                p.posY = (newT / overlayH) * 100.0;
 
-                // Si es opción múltiple, desplazar también sus sub-opciones la misma cantidad
-                if (p.tipo === "OpcionMultiple" && p.opcionesJson) {
-                    try {
-                        var opciones = JSON.parse(p.opcionesJson);
-                        var diffX = p.posX - oldPosX;
-                        var diffY = p.posY - oldPosY;
-                        opciones.forEach(opt => {
-                            opt.x += diffX;
-                            opt.y += diffY;
-                        });
-                        p.opcionesJson = JSON.stringify(opciones);
-                    } catch (ex) {}
+                if (isMoving) {
+                    var newL = sLeft + dx;
+                    var newT = sTop + dy;
+
+                    if (newL < 0) newL = 0;
+                    if (newT < 0) newT = 0;
+                    if (newL + el.offsetWidth > overlayW) newL = overlayW - el.offsetWidth;
+                    if (newT + el.offsetHeight > overlayH) newT = overlayH - el.offsetHeight;
+
+                    var oldPosX = p.posX;
+                    var oldPosY = p.posY;
+                    p.posX = (newL / overlayW) * 100.0;
+                    p.posY = (newT / overlayH) * 100.0;
+
+                    if ((p.tipo === "OpcionMultiple" || p.tipo === "VerdaderoFalso") && p.opcionesJson) {
+                        try {
+                            var opciones = JSON.parse(p.opcionesJson);
+                            var diffX = p.posX - oldPosX;
+                            var diffY = p.posY - oldPosY;
+                            opciones.forEach(opt => {
+                                opt.x += diffX;
+                                opt.y += diffY;
+                            });
+                            p.opcionesJson = JSON.stringify(opciones);
+                        } catch (ex) {}
+                    }
+
+                    el.style.left = p.posX + "%";
+                    el.style.top = p.posY + "%";
+
+                    // Solo actualizar radio buttons visuales instantáneamente
+                    var radios = overlay.querySelectorAll('.option-radio-overlay');
+                    radios.forEach(r => r.remove()); // Hack sucio temporal, se re-renderizan en mouseup
                 }
 
-                el.style.left = p.posX + "%";
-                el.style.top = p.posY + "%";
+                if (isResizing) {
+                    var newW = sWidth + dx;
+                    var newH = sHeight + dy;
+                    if (newW < 20) newW = 20;
+                    if (newH < 15) newH = 15;
+                    if (el.offsetLeft + newW > overlayW) newW = overlayW - el.offsetLeft;
+                    if (el.offsetTop + newH > overlayH) newH = overlayH - el.offsetTop;
 
-                renderOverlayControls();
+                    p.width = (newW / overlayW) * 100.0;
+                    p.height = (newH / overlayH) * 100.0;
+
+                    el.style.width = p.width + "%";
+                    el.style.height = p.height + "%";
+                }
             });
 
-            document.addEventListener('mouseup', function() {
-                isMoving = false;
+            document.addEventListener('mouseup', function(e) {
+                if (isMoving || isResizing) {
+                    isMoving = false;
+                    isResizing = false;
+                    renderOverlayControls();
+                }
             });
         }
 
@@ -1048,8 +1301,47 @@
             }
         }
 
+        // Función Helper para Modales de Alerta
+        function showGlassAlert(title, message, isError = true) {
+            document.getElementById("alert-title").innerText = title;
+            document.getElementById("alert-message").innerText = message;
+            
+            var icon = document.getElementById("alert-icon");
+            if (isError) {
+                icon.className = "fa-solid fa-triangle-exclamation";
+                icon.style.color = "#ff5252";
+            } else {
+                icon.className = "fa-solid fa-circle-check";
+                icon.style.color = "var(--primary-glow)";
+            }
+
+            document.getElementById("glass-alert-modal").style.display = "flex";
+        }
+
+        function closeAlertModal() {
+            document.getElementById("glass-alert-modal").style.display = "none";
+        }
+
         // 8. Guardar todo el examen en el backend vía AJAX
         function saveExamen() {
+            // Validación antes de guardar
+            if (preguntas.length === 0) {
+                showGlassAlert("Plantilla Vacía", "Debes tener al menos una pregunta en el examen para poder guardarlo.");
+                return;
+            }
+
+            for (let i = 0; i < preguntas.length; i++) {
+                let p = preguntas[i];
+                if (!p.puntaje || p.puntaje <= 0) {
+                    showGlassAlert("Falta Puntaje", "La Pregunta " + p.numeroPregunta + " debe tener un puntaje mayor a 0.");
+                    return;
+                }
+                if (!p.respuestaCorrecta || p.respuestaCorrecta.trim() === "") {
+                    showGlassAlert("Falta Respuesta", "No has definido la respuesta correcta para la Pregunta " + p.numeroPregunta + ".");
+                    return;
+                }
+            }
+
             var loader = document.getElementById("ocr-loader");
             var loaderTitle = document.getElementById("ocr-loader-title");
             var loaderSubtitle = document.getElementById("ocr-loader-subtitle");
@@ -1083,12 +1375,12 @@
                     location.href = res.redirectUrl;
                 } else {
                     loader.style.display = "none";
-                    alert(res.message || "Error al guardar examen.");
+                    showGlassAlert("Error al Guardar", res.message || "Hubo un problema sincronizando con el servidor.");
                 }
             })
             .catch(err => {
                 loader.style.display = "none";
-                alert("Error de conexión al guardar plantilla.");
+                showGlassAlert("Error de Conexión", "No se pudo conectar con el servidor para guardar la plantilla.");
             });
         }
     </script>

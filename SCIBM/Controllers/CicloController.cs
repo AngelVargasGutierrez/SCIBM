@@ -57,6 +57,7 @@ namespace SCIBM.Controllers
             using (var db = new ScibmContext())
             {
                 var ciclos = await db.CiclosAcademicos
+                    .Include(c => c.Cursos)
                     .Where(c => c.DocenteEmail == email)
                     .OrderByDescending(c => c.Nombre)
                     .ToListAsync();
@@ -112,6 +113,53 @@ namespace SCIBM.Controllers
                 catch (Exception ex)
                 {
                     return Json(new { success = false, message = "Error al crear ciclo: " + ex.Message });
+                }
+            }
+        }
+
+        // POST: Ciclo/Rename
+        [HttpPost]
+        public async Task<ActionResult> Rename(Guid id, string newName)
+        {
+            if (Session["UserEmail"] == null)
+                return Json(new { success = false, message = "Sesión expirada." });
+
+            if (string.IsNullOrEmpty(newName))
+                return Json(new { success = false, message = "El nombre no puede estar vacío." });
+
+            string email = Session["UserEmail"].ToString();
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var ciclo = await db.CiclosAcademicos.FirstOrDefaultAsync(c => c.Id == id && c.DocenteEmail == email);
+                    if (ciclo == null)
+                        return Json(new { success = false, message = "Ciclo no encontrado." });
+
+                    // Verificar si ya existe otro con el mismo nombre
+                    bool exists = await db.CiclosAcademicos.AnyAsync(c => c.DocenteEmail == email && c.Nombre == newName && c.Id != id);
+                    if (exists)
+                        return Json(new { success = false, message = "Ya existe otro ciclo con este nombre." });
+
+                    ciclo.Nombre = newName;
+                    
+                    if (!string.IsNullOrEmpty(ciclo.DriveFolderId))
+                    {
+                        string accessToken = await GetValidAccessTokenAsync(db, email);
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            await GoogleDriveHelper.RenameFolderAsync(ciclo.DriveFolderId, newName, accessToken);
+                        }
+                    }
+
+                    await db.SaveChangesAsync();
+
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error al renombrar: " + ex.Message });
                 }
             }
         }

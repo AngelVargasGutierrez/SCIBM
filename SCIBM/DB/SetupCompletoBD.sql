@@ -1,5 +1,17 @@
--- 0. ELIMINAR TABLAS EXISTENTES (Excepto Docente)
--- Para evitar errores de llaves foráneas, borramos en orden inverso
+-- SCRIPT COMPLETO DE CONFIGURACIÓN DE LA BASE DE DATOS SCIBM
+-- Este script crea la base de datos desde cero e inicializa todas las tablas.
+
+-- 1. Crear Base de Datos (Si no existe)
+IF NOT EXISTS (SELECT name FROM master.dbo.sysdatabases WHERE name = N'ScibmDB')
+BEGIN
+    CREATE DATABASE ScibmDB;
+END
+GO
+
+USE ScibmDB;
+GO
+
+-- 2. Eliminar tablas si ya existen (para que el script sea re-ejecutable)
 DROP TABLE IF EXISTS RespuestaAlumno;
 DROP TABLE IF EXISTS ExamenAlumno;
 DROP TABLE IF EXISTS Pregunta;
@@ -9,8 +21,20 @@ DROP TABLE IF EXISTS AlumnoMatriculado;
 DROP TABLE IF EXISTS Seccion;
 DROP TABLE IF EXISTS Curso;
 DROP TABLE IF EXISTS CicloAcademico;
+DROP TABLE IF EXISTS Docente;
 
--- 1. Crear Tabla de CicloAcademico
+-- 3. Crear Tabla Docente (La raíz del sistema)
+CREATE TABLE Docente (
+    Email NVARCHAR(150) NOT NULL,
+    Nombre NVARCHAR(100) NOT NULL,
+    Apellido NVARCHAR(100) NOT NULL,
+    GoogleDriveFolderId NVARCHAR(100) NULL,
+    RefreshToken NVARCHAR(250) NULL,
+    UltimoAcceso DATETIME NOT NULL,
+    CONSTRAINT PK_Docente PRIMARY KEY (Email)
+);
+
+-- 4. Crear Tabla CicloAcademico
 CREATE TABLE CicloAcademico (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     Nombre NVARCHAR(50) NOT NULL,
@@ -20,7 +44,7 @@ CREATE TABLE CicloAcademico (
     CONSTRAINT FK_CicloAcademico_Docente FOREIGN KEY (DocenteEmail) REFERENCES Docente(Email) ON DELETE CASCADE
 );
 
--- 2. Crear Tabla de Curso
+-- 5. Crear Tabla Curso
 CREATE TABLE Curso (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     Nombre NVARCHAR(150) NOT NULL,
@@ -31,7 +55,7 @@ CREATE TABLE Curso (
     CONSTRAINT FK_Curso_CicloAcademico FOREIGN KEY (CicloAcademicoId) REFERENCES CicloAcademico(Id) ON DELETE CASCADE
 );
 
--- 3. Crear Tabla de Seccion
+-- 6. Crear Tabla Seccion
 CREATE TABLE Seccion (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     CursoId UNIQUEIDENTIFIER NOT NULL,
@@ -41,7 +65,7 @@ CREATE TABLE Seccion (
     CONSTRAINT FK_Seccion_Curso FOREIGN KEY (CursoId) REFERENCES Curso(Id) ON DELETE CASCADE
 );
 
--- 4. Crear Tabla de AlumnoMatriculado
+-- 7. Crear Tabla AlumnoMatriculado
 CREATE TABLE AlumnoMatriculado (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     SeccionId UNIQUEIDENTIFIER NOT NULL,
@@ -53,7 +77,7 @@ CREATE TABLE AlumnoMatriculado (
     CONSTRAINT UQ_Seccion_Alumno UNIQUE (SeccionId, NombreCompleto)
 );
 
--- 5. Crear Tabla de Unidad
+-- 8. Crear Tabla Unidad
 CREATE TABLE Unidad (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     SeccionId UNIQUEIDENTIFIER NOT NULL,
@@ -64,12 +88,12 @@ CREATE TABLE Unidad (
     CONSTRAINT UQ_Seccion_Unidad UNIQUE (SeccionId, NombreUnidad)
 );
 
--- 6. Crear Tabla de Examen (Con soporte para Versiones Múltiples)
+-- 9. Crear Tabla Examen (Versiones Múltiples)
 CREATE TABLE Examen (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     UnidadId UNIQUEIDENTIFIER NOT NULL,
-    NombreVersion NVARCHAR(100) NOT NULL, -- Ej: 'Fila A'
-    DriveFolderId NVARCHAR(100) NULL, -- Carpeta en Drive específica para esta versión
+    NombreVersion NVARCHAR(100) NOT NULL,
+    DriveFolderId NVARCHAR(100) NULL,
     RutaPdfOriginal NVARCHAR(250) NOT NULL,
     DriveFileIdBlanco NVARCHAR(100) NULL,
     DriveFileIdSolucionario NVARCHAR(100) NULL,
@@ -83,7 +107,7 @@ CREATE TABLE Examen (
     CONSTRAINT UQ_Unidad_Version UNIQUE (UnidadId, NombreVersion)
 );
 
--- 7. Crear Tabla de Pregunta
+-- 10. Crear Tabla Pregunta
 CREATE TABLE Pregunta (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     ExamenId UNIQUEIDENTIFIER NOT NULL,
@@ -102,7 +126,7 @@ CREATE TABLE Pregunta (
     CONSTRAINT UQ_Examen_NumeroPregunta UNIQUE (ExamenId, NumeroPregunta)
 );
 
--- 8. Crear Tabla de ExamenAlumno
+-- 11. Crear Tabla ExamenAlumno
 CREATE TABLE ExamenAlumno (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     ExamenId UNIQUEIDENTIFIER NOT NULL,
@@ -120,7 +144,7 @@ CREATE TABLE ExamenAlumno (
     CONSTRAINT FK_ExamenAlumno_Alumno FOREIGN KEY (AlumnoMatriculadoId) REFERENCES AlumnoMatriculado(Id)
 );
 
--- 9. Crear Tabla de RespuestaAlumno
+-- 12. Crear Tabla RespuestaAlumno
 CREATE TABLE RespuestaAlumno (
     Id UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     ExamenAlumnoId UNIQUEIDENTIFIER NOT NULL,
@@ -130,3 +154,5 @@ CREATE TABLE RespuestaAlumno (
     CONSTRAINT PK_RespuestaAlumno PRIMARY KEY (Id),
     CONSTRAINT FK_RespuestaAlumno_ExamenAlumno FOREIGN KEY (ExamenAlumnoId) REFERENCES ExamenAlumno(Id) ON DELETE CASCADE
 );
+
+PRINT 'Base de datos y tablas creadas exitosamente.';

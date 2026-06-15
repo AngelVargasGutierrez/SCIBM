@@ -53,7 +53,7 @@ namespace SCIBM.Controllers
 
         // POST: Examen/CreateVersion
         [HttpPost]
-        public async Task<ActionResult> CreateVersion(Guid unidadId, string nombreVersion)
+        public async Task<ActionResult> CreateVersion(Guid unidadId, string nombreVersion, HttpPostedFileBase pdfFile)
         {
             if (Session["UserEmail"] == null)
             {
@@ -63,6 +63,12 @@ namespace SCIBM.Controllers
             if (string.IsNullOrEmpty(nombreVersion))
             {
                 TempData["Error"] = "Debe ingresar un nombre de versión.";
+                return RedirectToAction("Detail", "Unidad", new { id = unidadId });
+            }
+
+            if (pdfFile == null || pdfFile.ContentLength == 0)
+            {
+                TempData["Error"] = "Debe adjuntar una plantilla PDF obligatoriamente.";
                 return RedirectToAction("Detail", "Unidad", new { id = unidadId });
             }
 
@@ -83,8 +89,21 @@ namespace SCIBM.Controllers
                         Id = Guid.NewGuid(),
                         UnidadId = unidadId,
                         NombreVersion = nombreVersion,
-                        SincronizadoDrive = false
+                        SincronizadoDrive = false,
+                        RutaPdfOriginal = "Pendiente" // Se actualiza en un momento
                     };
+
+                    // 1. Guardar el archivo PDF
+                    string folderPath = Server.MapPath("~/App_Data/Examenes");
+                    if (!Directory.Exists(folderPath)) Directory.CreateDirectory(folderPath);
+
+                    string fileExtension = Path.GetExtension(pdfFile.FileName);
+                    string fileName = $"{nuevoExamen.Id}_plantilla{fileExtension}";
+                    string relativePath = $"~/App_Data/Examenes/{fileName}";
+                    string physicalPath = Path.Combine(folderPath, fileName);
+                    pdfFile.SaveAs(physicalPath);
+
+                    nuevoExamen.RutaPdfOriginal = relativePath;
 
                     db.Examenes.Add(nuevoExamen);
                     await db.SaveChangesAsync();
@@ -107,6 +126,15 @@ namespace SCIBM.Controllers
                     TempData["Success"] = $"Versión '{nombreVersion}' creada con éxito.";
                     return RedirectToAction("Detail", "Examen", new { id = nuevoExamen.Id });
                 }
+                catch (System.Data.Entity.Validation.DbEntityValidationException ex)
+                {
+                    var errorMessages = ex.EntityValidationErrors
+                        .SelectMany(x => x.ValidationErrors)
+                        .Select(x => x.PropertyName + ": " + x.ErrorMessage);
+                    string fullErrorMessage = string.Join(" | ", errorMessages);
+                    TempData["Error"] = "Error de validación al crear versión: " + fullErrorMessage;
+                    return RedirectToAction("Detail", "Unidad", new { id = unidadId });
+                }
                 catch (Exception ex)
                 {
                     TempData["Error"] = "Error al crear versión: " + ex.Message;
@@ -114,6 +142,167 @@ namespace SCIBM.Controllers
                 }
             }
         }
+
+        // GET: Examen/Detail/5
+        public async Task<ActionResult> Detail(Guid? id)
+        {
+            if (Session["UserEmail"] == null)
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            if (!id.HasValue)
+            {
+                return RedirectToAction("Index", "Ciclo");
+            }
+
+            string email = Session["UserEmail"].ToString();
+
+            using (var db = new ScibmContext())
+            {
+                var examen = await db.Examenes
+                    .Include(e => e.Unidad)
+                    .Include(e => e.Unidad.Seccion)
+                    .Include(e => e.Unidad.Seccion.Curso)
+                    .Include(e => e.Unidad.Seccion.Curso.CicloAcademico)
+                    .Include(e => e.Preguntas)
+                    .FirstOrDefaultAsync(e => e.Id == id.Value);
+
+                if (examen == null || examen.Unidad.Seccion.Curso.CicloAcademico.DocenteEmail != email)
+                {
+                    return HttpNotFound();
+                }
+
+                // Cargar calificaciones de los alumnos
+                var calificaciones = await db.ExamenesAlumnos
+                    .Include(ea => ea.AlumnoMatriculado)
+                    .Where(ea => ea.ExamenId == id)
+                    .OrderByDescending(ea => ea.FechaCalificacion)
+                    .ToListAsync();
+
+                ViewBag.Calificaciones = calificaciones;
+                ViewBag.TotalPreguntas = examen.Preguntas.Count;
+                
+                // Si TempData indica que debemos mostrar el modal de revisión IA, pasar las preguntas
+                if (TempData["ShowReviewModal"] != null && (bool)TempData["ShowReviewModal"])
+                {
+                    ViewBag.PreguntasIA = examen.Preguntas.OrderBy(p => p.NumeroPregunta).ToList();
+                }
+
+                return View(examen);
+            }
+        }
+
+        // POST: Examen/Rename
+        [HttpPost]
+        public async Task<ActionResult> Rename(Guid id, string newName)
+        {
+            if (Session["UserEmail"] == null)
+                return Json(new { success = false, message = "Sesión expirada." });
+
+            if (string.IsNullOrEmpty(newName))
+                return Json(new { success = false, message = "El nombre no puede estar vacío." });
+
+            string email = Session["UserEmail"].ToString();
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var examen = await db.Examenes.Include(e => e.Unidad.Seccion.Curso.CicloAcademico).FirstOrDefaultAsync(e => e.Id == id && e.Unidad.Seccion.Curso.CicloAcademico.DocenteEmail == email);
+                    if (examen == null)
+                        return Json(new { success = false, message = "Examen no encontrado o sin permisos." });
+
+                    bool exists = await db.Examenes.AnyAsync(e => e.UnidadId == examen.UnidadId && e.NombreVersion == newName && e.Id != id);
+                    if (exists)
+                        return Json(new { success = false, message = "Ya existe otra versión con este nombre en esta unidad." });
+
+                    examen.NombreVersion = newName;
+
+                    if (!string.IsNullOrEmpty(examen.DriveFolderId))
+                    {
+                        string accessToken = await GetValidAccessTokenAsync(db, email);
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            await GoogleDriveHelper.RenameFolderAsync(examen.DriveFolderId, newName, accessToken);
+                        }
+                    }
+
+                    await db.SaveChangesAsync();
+
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error al renombrar: " + ex.Message });
+                }
+            }
+        }
+
+        // POST: Examen/ScanTemplateWithGemini
+        [HttpPost]
+        public async Task<ActionResult> ScanTemplateWithGemini(Guid examenId)
+        {
+            if (Session["UserEmail"] == null) return Json(new { success = false, message = "No autorizado" });
+
+            try
+            {
+                using (var db = new ScibmContext())
+                {
+                    var examen = await db.Examenes.FindAsync(examenId);
+                    if (examen == null || string.IsNullOrEmpty(examen.RutaPdfOriginal))
+                        return Json(new { success = false, message = "Examen o PDF no encontrado." });
+
+                    string physicalPath = Server.MapPath(examen.RutaPdfOriginal);
+                    if (!System.IO.File.Exists(physicalPath))
+                        return Json(new { success = false, message = "El archivo físico PDF no se encuentra." });
+
+                    var gemini = new GeminiApiService();
+                    
+                    string prompt = @"Eres un asistente de OCR avanzado para exámenes. Analiza la primera página de este examen en blanco.
+Identifica todas las preguntas. Para cada pregunta, extrae:
+1. 'numeroPregunta' (int).
+2. 'enunciado' (texto de la pregunta).
+3. 'tipo': Puede ser 'OpcionMultiple', 'VerdaderoFalso', o 'RespuestaLibre' (líneas en blanco largas como _______).
+4. 'posX', 'posY', 'width', 'height': Coordenadas relativas en porcentaje (0.0 a 100.0) de la ubicación aproximada del bloque de respuestas (las letras, paréntesis o líneas).
+5. 'opciones': Si es OpcionMultiple o VerdaderoFalso, detecta exactamente cuántas alternativas hay. 
+   Devuelve un array de objetos JSON para las opciones. Por ejemplo, si hay A, B, C, D, devuelve 4 opciones. Si es VerdaderoFalso, devuelve 2 ('V', 'F'). 
+   Cada opción debe tener 'label', 'x', 'y' (coordenadas relativas X, Y relativas al ancho y alto total del documento, no de la pregunta), 'w' (2.5), 'h' (2.5). Pon las coordenadas lo más precisas posible sobre las letras o paréntesis vacíos.
+   Para RespuestaLibre, el array de opciones debe estar vacío.
+
+Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
+{
+  ""preguntas"": [
+    {
+      ""numeroPregunta"": 1,
+      ""enunciado"": ""¿Qué es la célula?"",
+      ""tipo"": ""OpcionMultiple"",
+      ""posX"": 10.5, ""posY"": 20.0, ""width"": 50.0, ""height"": 15.0,
+      ""opciones"": [
+        { ""label"": ""A"", ""x"": 12.0, ""y"": 25.0, ""w"": 2.5, ""h"": 2.5 },
+        { ""label"": ""B"", ""x"": 12.0, ""y"": 28.0, ""w"": 2.5, ""h"": 2.5 }
+      ]
+    }
+  ]
+}";
+
+                    string jsonResponse = await gemini.AnalyzePdfAsync(physicalPath, prompt);
+
+                    if (jsonResponse.StartsWith("```json"))
+                    {
+                        jsonResponse = jsonResponse.Substring(7);
+                        if (jsonResponse.EndsWith("```")) jsonResponse = jsonResponse.Substring(0, jsonResponse.Length - 3);
+                    }
+
+                    return Content(jsonResponse, "application/json");
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
 
         // POST: Examen/SubirPlantillaExistente
         [HttpPost]

@@ -106,6 +106,23 @@
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-10px); }
     }
+    
+    .edit-btn {
+        color: white;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: all 0.2s ease;
+        padding: 4px;
+        margin-left: 8px;
+    }
+    .edit-btn:hover {
+        color: var(--accent-color);
+        opacity: 1;
+        transform: scale(1.1);
+    }
 </style>
 
 <!-- ACTION BAR -->
@@ -135,8 +152,11 @@ else
         @foreach (var c in Model)
         {
             <div class="course-card">
-                <div class="course-info">
-                    <h3 title="@c.Nombre">@c.Nombre</h3>
+                <div class="course-info" style="display: flex; align-items: center; justify-content: space-between;">
+                    <h3 title="@c.Nombre" style="margin-bottom: 0;">@c.Nombre</h3>
+                    <button class="edit-btn" onclick="openEditModal('@c.Id', '@c.Nombre')" title="Renombrar">
+                        <i class="fa-solid fa-pencil"></i>
+                    </button>
                 </div>
                 
                 <div class="course-stats">
@@ -187,6 +207,33 @@ else
     </div>
 </div>
 
+<!-- MODAL EDIT CICLO -->
+<div class="modal-overlay" id="edit-ciclo-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Renombrar Ciclo</h3>
+            <button class="modal-close" onclick="closeEditModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <form id="edit-ciclo-form" onsubmit="submitEditForm(event)">
+            <input type="hidden" id="edit-id" />
+            <div class="form-group">
+                <label for="edit-nombre">Nuevo Nombre</label>
+                <input type="text" id="edit-nombre" class="form-input" required />
+            </div>
+
+            <div id="edit-modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px;">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="edit-submit-btn">
+                    <span>Guardar Cambios</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 @section scripts {
     <script>
         function openModal() {
@@ -198,6 +245,59 @@ else
             document.getElementById("add-ciclo-modal").classList.remove("active");
             document.getElementById("create-ciclo-form").reset();
             document.getElementById("modal-error").style.display = "none";
+        }
+
+        function openEditModal(id, nombre) {
+            document.getElementById("edit-id").value = id;
+            document.getElementById("edit-nombre").value = nombre;
+            document.getElementById("edit-ciclo-modal").classList.add("active");
+            document.getElementById("edit-nombre").focus();
+        }
+
+        function closeEditModal() {
+            document.getElementById("edit-ciclo-modal").classList.remove("active");
+            document.getElementById("edit-ciclo-form").reset();
+            document.getElementById("edit-modal-error").style.display = "none";
+        }
+
+        function submitEditForm(e) {
+            e.preventDefault();
+            
+            var submitBtn = document.getElementById("edit-submit-btn");
+            var originalHtml = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+            var id = document.getElementById("edit-id").value;
+            var newName = document.getElementById("edit-nombre").value;
+
+            fetch('@Url.Action("Rename", "Ciclo")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'id=' + encodeURIComponent(id) + '&newName=' + encodeURIComponent(newName)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                    var errDiv = document.getElementById("edit-modal-error");
+                    errDiv.innerText = data.message || "Ocurrió un error al renombrar.";
+                    errDiv.style.display = "block";
+                }
+            })
+            .catch(error => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHtml;
+                var errDiv = document.getElementById("edit-modal-error");
+                errDiv.innerText = "Error de conexión con el servidor.";
+                errDiv.style.display = "block";
+            });
         }
 
         function submitForm(e) {

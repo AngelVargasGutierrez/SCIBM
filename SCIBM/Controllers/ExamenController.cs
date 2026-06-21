@@ -1085,7 +1085,7 @@ Reglas del JSON:
                         }
 
                         // 4. Estampar la nota final y las correcciones en el PDF
-                        string notaTexto = $"Nota: {notaFinal.ToString("0.0")}";
+                        string notaTexto = notaFinal.ToString("0.0");
                         PdfStamperHelper.StampGradeAndCorrections(tempPhysicalPath, finalPhysicalPath, notaTexto, res.Stamp, correctionData);
 
                         // 4. Guardar registros en base de datos (Evitar duplicados)
@@ -1160,6 +1160,79 @@ Reglas del JSON:
                 catch (Exception ex)
                 {
                     return Json(new { success = false, message = "Error al guardar calificaciones: " + ex.Message });
+                }
+            }
+        }
+
+        // GET: Examen/ViewPdf/5
+        [HttpGet]
+        public async Task<ActionResult> ViewPdf(Guid id)
+        {
+            if (Session["UserEmail"] == null)
+            {
+                return RedirectToAction("Login", "Auth");
+            }
+
+            using (var db = new ScibmContext())
+            {
+                var calificacion = await db.ExamenesAlumnos.FindAsync(id);
+                if (calificacion == null || string.IsNullOrEmpty(calificacion.RutaPdfRespuesta))
+                {
+                    return HttpNotFound("El PDF no se encuentra disponible.");
+                }
+
+                string physicalPath = Server.MapPath(calificacion.RutaPdfRespuesta);
+                if (!System.IO.File.Exists(physicalPath))
+                {
+                    return HttpNotFound("El archivo físico no se encontró en el servidor.");
+                }
+
+                return File(physicalPath, "application/pdf");
+            }
+        }
+
+        // POST: Examen/DeleteCalificacion
+        [HttpPost]
+        public async Task<ActionResult> DeleteCalificacion(Guid calificacionId)
+        {
+            if (Session["UserEmail"] == null)
+            {
+                return Json(new { success = false, message = "Sesión expirada" });
+            }
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var calificacion = await db.ExamenesAlumnos.FindAsync(calificacionId);
+                    if (calificacion == null)
+                    {
+                        return Json(new { success = false, message = "La calificación no existe." });
+                    }
+
+                    // Borrar el PDF si existe localmente
+                    if (!string.IsNullOrEmpty(calificacion.RutaPdfRespuesta))
+                    {
+                        string physicalPath = Server.MapPath(calificacion.RutaPdfRespuesta);
+                        if (System.IO.File.Exists(physicalPath))
+                        {
+                            System.IO.File.Delete(physicalPath);
+                        }
+                    }
+
+                    // Las respuestas hijas deberían eliminarse automáticamente por Cascade Delete en EF,
+                    // pero podemos forzarlo por seguridad:
+                    var respuestas = db.RespuestasAlumnos.Where(r => r.ExamenAlumnoId == calificacionId);
+                    db.RespuestasAlumnos.RemoveRange(respuestas);
+
+                    db.ExamenesAlumnos.Remove(calificacion);
+                    await db.SaveChangesAsync();
+
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error al eliminar: " + ex.Message });
                 }
             }
         }

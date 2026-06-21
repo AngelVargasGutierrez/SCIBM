@@ -409,11 +409,12 @@ namespace SCIBM.Controllers
                 var examenesIds = examenes.Select(e => e.Id).ToList();
 
                 var notas = await db.ExamenesAlumnos
-                    .Where(ea => examenesIds.Contains(ea.ExamenId) && ea.AlumnoMatriculadoId != null)
+                    .Where(ea => examenesIds.Contains(ea.ExamenId))
                     .ToListAsync();
 
                 var rows = new List<Dictionary<string, object>>();
 
+                // 1. Alumnos Matriculados
                 foreach (var al in alumnos)
                 {
                     var row = new Dictionary<string, object>();
@@ -421,10 +422,39 @@ namespace SCIBM.Controllers
 
                     foreach (var un in unidades)
                     {
-                        var examenDeUnidad = examenes.FirstOrDefault(e => e.Id == un.Id);
+                        var examenDeUnidad = examenes.FirstOrDefault(e => e.UnidadId == un.Id);
                         if (examenDeUnidad != null)
                         {
                             var notaAlumno = notas.FirstOrDefault(n => n.ExamenId == examenDeUnidad.Id && n.AlumnoMatriculadoId == al.Id);
+                            row[un.NombreUnidad] = (notaAlumno != null) ? (object)notaAlumno.Nota : "-";
+                        }
+                        else
+                        {
+                            row[un.NombreUnidad] = "-";
+                        }
+                    }
+                    rows.Add(row);
+                }
+
+                // 2. Alumnos NO Matriculados (solo detectados por IA)
+                var alumnosNoMatriculados = notas
+                    .Where(n => n.AlumnoMatriculadoId == null && !string.IsNullOrEmpty(n.NombreAlumno))
+                    .Select(n => n.NombreAlumno)
+                    .Distinct()
+                    .OrderBy(n => n)
+                    .ToList();
+
+                foreach (var noMatr in alumnosNoMatriculados)
+                {
+                    var row = new Dictionary<string, object>();
+                    row["NombreAlumno"] = $"{noMatr} (No Matr.)";
+
+                    foreach (var un in unidades)
+                    {
+                        var examenDeUnidad = examenes.FirstOrDefault(e => e.UnidadId == un.Id);
+                        if (examenDeUnidad != null)
+                        {
+                            var notaAlumno = notas.FirstOrDefault(n => n.ExamenId == examenDeUnidad.Id && n.AlumnoMatriculadoId == null && n.NombreAlumno == noMatr);
                             row[un.NombreUnidad] = (notaAlumno != null) ? (object)notaAlumno.Nota : "-";
                         }
                         else
@@ -470,7 +500,7 @@ namespace SCIBM.Controllers
                 var examenesIds = examenes.Select(e => e.Id).ToList();
 
                 var notas = await db.ExamenesAlumnos
-                    .Where(ea => examenesIds.Contains(ea.ExamenId) && ea.AlumnoMatriculadoId != null)
+                    .Where(ea => examenesIds.Contains(ea.ExamenId))
                     .ToListAsync();
 
                 using (var package = new ExcelPackage())
@@ -495,16 +525,47 @@ namespace SCIBM.Controllers
                     }
 
                     int rowIdx = 2;
+                    
+                    // 1. Alumnos Matriculados
                     foreach (var al in alumnos)
                     {
                         worksheet.Cells[rowIdx, 1].Value = al.NombreCompleto;
                         int colIdx = 2;
                         foreach (var un in unidades)
                         {
-                            var examenDeUnidad = examenes.FirstOrDefault(e => e.Id == un.Id);
+                            var examenDeUnidad = examenes.FirstOrDefault(e => e.UnidadId == un.Id);
                             if (examenDeUnidad != null)
                             {
                                 var notaAlumno = notas.FirstOrDefault(n => n.ExamenId == examenDeUnidad.Id && n.AlumnoMatriculadoId == al.Id);
+                                worksheet.Cells[rowIdx, colIdx].Value = (notaAlumno != null) ? (object)notaAlumno.Nota : "-";
+                            }
+                            else
+                            {
+                                worksheet.Cells[rowIdx, colIdx].Value = "-";
+                            }
+                            colIdx++;
+                        }
+                        rowIdx++;
+                    }
+
+                    // 2. Alumnos No Matriculados
+                    var alumnosNoMatriculados = notas
+                        .Where(n => n.AlumnoMatriculadoId == null && !string.IsNullOrEmpty(n.NombreAlumno))
+                        .Select(n => n.NombreAlumno)
+                        .Distinct()
+                        .OrderBy(n => n)
+                        .ToList();
+
+                    foreach (var noMatr in alumnosNoMatriculados)
+                    {
+                        worksheet.Cells[rowIdx, 1].Value = $"{noMatr} (No Matr.)";
+                        int colIdx = 2;
+                        foreach (var un in unidades)
+                        {
+                            var examenDeUnidad = examenes.FirstOrDefault(e => e.UnidadId == un.Id);
+                            if (examenDeUnidad != null)
+                            {
+                                var notaAlumno = notas.FirstOrDefault(n => n.ExamenId == examenDeUnidad.Id && n.AlumnoMatriculadoId == null && n.NombreAlumno == noMatr);
                                 worksheet.Cells[rowIdx, colIdx].Value = (notaAlumno != null) ? (object)notaAlumno.Nota : "-";
                             }
                             else

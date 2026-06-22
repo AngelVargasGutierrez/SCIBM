@@ -78,12 +78,23 @@
         letter-spacing: 0.5px;
     }
 
-    /* ACTION BAR */
+    /* ACTION BAR & BREADCRUMB */
     .action-bar {
         display: flex;
-        justify-content: flex-end;
+        justify-content: space-between;
         align-items: center;
         margin-bottom: 20px;
+    }
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--text-muted);
+    }
+    .breadcrumb-current {
+        color: var(--primary-glow);
     }
     
     /* NO DATA EMPTY STATE */
@@ -116,10 +127,24 @@
         opacity: 0.6;
         transition: all 0.2s ease;
         padding: 4px;
-        margin-left: 8px;
     }
     .edit-btn:hover {
         color: var(--accent-color);
+        opacity: 1;
+        transform: scale(1.1);
+    }
+    .delete-btn {
+        color: white;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: all 0.2s ease;
+        padding: 4px;
+    }
+    .delete-btn:hover {
+        color: #ff5252;
         opacity: 1;
         transform: scale(1.1);
     }
@@ -127,6 +152,9 @@
 
 <!-- ACTION BAR -->
 <div class="action-bar">
+    <div class="breadcrumb">
+        <span class="breadcrumb-current"><i class="fa-solid fa-calendar-days" style="margin-right: 6px;"></i> Ciclos Académicos</span>
+    </div>
     <button class="btn btn-primary" onclick="openModal()">
         <i class="fa-solid fa-plus"></i> Nuevo Ciclo
     </button>
@@ -152,11 +180,16 @@ else
         @foreach (var c in Model)
         {
             <div class="course-card">
-                <div class="course-info" style="display: flex; align-items: center; justify-content: space-between;">
+                <div class="course-info" style="display: flex; align-items: flex-start; justify-content: space-between;">
                     <h3 title="@c.Nombre" style="margin-bottom: 0;">@c.Nombre</h3>
-                    <button class="edit-btn" onclick="openEditModal('@c.Id', '@c.Nombre')" title="Renombrar">
-                        <i class="fa-solid fa-pencil"></i>
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="edit-btn" onclick="openEditModal('@c.Id', '@c.Nombre')" title="Renombrar">
+                            <i class="fa-solid fa-pencil"></i>
+                        </button>
+                        <button class="delete-btn" onclick="openDeleteModal('@c.Id', '@c.Nombre')" title="Eliminar">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="course-stats">
@@ -234,6 +267,30 @@ else
     </div>
 </div>
 
+<!-- MODAL DELETE CICLO -->
+<div class="modal-overlay" id="delete-ciclo-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Eliminar Ciclo</h3>
+            <button class="modal-close" onclick="closeDeleteModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p style="margin-bottom: 20px; font-size: 15px; color: var(--text-muted);">
+            ¿Estás seguro que deseas eliminar el ciclo <strong id="delete-ciclo-nombre" style="color: white;"></strong>? <br><br>
+            <span style="color: #ff5252;"><i class="fa-solid fa-triangle-exclamation"></i> Advertencia:</span> Esto eliminará permanentemente todos los cursos, secciones y exámenes asociados.
+        </p>
+        <form id="delete-ciclo-form" onsubmit="submitDeleteForm(event)">
+            <input type="hidden" id="delete-id" />
+            <div id="delete-modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="delete-submit-btn" style="background: #ff5252; box-shadow: 0 4px 15px 0 rgba(255, 82, 82, 0.4); border: none;">
+                    <span>Sí, Eliminar</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 @section scripts {
     <script>
         function openModal() {
@@ -295,6 +352,56 @@ else
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalHtml;
                 var errDiv = document.getElementById("edit-modal-error");
+                errDiv.innerText = "Error de conexión con el servidor.";
+                errDiv.style.display = "block";
+            });
+        }
+
+        function openDeleteModal(id, nombre) {
+            document.getElementById("delete-id").value = id;
+            document.getElementById("delete-ciclo-nombre").innerText = nombre;
+            document.getElementById("delete-ciclo-modal").classList.add("active");
+        }
+
+        function closeDeleteModal() {
+            document.getElementById("delete-ciclo-modal").classList.remove("active");
+            document.getElementById("delete-modal-error").style.display = "none";
+        }
+
+        function submitDeleteForm(e) {
+            e.preventDefault();
+            
+            var submitBtn = document.getElementById("delete-submit-btn");
+            var originalHtml = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Eliminando...';
+
+            var id = document.getElementById("delete-id").value;
+
+            fetch('@Url.Action("Delete", "Ciclo")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'id=' + encodeURIComponent(id)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                    var errDiv = document.getElementById("delete-modal-error");
+                    errDiv.innerText = data.message || "Ocurrió un error al eliminar.";
+                    errDiv.style.display = "block";
+                }
+            })
+            .catch(error => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHtml;
+                var errDiv = document.getElementById("delete-modal-error");
                 errDiv.innerText = "Error de conexión con el servidor.";
                 errDiv.style.display = "block";
             });

@@ -13,6 +13,9 @@ namespace SCIBM.Models
 
         public DbSet<CicloAcademico> CiclosAcademicos { get; set; }
         public DbSet<Docente> Docentes { get; set; }
+        public DbSet<Facultad> Facultades { get; set; }
+        public DbSet<EscuelaProfesional> EscuelasProfesionales { get; set; }
+        public DbSet<Carrera> Carreras { get; set; }
         public DbSet<Curso> Cursos { get; set; }
         public DbSet<Seccion> Secciones { get; set; }
         public DbSet<AlumnoMatriculado> AlumnosMatriculados { get; set; }
@@ -39,6 +42,27 @@ namespace SCIBM.Models
                 .HasRequired(c => c.CicloAcademico)
                 .WithMany(d => d.Cursos)
                 .HasForeignKey(c => c.CicloAcademicoId)
+                .WillCascadeOnDelete(true);
+
+            // Configurar relación 1 a muchos: Facultad -> EscuelaProfesional
+            modelBuilder.Entity<EscuelaProfesional>()
+                .HasRequired(e => e.Facultad)
+                .WithMany(f => f.EscuelasProfesionales)
+                .HasForeignKey(e => e.FacultadId)
+                .WillCascadeOnDelete(true);
+
+            // Configurar relación 1 a muchos: EscuelaProfesional -> Carrera
+            modelBuilder.Entity<Carrera>()
+                .HasRequired(c => c.EscuelaProfesional)
+                .WithMany(e => e.Carreras)
+                .HasForeignKey(c => c.EscuelaProfesionalId)
+                .WillCascadeOnDelete(true);
+
+            // Configurar relación 1 a muchos: Carrera -> Curso
+            modelBuilder.Entity<Curso>()
+                .HasRequired(c => c.Carrera)
+                .WithMany(ca => ca.Cursos)
+                .HasForeignKey(c => c.CarreraId)
                 .WillCascadeOnDelete(true);
 
             // Configurar relación 1 a muchos: Curso -> Seccion
@@ -114,9 +138,9 @@ namespace SCIBM.Models
                 .HasIndex(e => new { e.UnidadId, e.NombreVersion })
                 .IsUnique();
 
-            // 3. Número de pregunta única por examen
+            // 3. NumeroPregunta único por examen+inciso (combinación permite subpreguntas de la misma sección)
             modelBuilder.Entity<Pregunta>()
-                .HasIndex(p => new { p.ExamenId, p.NumeroPregunta })
+                .HasIndex(p => new { p.ExamenId, p.NumeroPregunta, p.Inciso })
                 .IsUnique();
 
             // 4. Respuesta única de pregunta por alumno

@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewBag.Title - SCIBM</title>
+    <!-- Evitar parpadeo blanco nativo del navegador -->
+    <meta name="color-scheme" content="dark">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome para iconos -->
@@ -21,6 +23,10 @@
             --glass-bg: rgba(28, 37, 65, 0.7);
             --glass-border: rgba(255, 255, 255, 0.08);
             --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        html {
+            background-color: #0b132b; /* Fondo oscuro base instantáneo */
         }
 
         * {
@@ -44,12 +50,18 @@
             border-radius: 10px;
         }
 
+        @@keyframes pageFadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         body {
             background: linear-gradient(135deg, var(--bg-color) 0%, #1d2d44 100%);
             color: var(--text-color);
             min-height: 100vh;
             display: flex;
             overflow-x: hidden;
+            animation: pageFadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
 
         /* SIDEBAR CONTAINER */
@@ -447,6 +459,10 @@
             border-color: var(--accent-color);
             box-shadow: 0 0 10px rgba(72, 202, 228, 0.25);
         }
+        .form-input option {
+            background-color: var(--sidebar-bg);
+            color: var(--text-color);
+        }
 
         /* ALERTAS ANIMACION */
         .alert {
@@ -478,7 +494,7 @@
 
             <!-- USER INFO PROFILE -->
             <div class="user-profile">
-                <img src="@(Session["UserPicture"] ?? "/Content/images/user-default.png")" alt="Docente Avatar" class="user-avatar" />
+                <img src="@(Session["UserPicture"] ?? "https://ui-avatars.com/api/?name=Docente&background=1c2541&color=64dfdf")" alt="Docente Avatar" class="user-avatar" referrerpolicy="no-referrer" />
                 <div class="user-info">
                     <div class="user-name">@(Session["UserName"] ?? "Docente UPT")</div>
                     <div class="user-role" title="@(Session["UserEmail"])">@(Session["UserEmail"] ?? "Invitado")</div>

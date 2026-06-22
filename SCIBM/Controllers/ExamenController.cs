@@ -53,7 +53,7 @@ namespace SCIBM.Controllers
 
         // POST: Examen/CreateVersion
         [HttpPost]
-        public async Task<ActionResult> CreateVersion(Guid unidadId, string nombreVersion, HttpPostedFileBase pdfFile)
+        public async Task<ActionResult> CreateVersion(Guid unidadId, string nombreVersion, HttpPostedFileBase pdfFile, string tipoExamen)
         {
             if (Session["UserEmail"] == null)
             {
@@ -108,6 +108,156 @@ namespace SCIBM.Controllers
                     db.Examenes.Add(nuevoExamen);
                     await db.SaveChangesAsync();
 
+                    // 2. Determinar el prompt según tipoExamen
+                    string prompt = "";
+                    if (tipoExamen == "vacio")
+                    {
+                        prompt = @"Eres un asistente de OCR avanzado para exámenes.
+Analiza TODAS las páginas de este examen en blanco.
+Identifica la estructura jerárquica de las preguntas.
+Reglas estrictas de jerarquía:
+- PADRES: Son las instrucciones principales o contenedores (ej. números romanos I, II, III). 
+  Para ellos devuelve 'numeroPregunta' (entero, ej: I -> 1), 'enunciado', 'tipo': 'Contenedor', 'puntaje': 0, 'respuestaCorrecta': '', 'pagina' donde se encuentra.
+- HIJOS (Incisos): Son las subpreguntas reales (a, b, c, o 1, 2, 3 dentro de una sección).
+  Devuelve 'inciso' (letra o número), 'enunciado', 'tipo' ('OpcionMultiple', 'VerdaderoFalso', 'RespuestaCorta', 'Relacionar', 'RespuestaAbierta').
+  'puntaje': Extraído del texto del padre o 1.0 por defecto.
+  'respuestaCorrecta': SIEMPRE ''.
+  'opciones': Si el Tipo es 'OpcionMultiple', extrae un arreglo con 'label' (A, B, C) y 'text' (el texto de la opción). Para otros tipos, vacío [].
+  'pagina': donde se encuentra.
+
+Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
+{
+  ""preguntas"": [
+    {
+      ""numeroPregunta"": 1,
+      ""enunciado"": ""Colocar verdadero (V) o falso (F)."",
+      ""tipo"": ""Contenedor"",
+      ""puntaje"": 0,
+      ""respuestaCorrecta"": """",
+      ""pagina"": 1,
+      ""subPreguntas"": [
+        {
+          ""inciso"": ""a"",
+          ""enunciado"": ""Es Windows Azure una solución..."",
+          ""tipo"": ""VerdaderoFalso"",
+          ""puntaje"": 0.5,
+          ""respuestaCorrecta"": """",
+          ""pagina"": 1,
+          ""opciones"": []
+        }
+      ]
+    }
+  ]
+}";
+                    }
+                    else
+                    {
+                        prompt = @"Eres un asistente de OCR avanzado para exámenes.
+Analiza TODAS las páginas de este solucionario (examen ya resuelto).
+Identifica la estructura jerárquica de las preguntas Y las respuestas marcadas.
+Reglas estrictas de jerarquía:
+- PADRES: Son las instrucciones principales o contenedores (ej. números romanos I, II, III). 
+  Para ellos devuelve 'numeroPregunta' (entero, ej: I -> 1), 'enunciado', 'tipo': 'Contenedor', 'puntaje': 0, 'respuestaCorrecta': '', 'pagina' donde se encuentra.
+- HIJOS (Incisos): Son las subpreguntas (a, b, c, o 1, 2, 3 dentro de una sección).
+  Devuelve 'inciso' (letra o número), 'enunciado', 'tipo' ('OpcionMultiple', 'VerdaderoFalso', 'RespuestaCorta', 'Relacionar', 'RespuestaAbierta').
+  'puntaje': Extraído del texto del padre o 1.0 por defecto.
+  'respuestaCorrecta': EXTRAE la respuesta marcada, escrita o encerrada. Si es Múltiple, la letra. Si es V/F, la 'V' o 'F'. Si es Relacionar, el formato '1-B, 2-A'.
+  'opciones': Si el Tipo es 'OpcionMultiple', extrae un arreglo con 'label' (A, B, C) y 'text' (el texto de la opción). Para otros tipos, vacío [].
+  'pagina': donde se encuentra.
+
+Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
+{
+  ""preguntas"": [
+    {
+      ""numeroPregunta"": 1,
+      ""enunciado"": ""Marcar con una X la respuesta correcta."",
+      ""tipo"": ""Contenedor"",
+      ""puntaje"": 0,
+      ""respuestaCorrecta"": """",
+      ""pagina"": 1,
+      ""subPreguntas"": [
+        {
+          ""inciso"": ""1"",
+          ""enunciado"": ""¿Cuál es la función principal de IIS?"",
+          ""tipo"": ""OpcionMultiple"",
+          ""puntaje"": 0.5,
+          ""respuestaCorrecta"": ""C"",
+          ""pagina"": 1,
+          ""opciones"": [
+            {""label"": ""A"", ""text"": ""Servir archivos de texto""},
+            {""label"": ""B"", ""text"": ""Alojar aplicaciones""},
+            {""label"": ""C"", ""text"": ""Servir contenido web""}
+          ]
+        }
+      ]
+    }
+  ]
+}";
+                    }
+
+                    // 3. Llamar a Gemini
+                    var gemini = new GeminiApiService();
+                    string jsonResponse = await gemini.AnalyzePdfAsync(physicalPath, prompt);
+                    jsonResponse = jsonResponse.Replace("```json", "").Replace("```", "").Trim();
+                    var rootObj = JsonConvert.DeserializeObject<RootPreguntasTemp>(jsonResponse);
+
+                    if (rootObj?.preguntas != null)
+                    {
+                        foreach (var pPadre in rootObj.preguntas)
+                        {
+                            string safeTipoPadre = string.IsNullOrEmpty(pPadre.Tipo) ? "Contenedor" : pPadre.Tipo;
+                            if (safeTipoPadre.Length > 30) safeTipoPadre = safeTipoPadre.Substring(0, 30);
+                            string safeRespPadre = pPadre.RespuestaCorrecta ?? "";
+                            if (safeRespPadre.Length > 150) safeRespPadre = safeRespPadre.Substring(0, 150);
+
+                            var pregDb = new Pregunta
+                            {
+                                ExamenId = nuevoExamen.Id,
+                                PreguntaPadreId = null,
+                                NumeroPregunta = pPadre.NumeroPregunta,
+                                Enunciado = string.IsNullOrEmpty(pPadre.Enunciado) ? $"Sección {pPadre.NumeroPregunta}" : pPadre.Enunciado,
+                                Tipo = safeTipoPadre,
+                                RespuestaCorrecta = safeRespPadre,
+                                Puntaje = pPadre.Puntaje,
+                                Pagina = pPadre.Pagina > 0 ? pPadre.Pagina : 1
+                            };
+                            if (pPadre.Opciones != null && pPadre.Opciones.Any()) {
+                                pregDb.OpcionesJson = JsonConvert.SerializeObject(pPadre.Opciones);
+                            }
+                            db.Preguntas.Add(pregDb);
+                            await db.SaveChangesAsync(); // Para obtener el Id
+
+                            if (pPadre.SubPreguntas != null)
+                            {
+                                foreach (var pijo in pPadre.SubPreguntas)
+                                {
+                                    string safeTipoHijo = string.IsNullOrEmpty(pijo.Tipo) ? "RespuestaCorta" : pijo.Tipo;
+                                    if (safeTipoHijo.Length > 30) safeTipoHijo = safeTipoHijo.Substring(0, 30);
+                                    string safeRespHija = pijo.RespuestaCorrecta ?? "";
+                                    if (safeRespHija.Length > 150) safeRespHija = safeRespHija.Substring(0, 150);
+
+                                    var subDb = new Pregunta
+                                    {
+                                        ExamenId = nuevoExamen.Id,
+                                        PreguntaPadreId = pregDb.Id,
+                                        NumeroPregunta = pPadre.NumeroPregunta,
+                                        Inciso = string.IsNullOrEmpty(pijo.Inciso) ? "" : (pijo.Inciso.Length > 10 ? pijo.Inciso.Substring(0, 10) : pijo.Inciso),
+                                        Enunciado = string.IsNullOrEmpty(pijo.Enunciado) ? "Subpregunta" : pijo.Enunciado,
+                                        Tipo = safeTipoHijo,
+                                        RespuestaCorrecta = safeRespHija,
+                                        Puntaje = pijo.Puntaje > 0 ? pijo.Puntaje : 1.0,
+                                        Pagina = pijo.Pagina > 0 ? pijo.Pagina : 1
+                                    };
+                                    if (pijo.Opciones != null && pijo.Opciones.Any()) {
+                                        subDb.OpcionesJson = JsonConvert.SerializeObject(pijo.Opciones);
+                                    }
+                                    db.Preguntas.Add(subDb);
+                                }
+                                await db.SaveChangesAsync();
+                            }
+                        }
+                    }
+
                     // Intentar crear la carpeta en Drive
                     string token = await GetValidAccessTokenAsync(db, email);
                     if (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(unidad.DriveFolderId))
@@ -123,8 +273,11 @@ namespace SCIBM.Controllers
                         }
                     }
 
-                    TempData["Success"] = $"Versión '{nombreVersion}' creada con éxito.";
-                    return RedirectToAction("Detail", "Examen", new { id = nuevoExamen.Id });
+                    TempData["Success"] = $"Versión '{nombreVersion}' creada y analizada con éxito. Por favor, revisa las preguntas extraídas.";
+                    TempData["ShowReviewModal"] = true;
+                    TempData["NuevoExamenId"] = nuevoExamen.Id; // Para cargarlo en Unidad/Detail
+                    
+                    return RedirectToAction("Detail", "Unidad", new { id = unidadId });
                 }
                 catch (System.Data.Entity.Validation.DbEntityValidationException ex)
                 {
@@ -235,6 +388,35 @@ namespace SCIBM.Controllers
                 catch (Exception ex)
                 {
                     return Json(new { success = false, message = "Error al renombrar: " + ex.Message });
+                }
+            }
+        }
+
+        // POST: Examen/Delete
+        [HttpPost]
+        public async Task<ActionResult> Delete(Guid id)
+        {
+            if (Session["UserEmail"] == null)
+                return Json(new { success = false, message = "Sesión expirada." });
+
+            string email = Session["UserEmail"].ToString();
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var examen = await db.Examenes.Include(e => e.Unidad.Seccion.Curso.CicloAcademico).FirstOrDefaultAsync(e => e.Id == id && e.Unidad.Seccion.Curso.CicloAcademico.DocenteEmail == email);
+                    if (examen == null)
+                        return Json(new { success = false, message = "Examen no encontrado o sin permisos." });
+
+                    db.Examenes.Remove(examen);
+                    await db.SaveChangesAsync();
+
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error al eliminar: " + ex.Message });
                 }
             }
         }
@@ -598,9 +780,9 @@ Devuelve ÚNICAMENTE un arreglo JSON válido (sin formato markdown adicional), e
                         var pDb = await db.Preguntas.FirstOrDefaultAsync(p => p.Id == pEdit.Id);
                         if (pDb != null)
                         {
-                            pDb.Enunciado = pEdit.Enunciado;
-                            pDb.Tipo = pEdit.Tipo;
-                            pDb.RespuestaCorrecta = pEdit.RespuestaCorrecta;
+                            pDb.Enunciado = pEdit.Enunciado ?? "Sin enunciado";
+                            pDb.Tipo = pEdit.Tipo ?? "Desconocido";
+                            pDb.RespuestaCorrecta = pEdit.RespuestaCorrecta ?? "";
                             
                             // Recuperar puntaje original del Request para saltar el problema de la coma decimal
                             var rawPuntaje = Request.Form[$"preguntasEditadas[{i}].Puntaje"];
@@ -626,6 +808,14 @@ Devuelve ÚNICAMENTE un arreglo JSON válido (sin formato markdown adicional), e
                     await db.SaveChangesAsync();
                 }
                 TempData["Success"] = "¡Solucionario guardado y confirmado correctamente!";
+            }
+            catch (System.Data.Entity.Validation.DbEntityValidationException ex)
+            {
+                var errorMessages = ex.EntityValidationErrors
+                        .SelectMany(x => x.ValidationErrors)
+                        .Select(x => x.PropertyName + ": " + x.ErrorMessage);
+                var fullErrorMessage = string.Join("; ", errorMessages);
+                TempData["Error"] = "Error de validación al guardar: " + fullErrorMessage;
             }
             catch (Exception ex)
             {
@@ -1578,25 +1768,39 @@ Reglas del JSON:
     }
 
     // Clases DTO para recibir JSON en los controladores
+    public class RootPreguntasTemp
+    {
+        public List<PreguntaTemp> preguntas { get; set; }
+    }
+
     public class PreguntaTemp
     {
         public int NumeroPregunta { get; set; }
+        public string Inciso { get; set; }
         public string Enunciado { get; set; }
         public string Tipo { get; set; }
         public string RespuestaCorrecta { get; set; }
         public double Puntaje { get; set; }
+        public int Pagina { get; set; }
+        
+        public List<OpcionTemp> Opciones { get; set; }
+        public List<PreguntaTemp> SubPreguntas { get; set; }
+
+        // Legacy (compatibilidad con otros métodos)
         public double PosX { get; set; }
         public double PosY { get; set; }
         public double Width { get; set; }
         public double Height { get; set; }
         public string OpcionesJson { get; set; }
         public bool TieneSubpreguntas { get; set; }
-        public int Pagina { get; set; }
     }
 
     public class OpcionTemp
     {
         public string label { get; set; }
+        public string text { get; set; }
+        
+        // Legacy
         public string val { get; set; }
         public double x { get; set; }
         public double y { get; set; }

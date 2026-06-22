@@ -187,7 +187,7 @@ namespace SCIBM.Controllers
                     Session["UserName"] = $"{docente.Nombre} {docente.Apellido}";
                     Session["UserFirstName"] = docente.Nombre;
                     Session["UserLastName"] = docente.Apellido;
-                    Session["UserPicture"] = picture ?? "/Content/images/user-default.png";
+                    Session["UserPicture"] = picture ?? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(docente.Nombre)}+{Uri.EscapeDataString(docente.Apellido)}&background=1c2541&color=64dfdf";
                     Session["AccessToken"] = accessToken;
                     Session["TokenExpiry"] = DateTime.Now.AddSeconds(expiresIn - 60); // 60s antes de que expire
                     Session["RefreshToken"] = docente.RefreshToken;

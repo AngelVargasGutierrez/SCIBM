@@ -139,6 +139,35 @@ namespace SCIBM.Controllers
             }
         }
 
+        // POST: Seccion/Delete
+        [HttpPost]
+        public async Task<ActionResult> Delete(Guid id)
+        {
+            if (Session["UserEmail"] == null)
+                return Json(new { success = false, message = "Sesión expirada." });
+
+            string email = Session["UserEmail"].ToString();
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var seccion = await db.Secciones.Include(s => s.Curso.CicloAcademico).FirstOrDefaultAsync(s => s.Id == id && s.Curso.CicloAcademico.DocenteEmail == email);
+                    if (seccion == null)
+                        return Json(new { success = false, message = "Sección no encontrada o sin permisos." });
+
+                    db.Secciones.Remove(seccion);
+                    await db.SaveChangesAsync();
+
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error al eliminar: " + ex.Message });
+                }
+            }
+        }
+
         // GET: Seccion/Detail/5
         public async Task<ActionResult> Detail(Guid? id)
         {

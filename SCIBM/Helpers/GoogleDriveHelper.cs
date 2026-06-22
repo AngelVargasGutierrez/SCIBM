@@ -100,6 +100,26 @@ namespace SCIBM.Helpers
             return null;
         }
 
+        // 2.5 Crear o buscar una ruta completa anidada
+        public static async Task<string> GetOrCreatePathAsync(string[] folderNames, string rootId, string accessToken)
+        {
+            string currentParentId = rootId;
+
+            foreach (var folderName in folderNames)
+            {
+                if (string.IsNullOrEmpty(folderName)) continue;
+                
+                string foundId = await GetOrCreateFolderAsync(folderName, currentParentId, accessToken);
+                if (string.IsNullOrEmpty(foundId))
+                {
+                    return null; // Falló al crear algún nivel
+                }
+                currentParentId = foundId;
+            }
+
+            return currentParentId;
+        }
+
         // 3. Subir archivo PDF a Google Drive usando carga Multipart (O SOBREESCRIBIR SI EXISTE)
         public static async Task<string> UploadPdfFileAsync(string fileName, string localFilePath, string parentFolderId, string accessToken)
         {
@@ -200,6 +220,85 @@ namespace SCIBM.Helpers
                 System.Diagnostics.Debug.WriteLine("Error renaming Drive folder: " + error);
             }
             return response.IsSuccessStatusCode;
+        }
+
+        // 5. Obtener ID del padre de una carpeta
+        public static async Task<string> GetParentIdAsync(string folderId, string accessToken)
+        {
+            if (string.IsNullOrEmpty(folderId)) return null;
+            var getUrl = $"https://www.googleapis.com/drive/v3/files/{folderId}?fields=parents";
+            var request = new HttpRequestMessage(HttpMethod.Get, getUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var json = JObject.Parse(await response.Content.ReadAsStringAsync());
+                var parents = json["parents"] as JArray;
+                if (parents != null && parents.Count > 0) return parents[0].ToString();
+            }
+            return null;
+        }
+
+        // 6. Mover una carpeta de un padre a otro
+        public static async Task<bool> MoveFolderAsync(string folderId, string newParentId, string accessToken)
+        {
+            if (string.IsNullOrEmpty(folderId) || string.IsNullOrEmpty(newParentId)) return false;
+
+            // Primero, obtener los padres actuales
+            var getUrl = $"https://www.googleapis.com/drive/v3/files/{folderId}?fields=parents";
+            var getReq = new HttpRequestMessage(HttpMethod.Get, getUrl);
+            getReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            var getRes = await client.SendAsync(getReq);
+            if (!getRes.IsSuccessStatusCode) return false;
+            
+            var json = JObject.Parse(await getRes.Content.ReadAsStringAsync());
+            var parents = json["parents"] as JArray;
+            string oldParents = parents != null ? string.Join(",", parents) : "";
+
+            // Si el padre ya es el mismo, no hacemos nada
+            if (oldParents.Contains(newParentId)) return true;
+
+            // Actualizar moviendo la carpeta
+            var updateUrl = $"https://www.googleapis.com/drive/v3/files/{folderId}?addParents={newParentId}&removeParents={oldParents}";
+            var updateReq = new HttpRequestMessage(new HttpMethod("PATCH"), updateUrl);
+            updateReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            
+            var updateRes = await client.SendAsync(updateReq);
+            return updateRes.IsSuccessStatusCode;
+        }
+
+        // 7. Auto-limpieza recursiva de carpetas vacías (Garbage Collection)
+        public static async Task CleanupEmptyParentsAsync(string folderId, string rootId, string accessToken)
+        {
+            string currentId = folderId;
+            while (!string.IsNullOrEmpty(currentId) && currentId != rootId)
+            {
+                // 1. Verificar si la carpeta tiene hijos (excluyendo la papelera)
+                var query = $"'{currentId}' in parents and trashed = false";
+                var searchUrl = $"https://www.googleapis.com/drive/v3/files?q={Uri.EscapeDataString(query)}&fields=files(id)";
+                var searchReq = new HttpRequestMessage(HttpMethod.Get, searchUrl);
+                searchReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                var searchRes = await client.SendAsync(searchReq);
+                
+                if (!searchRes.IsSuccessStatusCode) break;
+                
+                var json = JObject.Parse(await searchRes.Content.ReadAsStringAsync());
+                var files = json["files"] as JArray;
+                
+                // Si tiene hijos, no la podemos borrar, detenemos la limpieza
+                if (files != null && files.Count > 0) break;
+                
+                // 2. Obtener el padre de esta carpeta ANTES de borrarla (para continuar el ciclo hacia arriba)
+                string nextParentId = await GetParentIdAsync(currentId, accessToken);
+
+                // 3. Borrar (enviar a la papelera) la carpeta vacía
+                var delReq = new HttpRequestMessage(HttpMethod.Delete, $"https://www.googleapis.com/drive/v3/files/{currentId}");
+                delReq.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                await client.SendAsync(delReq);
+
+                // 4. Subir un nivel
+                currentId = nextParentId;
+            }
         }
     }
 }

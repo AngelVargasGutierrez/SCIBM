@@ -121,13 +121,54 @@
         font-size: 28px;
         color: var(--primary-glow);
     }
+    /* BREADCRUMB */
+    .action-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-muted);
+    }
+    .breadcrumb a {
+        color: var(--text-color);
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .breadcrumb a:hover {
+        color: var(--primary-glow);
+    }
+    .breadcrumb-separator {
+        color: rgba(255, 255, 255, 0.2);
+        font-size: 11px;
+    }
+    .breadcrumb-current {
+        color: var(--primary-glow);
+    }
 </style>
 
-<!-- VOLVER A LA UNIDAD -->
-<div style="margin-bottom: -10px;">
-    <a href="@Url.Action("Detail", "Unidad", new { id = Model.UnidadId })" style="color: var(--text-muted); text-decoration: none; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;">
-        <i class="fa-solid fa-arrow-left"></i> Volver a @Model.Unidad.NombreUnidad
-    </a>
+<!-- ACTION BAR -->
+<div class="action-bar">
+    <div class="breadcrumb">
+        <a href="@Url.Action("Index", "Ciclo")"><i class="fa-solid fa-calendar-days" style="margin-right: 6px;"></i> Ciclos</a>
+        <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
+        <a href="@Url.Action("Index", "Curso", new { cicloId = Model.Unidad.Seccion.Curso.CicloAcademicoId })">@Model.Unidad.Seccion.Curso.CicloAcademico.Nombre</a>
+        <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
+        <a href="@Url.Action("Detail", "Curso", new { id = Model.Unidad.Seccion.CursoId })">@Model.Unidad.Seccion.Curso.Nombre</a>
+        <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
+        <a href="@Url.Action("Detail", "Seccion", new { id = Model.Unidad.SeccionId })">@Model.Unidad.Seccion.Nombre</a>
+        <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
+        <a href="@Url.Action("Detail", "Unidad", new { id = Model.UnidadId })">@Model.Unidad.NombreUnidad</a>
+        <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
+        <span class="breadcrumb-current">@Model.NombreVersion</span>
+    </div>
 </div>
 
 <!-- ALERTAS -->
@@ -356,70 +397,7 @@
     </div>
 </div>
 
-@if (ViewBag.PreguntasIA != null && TempData["ShowReviewModal"] != null && (bool)TempData["ShowReviewModal"])
-{
-    var preguntas = (List<SCIBM.Models.Pregunta>)ViewBag.PreguntasIA;
-    
-    <!-- Modal de Revisión IA -->
-    <div id="reviewModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 9999;">
-        <div style="background: var(--surface-light); padding: 30px; border-radius: 12px; max-width: 900px; width: 90%; max-height: 90vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.1);">
-            <h2 style="color: var(--accent-color); margin-bottom: 10px;"><i class="fa-solid fa-clipboard-check"></i> Revision de Solucionario IA</h2>
-            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
-                Gemini ha extraido <strong>@preguntas.Count</strong> preguntas. Por favor, revisa que no haya errores de lectura y edita lo que sea necesario antes de confirmar.
-            </p>
 
-            <form action="@Url.Action("ConfirmarSolucionario", "Examen")" method="POST">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="examenId" value="@Model.Id" />
-                
-                <table style="width: 100%; text-align: left; border-collapse: collapse; margin-bottom: 20px;">
-                    <thead>
-                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                            <th style="padding: 10px; color: var(--primary-glow);">Nro</th>
-                            <th style="padding: 10px; color: var(--primary-glow);">Enunciado</th>
-                            <th style="padding: 10px; color: var(--primary-glow);">Tipo</th>
-                            <th style="padding: 10px; color: var(--primary-glow);">Respuesta Correcta</th>
-                            <th style="padding: 10px; color: var(--primary-glow);">Puntaje</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (int i = 0; i < preguntas.Count; i++)
-                        {
-                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                <td style="padding: 10px; font-weight: bold;">
-                                    <input type="hidden" name="preguntasEditadas[@i].Id" value="@preguntas[i].Id" />
-                                    @preguntas[i].NumeroPregunta
-                                </td>
-                                <td style="padding: 10px;">
-                                    <input type="text" name="preguntasEditadas[@i].Enunciado" value="@preguntas[i].Enunciado" class="form-input" style="padding: 6px; font-size: 13px;" />
-                                </td>
-                                <td style="padding: 10px;">
-                                    <select name="preguntasEditadas[@i].Tipo" class="form-input" style="padding: 6px; font-size: 13px;">
-                                        <option value="OpcionMultiple" @(preguntas[i].Tipo == "OpcionMultiple" ? "selected" : "")>Opcion Multiple</option>
-                                        <option value="RespuestaLibre" @(preguntas[i].Tipo == "RespuestaLibre" ? "selected" : "")>Respuesta Libre</option>
-                                    </select>
-                                </td>
-                                <td style="padding: 10px;">
-                                    <input type="text" name="preguntasEditadas[@i].RespuestaCorrecta" value="@preguntas[i].RespuestaCorrecta" class="form-input" style="padding: 6px; font-size: 13px;" />
-                                </td>
-                                <td style="padding: 10px;">
-                                    <input type="number" step="0.5" name="preguntasEditadas[@i].Puntaje" value="@preguntas[i].Puntaje.ToString(System.Globalization.CultureInfo.InvariantCulture)" class="form-input" style="padding: 6px; font-size: 13px; width: 70px;" />
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-
-                <div style="display: flex; justify-content: flex-end; gap: 15px;">
-                    <button type="button" onclick="document.getElementById('reviewModal').style.display='none'" class="btn" style="background: rgba(255,255,255,0.1); border: none;">Cerrar (Guardado Temporalmente)</button>
-                    <button type="submit" class="btn btn-secondary" style="background: linear-gradient(135deg, #11998e, #38ef7d); border: none;">
-                        <i class="fa-solid fa-check-double"></i> Conforme - Guardar Definitivamente
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-}
 
 <!-- LOADING OVERLAYS -->
 <div class="modal-overlay" id="loading-overlay">

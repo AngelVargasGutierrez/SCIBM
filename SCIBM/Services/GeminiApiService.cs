@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,19 +13,46 @@ namespace SCIBM.Services
 {
     public class GeminiApiService
     {
-        private readonly string _apiKey;
-        private readonly string _apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=";
+        private readonly List<string> _apiKeys;
+        private readonly string _model;
+        private static int _currentIndex = 0;
+        private static readonly object _lock = new object();
 
         public GeminiApiService()
         {
-            _apiKey = ConfigurationManager.AppSettings["Gemini:ApiKey"];
+            // Intentar cargar múltiples keys, fallback a la key única si no existen
+            string keysStr = ConfigurationManager.AppSettings["Gemini:ApiKeys"];
+            if (!string.IsNullOrEmpty(keysStr))
+            {
+                _apiKeys = keysStr.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+            }
+            else
+            {
+                string singleKey = ConfigurationManager.AppSettings["Gemini:ApiKey"];
+                _apiKeys = string.IsNullOrEmpty(singleKey) ? new List<string>() : new List<string> { singleKey };
+            }
+
+            _model = ConfigurationManager.AppSettings["Gemini:Model"] ?? "gemini-2.5-flash";
+        }
+
+        private string GetNextApiKey()
+        {
+            if (_apiKeys.Count == 0)
+                throw new Exception("No hay API Keys de Gemini configuradas en secrets.config.");
+
+            lock (_lock)
+            {
+                string key = _apiKeys[_currentIndex];
+                _currentIndex = (_currentIndex + 1) % _apiKeys.Count;
+                return key;
+            }
         }
 
         public async Task<string> AnalyzePdfAsync(string pdfPath, string prompt)
         {
-            if (string.IsNullOrEmpty(_apiKey))
+            if (_apiKeys.Count == 0)
             {
-                throw new Exception("La API Key de Gemini no está configurada en Web.config.");
+                throw new Exception("La API Key de Gemini no está configurada.");
             }
 
             if (!File.Exists(pdfPath))
@@ -67,32 +96,35 @@ namespace SCIBM.Services
 
             using (var client = new HttpClient())
             {
-                client.Timeout = TimeSpan.FromMinutes(5); // Gemini puede tardar un poco en procesar un PDF completo
+                client.Timeout = TimeSpan.FromMinutes(5); // Gemini puede tardar un poco
                 
-                int maxRetries = 3;
-                int currentRetry = 0;
+                int intentos = 0;
+                int maxIntentos = _apiKeys.Count > 3 ? _apiKeys.Count : 3;
                 string responseString = null;
 
-                while (currentRetry < maxRetries)
+                while (intentos < maxIntentos)
                 {
+                    string currentKey = GetNextApiKey();
+                    string apiUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={currentKey}";
+
                     try
                     {
                         var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-                        var response = await client.PostAsync(_apiUrl + _apiKey, content);
+                        var response = await client.PostAsync(apiUrl, content);
 
                         if (!response.IsSuccessStatusCode)
                         {
                             string errorResponse = await response.Content.ReadAsStringAsync();
                             
-                            // Si es un error 503 de saturación (ServiceUnavailable), reintentamos automáticamente en silencio
+                            // Si es un error 429 de saturación o 503, rotamos a la siguiente key
                             if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable || response.StatusCode == (System.Net.HttpStatusCode)429)
                             {
-                                currentRetry++;
-                                if (currentRetry >= maxRetries)
+                                intentos++;
+                                if (intentos >= maxIntentos)
                                 {
-                                    throw new Exception($"Error en la API de Gemini tras {maxRetries} intentos ({response.StatusCode}): {errorResponse}");
+                                    throw new Exception($"Error en la API de Gemini tras {maxIntentos} intentos rotando keys ({response.StatusCode}): {errorResponse}");
                                 }
-                                await Task.Delay(2500); // Esperar 2.5 segundos antes de reintentar
+                                await Task.Delay(1000); // Pequeña pausa antes de intentar con la siguiente key
                                 continue;
                             }
                             else
@@ -102,19 +134,36 @@ namespace SCIBM.Services
                         }
 
                         responseString = await response.Content.ReadAsStringAsync();
-                        break; // Éxito, salir del bucle de reintentos
+                        break; // Éxito, salir del bucle
                     }
                     catch (HttpRequestException ex)
                     {
-                        currentRetry++;
-                        if (currentRetry >= maxRetries) throw ex;
-                        await Task.Delay(2500);
+                        intentos++;
+                        if (intentos >= maxIntentos) throw ex;
+                        await Task.Delay(1000);
                     }
                 }
                 
-                // Parsear la respuesta de Gemini (está anidada)
-                JObject jsonResponse = JObject.Parse(responseString);
-                var textResult = jsonResponse["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.ToString();
+                // Parsear la respuesta de Gemini
+                // Gemini puede devolver el JSON en candidates[0].content.parts[0].text o directamente en el body
+                string textResult = null;
+                try
+                {
+                    JObject jsonResponse = JObject.Parse(responseString);
+                    textResult = jsonResponse["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.ToString();
+                    
+                    // Si textResult es null pero la respuesta tiene estructura de JSON válido, la usamos directa
+                    if (string.IsNullOrEmpty(textResult) && responseString.TrimStart().StartsWith("{"))
+                    {
+                        textResult = responseString;
+                    }
+                }
+                catch
+                {
+                    // Si falla el parseo anidado, intentar usar el string directamente
+                    if (responseString.TrimStart().StartsWith("{"))
+                        textResult = responseString;
+                }
 
                 if (string.IsNullOrEmpty(textResult))
                 {

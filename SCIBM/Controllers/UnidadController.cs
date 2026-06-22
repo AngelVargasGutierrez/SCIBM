@@ -134,21 +134,19 @@ namespace SCIBM.Controllers
                     return HttpNotFound("La unidad no existe o no tiene permisos.");
                 }
 
-                // Cargar calificaciones si existe examen
-                if (unidad.Examenes.FirstOrDefault() != null)
+                // Si venimos de crear y analizar un examen (flujo IA), cargar las preguntas
+                if (TempData["ShowReviewModal"] != null && (bool)TempData["ShowReviewModal"])
                 {
-                    var examId = unidad.Examenes.FirstOrDefault().Id;
-                    var calificaciones = await db.ExamenesAlumnos
-                        .Where(ea => ea.ExamenId == examId)
-                        .OrderBy(ea => ea.NombreAlumno)
-                        .ToListAsync();
-                    
-                    ViewBag.Calificaciones = calificaciones;
-                    ViewBag.TotalPreguntas = await db.Preguntas.CountAsync(p => p.ExamenId == examId);
-
-                    if (TempData["ShowReviewModal"] != null && (bool)TempData["ShowReviewModal"])
+                    if (TempData["NuevoExamenId"] != null)
                     {
-                        ViewBag.PreguntasIA = await db.Preguntas.Where(p => p.ExamenId == examId).OrderBy(p => p.NumeroPregunta).ToListAsync();
+                        Guid nuevoExamenId = (Guid)TempData["NuevoExamenId"];
+                        ViewBag.PreguntasIA = db.Preguntas
+                            .Where(p => p.ExamenId == nuevoExamenId)
+                            .OrderBy(p => p.NumeroPregunta)
+                            .ThenBy(p => p.PreguntaPadreId.HasValue ? 1 : 0) // Padres primero
+                            .ThenBy(p => p.Inciso)
+                            .ToList();
+                        ViewBag.ExamenIdIA = nuevoExamenId;
                     }
                 }
 
@@ -227,6 +225,88 @@ namespace SCIBM.Controllers
                 }
 
                 return RedirectToAction("Detail", new { id = unidadId });
+            }
+        }
+
+        // POST: Unidad/Rename
+        [HttpPost]
+        public async Task<ActionResult> Rename(Guid id, string newName)
+        {
+            if (Session["UserEmail"] == null)
+                return Json(new { success = false, message = "Sesión expirada." });
+
+            if (string.IsNullOrEmpty(newName))
+                return Json(new { success = false, message = "El nuevo nombre es requerido." });
+
+            newName = newName.Trim();
+            string email = Session["UserEmail"].ToString();
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var unidad = await db.Unidades
+                        .Include(u => u.Seccion.Curso.CicloAcademico)
+                        .FirstOrDefaultAsync(u => u.Id == id && u.Seccion.Curso.CicloAcademico.DocenteEmail == email);
+                        
+                    if (unidad == null)
+                        return Json(new { success = false, message = "Unidad no encontrada o sin permisos." });
+
+                    // Validar si ya existe
+                    bool existe = await db.Unidades.AnyAsync(u => u.SeccionId == unidad.SeccionId && u.Id != id && u.NombreUnidad.Equals(newName, StringComparison.OrdinalIgnoreCase));
+                    if (existe)
+                    {
+                        return Json(new { success = false, message = "Ya existe otra unidad con ese nombre en esta sección." });
+                    }
+
+                    // Renombrar en Drive si tiene ID
+                    if (!string.IsNullOrEmpty(unidad.DriveFolderId))
+                    {
+                        string accessToken = await GetValidAccessTokenAsync(db, email);
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            await GoogleDriveHelper.RenameFolderAsync(unidad.DriveFolderId, newName, accessToken);
+                        }
+                    }
+
+                    unidad.NombreUnidad = newName;
+                    await db.SaveChangesAsync();
+
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error al renombrar: " + ex.Message });
+                }
+            }
+        }
+
+        // POST: Unidad/Delete
+        [HttpPost]
+        public async Task<ActionResult> Delete(Guid id)
+        {
+            if (Session["UserEmail"] == null)
+                return Json(new { success = false, message = "Sesión expirada." });
+
+            string email = Session["UserEmail"].ToString();
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var unidad = await db.Unidades.Include(u => u.Seccion.Curso.CicloAcademico).FirstOrDefaultAsync(u => u.Id == id && u.Seccion.Curso.CicloAcademico.DocenteEmail == email);
+                    if (unidad == null)
+                        return Json(new { success = false, message = "Unidad no encontrada o sin permisos." });
+
+                    db.Unidades.Remove(unidad);
+                    await db.SaveChangesAsync();
+
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error al eliminar: " + ex.Message });
+                }
             }
         }
     }

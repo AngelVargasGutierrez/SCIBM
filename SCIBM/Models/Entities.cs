@@ -31,6 +31,81 @@ namespace SCIBM.Models
         public virtual ICollection<CicloAcademico> CiclosAcademicos { get; set; }
     }
 
+    public class Facultad
+    {
+        public Facultad()
+        {
+            Id = Guid.NewGuid();
+            EscuelasProfesionales = new HashSet<EscuelaProfesional>();
+        }
+
+        [Key]
+        public Guid Id { get; set; }
+
+        [Required]
+        [StringLength(150)]
+        public string Nombre { get; set; }
+
+        [Required]
+        [StringLength(20)]
+        public string Siglas { get; set; }
+
+        public virtual ICollection<EscuelaProfesional> EscuelasProfesionales { get; set; }
+    }
+
+    public class EscuelaProfesional
+    {
+        public EscuelaProfesional()
+        {
+            Id = Guid.NewGuid();
+            Carreras = new HashSet<Carrera>();
+        }
+
+        [Key]
+        public Guid Id { get; set; }
+
+        [Required]
+        [ForeignKey("Facultad")]
+        public Guid FacultadId { get; set; }
+
+        [Required]
+        [StringLength(150)]
+        public string Nombre { get; set; }
+
+        [Required]
+        [StringLength(20)]
+        public string Siglas { get; set; }
+
+        public virtual Facultad Facultad { get; set; }
+        public virtual ICollection<Carrera> Carreras { get; set; }
+    }
+
+    public class Carrera
+    {
+        public Carrera()
+        {
+            Id = Guid.NewGuid();
+            Cursos = new HashSet<Curso>();
+        }
+
+        [Key]
+        public Guid Id { get; set; }
+
+        [Required]
+        [ForeignKey("EscuelaProfesional")]
+        public Guid EscuelaProfesionalId { get; set; }
+
+        [Required]
+        [StringLength(150)]
+        public string Nombre { get; set; }
+
+        [Required]
+        public int CiclosTotales { get; set; }
+
+        public virtual EscuelaProfesional EscuelaProfesional { get; set; }
+        public virtual ICollection<Curso> Cursos { get; set; }
+    }
+
     public class CicloAcademico
     {
         public CicloAcademico()
@@ -85,8 +160,17 @@ namespace SCIBM.Models
         [StringLength(100)]
         public string DriveFolderId { get; set; }
 
+        [Required]
+        [ForeignKey("Carrera")]
+        public Guid CarreraId { get; set; }
+
+        [Required]
+        [StringLength(20)]
+        public string CicloRomano { get; set; }
+
         // Propiedades de navegación
         public virtual CicloAcademico CicloAcademico { get; set; }
+        public virtual Carrera Carrera { get; set; }
         public virtual ICollection<Seccion> Secciones { get; set; }
     }
 
@@ -263,7 +347,7 @@ namespace SCIBM.Models
         [StringLength(30)]
         public string Tipo { get; set; } // 'OpcionMultiple' o 'RespuestaLibre'
 
-        [Required]
+        [Required(AllowEmptyStrings = true)]
         [StringLength(150)]
         public string RespuestaCorrecta { get; set; }
 

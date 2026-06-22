@@ -85,12 +85,76 @@
         letter-spacing: 0.5px;
     }
 
-    /* ACTION BAR */
+    .badges-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+        margin-bottom: 5px;
+    }
+    .badge {
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+    .badge-facultad { background: rgba(0, 180, 216, 0.15); color: #00b4d8; border: 1px solid rgba(0, 180, 216, 0.3); }
+    .badge-carrera { background: rgba(100, 223, 223, 0.15); color: #64dfdf; border: 1px solid rgba(100, 223, 223, 0.3); }
+    .badge-ciclo { background: rgba(114, 9, 183, 0.15); color: #c77dff; border: 1px solid rgba(114, 9, 183, 0.3); }
+
+    /* ACTION BAR & BREADCRUMB */
     .action-bar {
         display: flex;
-        justify-content: flex-end;
+        justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px;
+        margin-bottom: 20px;
+    }
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--text-muted);
+    }
+    .breadcrumb a {
+        color: var(--text-color);
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .breadcrumb a:hover {
+        color: var(--primary-glow);
+    }
+    .breadcrumb-separator {
+        color: rgba(255, 255, 255, 0.2);
+        font-size: 12px;
+    }
+    .breadcrumb-current {
+        color: var(--primary-glow);
+    }
+    .filter-bar {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        background: rgba(255, 255, 255, 0.02);
+        padding: 15px;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .filter-input {
+        background: rgba(0,0,0,0.2);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 6px;
+        width: 100%;
+        max-width: 250px;
+    }
+    .filter-input option {
+        background-color: var(--sidebar-bg);
+        color: var(--text-color);
     }
     
     /* NO DATA EMPTY STATE */
@@ -123,24 +187,56 @@
         opacity: 0.6;
         transition: all 0.2s ease;
         padding: 4px;
-        margin-left: 8px;
     }
     .edit-btn:hover {
         color: var(--accent-color);
         opacity: 1;
         transform: scale(1.1);
     }
+    .delete-btn {
+        color: white;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: all 0.2s ease;
+        padding: 4px;
+    }
+    .delete-btn:hover {
+        color: #ff5252;
+        opacity: 1;
+        transform: scale(1.1);
+    }
 </style>
 
 <!-- ACTION BAR -->
-<div class="action-bar" style="justify-content: space-between;">
-    <a href="@Url.Action("Index", "Ciclo")" class="btn btn-secondary">
-        <i class="fa-solid fa-arrow-left"></i> Volver a Ciclos
-    </a>
+<div class="action-bar">
+    <div class="breadcrumb">
+        <a href="@Url.Action("Index", "Ciclo")"><i class="fa-solid fa-calendar-days" style="margin-right: 6px;"></i> Ciclos</a>
+        <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
+        <span class="breadcrumb-current">@ViewBag.CicloNombre</span>
+    </div>
     <button class="btn btn-primary" onclick="openModal()">
         <i class="fa-solid fa-plus"></i> Nuevo Curso
     </button>
 </div>
+
+<!-- FILTER BAR -->
+@if (Model != null && Model.Any())
+{
+    <div class="filter-bar">
+        <input type="text" id="filter-text" class="filter-input" placeholder="Buscar por nombre o código..." onkeyup="filterCards()" />
+        <input type="text" id="filter-carrera" class="filter-input" placeholder="Filtrar por carrera..." onkeyup="filterCards()" />
+        <select id="filter-ciclo" class="filter-input" onchange="filterCards()">
+            <option value="">Todos los ciclos</option>
+            <option value="I">I</option><option value="II">II</option><option value="III">III</option>
+            <option value="IV">IV</option><option value="V">V</option><option value="VI">VI</option>
+            <option value="VII">VII</option><option value="VIII">VIII</option><option value="IX">IX</option>
+            <option value="X">X</option><option value="XI">XI</option><option value="XII">XII</option>
+        </select>
+    </div>
+}
 
 <!-- COURSES LISTING -->
 @if (Model == null || !Model.Any())
@@ -161,14 +257,24 @@ else
     <div class="courses-grid">
         @foreach (var c in Model)
         {
-            <div class="course-card">
+            <div class="course-card" data-nombre="@c.Nombre.ToLower()" data-codigo="@c.Codigo.ToLower()" data-carrera="@c.Carrera.Nombre.ToLower()" data-ciclo="@c.CicloRomano">
                 <div class="course-info">
                     <span class="course-code">@c.Codigo</span>
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between;">
                         <h3 title="@c.Nombre" style="margin-bottom: 0;">@c.Nombre</h3>
-                        <button class="edit-btn" onclick="openEditModal('@c.Id', '@c.Nombre')" title="Renombrar">
-                            <i class="fa-solid fa-pencil"></i>
-                        </button>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="edit-btn" onclick="openEditModal('@c.Id', '@c.Carrera.EscuelaProfesional.FacultadId', '@c.Carrera.EscuelaProfesionalId', '@c.CarreraId', '@c.CicloRomano', '@Html.Raw(HttpUtility.JavaScriptStringEncode(c.Nombre))', '@Html.Raw(HttpUtility.JavaScriptStringEncode(c.Codigo))')" title="Editar Curso">
+                                <i class="fa-solid fa-pencil"></i>
+                            </button>
+                            <button class="delete-btn" onclick="openDeleteModal('@c.Id', '@c.Nombre')" title="Eliminar">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="badges-container">
+                        <span class="badge badge-facultad" title="@c.Carrera.EscuelaProfesional.Facultad.Nombre">@c.Carrera.EscuelaProfesional.Facultad.Siglas</span>
+                        <span class="badge badge-carrera" title="@c.Carrera.Nombre">@c.Carrera.EscuelaProfesional.Siglas</span>
+                        <span class="badge badge-ciclo">@c.CicloRomano</span>
                     </div>
                 </div>
                 
@@ -204,6 +310,40 @@ else
         
         <form id="create-course-form" onsubmit="submitForm(event)">
             <input type="hidden" id="cicloId" value="@ViewBag.CicloId" />
+            
+            <div class="form-group">
+                <label for="facultadId">Facultad</label>
+                <select id="facultadId" class="form-input" required onchange="loadEscuelas()">
+                    <option value="">Seleccione una facultad</option>
+                    @if(ViewBag.Facultades != null) {
+                        foreach(var fac in ViewBag.Facultades) {
+                            <option value="@fac.Id">@fac.Nombre (@fac.Siglas)</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="escuelaId">Escuela Profesional</label>
+                <select id="escuelaId" class="form-input" required disabled onchange="loadCarreras()">
+                    <option value="">Seleccione primero la facultad</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="carreraId">Carrera / Mención</label>
+                <select id="carreraId" name="carreraId" class="form-input" required disabled onchange="generateCiclos()">
+                    <option value="">Seleccione primero la escuela</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="cicloRomano">Ciclo Académico</label>
+                <select id="cicloRomano" name="cicloRomano" class="form-input" required disabled>
+                    <option value="">Seleccione primero la carrera</option>
+                </select>
+            </div>
+
             <div class="form-group">
                 <label for="nombre">Nombre del Curso</label>
                 <input type="text" id="nombre" name="nombre" class="form-input" placeholder="Ej: Álgebra Lineal" required />
@@ -230,15 +370,54 @@ else
 <div class="modal-overlay" id="edit-curso-modal">
     <div class="modal-box">
         <div class="modal-header">
-            <h3>Renombrar Curso</h3>
+            <h3>Editar Curso</h3>
             <button class="modal-close" onclick="closeEditModal()"><i class="fa-solid fa-xmark"></i></button>
         </div>
         
         <form id="edit-curso-form" onsubmit="submitEditForm(event)">
             <input type="hidden" id="edit-id" />
+            
             <div class="form-group">
-                <label for="edit-nombre">Nuevo Nombre</label>
+                <label for="edit-facultadId">Facultad</label>
+                <select id="edit-facultadId" class="form-input" required onchange="loadEditEscuelas()">
+                    <option value="">Seleccione una facultad</option>
+                    @if(ViewBag.Facultades != null) {
+                        foreach(var fac in ViewBag.Facultades) {
+                            <option value="@fac.Id">@fac.Nombre (@fac.Siglas)</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-escuelaId">Escuela Profesional</label>
+                <select id="edit-escuelaId" class="form-input" required disabled onchange="loadEditCarreras()">
+                    <option value="">Seleccione primero la facultad</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-carreraId">Carrera / Mención</label>
+                <select id="edit-carreraId" class="form-input" required disabled onchange="generateEditCiclos()">
+                    <option value="">Seleccione primero la escuela</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-cicloRomano">Ciclo Académico</label>
+                <select id="edit-cicloRomano" class="form-input" required disabled>
+                    <option value="">Seleccione primero la carrera</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="edit-nombre">Nombre del Curso</label>
                 <input type="text" id="edit-nombre" class="form-input" required />
+            </div>
+            
+            <div class="form-group">
+                <label for="edit-codigo">Código del Curso</label>
+                <input type="text" id="edit-codigo" class="form-input" required />
             </div>
 
             <div id="edit-modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
@@ -253,29 +432,246 @@ else
     </div>
 </div>
 
+<!-- MODAL DELETE CURSO -->
+<div class="modal-overlay" id="delete-curso-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Eliminar Curso</h3>
+            <button class="modal-close" onclick="closeDeleteModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p style="margin-bottom: 20px; font-size: 15px; color: var(--text-muted);">
+            ¿Estás seguro que deseas eliminar el curso <strong id="delete-curso-nombre" style="color: white;"></strong>? <br><br>
+            <span style="color: #ff5252;"><i class="fa-solid fa-triangle-exclamation"></i> Advertencia:</span> Esto eliminará permanentemente sus secciones y los exámenes asociados de la base de datos.
+        </p>
+        <form id="delete-curso-form" onsubmit="submitDeleteForm(event)">
+            <input type="hidden" id="delete-id" />
+            <div id="delete-modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="delete-submit-btn" style="background: #ff5252; box-shadow: 0 4px 15px 0 rgba(255, 82, 82, 0.4); border: none;">
+                    <span>Sí, Eliminar</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 @section scripts {
     <script>
         function openModal() {
             document.getElementById("add-course-modal").classList.add("active");
-            document.getElementById("nombre").focus();
+            document.getElementById("facultadId").focus();
         }
 
         function closeModal() {
             document.getElementById("add-course-modal").classList.remove("active");
             document.getElementById("create-course-form").reset();
+            document.getElementById("escuelaId").disabled = true;
+            document.getElementById("escuelaId").innerHTML = '<option value="">Seleccione primero la facultad</option>';
+            document.getElementById("carreraId").disabled = true;
+            document.getElementById("carreraId").innerHTML = '<option value="">Seleccione primero la escuela</option>';
+            document.getElementById("cicloRomano").disabled = true;
+            document.getElementById("cicloRomano").innerHTML = '<option value="">Seleccione primero la carrera</option>';
             document.getElementById("modal-error").style.display = "none";
         }
 
-        function openEditModal(id, nombre) {
+        const romanos = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+
+        function loadEscuelas() {
+            var facId = document.getElementById("facultadId").value;
+            var ddlEscuela = document.getElementById("escuelaId");
+            var ddlCarrera = document.getElementById("carreraId");
+            var ddlCiclo = document.getElementById("cicloRomano");
+            
+            ddlEscuela.innerHTML = '<option value="">Cargando...</option>';
+            ddlCarrera.innerHTML = '<option value="">Seleccione primero la escuela</option>';
+            ddlCiclo.innerHTML = '<option value="">Seleccione primero la carrera</option>';
+            ddlEscuela.disabled = true; ddlCarrera.disabled = true; ddlCiclo.disabled = true;
+
+            if(!facId) return;
+
+            fetch('@Url.Action("GetEscuelas", "Curso")/' + facId)
+                .then(res => res.json())
+                .then(data => {
+                    ddlEscuela.innerHTML = '<option value="">Seleccione una escuela</option>';
+                    data.forEach(x => {
+                        ddlEscuela.innerHTML += `<option value="${x.id}">${x.text}</option>`;
+                    });
+                    ddlEscuela.disabled = false;
+                });
+        }
+
+        let currentCarreras = [];
+
+        function loadCarreras() {
+            var escId = document.getElementById("escuelaId").value;
+            var ddlCarrera = document.getElementById("carreraId");
+            var ddlCiclo = document.getElementById("cicloRomano");
+            
+            ddlCarrera.innerHTML = '<option value="">Cargando...</option>';
+            ddlCiclo.innerHTML = '<option value="">Seleccione primero la carrera</option>';
+            ddlCarrera.disabled = true; ddlCiclo.disabled = true;
+
+            if(!escId) return;
+
+            fetch('@Url.Action("GetCarreras", "Curso")/' + escId)
+                .then(res => res.json())
+                .then(data => {
+                    currentCarreras = data;
+                    ddlCarrera.innerHTML = '<option value="">Seleccione una carrera/mención</option>';
+                    data.forEach(x => {
+                        ddlCarrera.innerHTML += `<option value="${x.id}">${x.text}</option>`;
+                    });
+                    ddlCarrera.disabled = false;
+                    
+                    // AUTO-SELECCIÓN: Si la escuela solo tiene 1 carrera, la elegimos automáticamente
+                    if (data.length === 1) {
+                        ddlCarrera.value = data[0].id;
+                        generateCiclos(); // Generamos los ciclos automáticamente
+                    }
+                });
+        }
+
+        function generateCiclos() {
+            var carId = document.getElementById("carreraId").value;
+            var ddlCiclo = document.getElementById("cicloRomano");
+            ddlCiclo.innerHTML = '<option value="">Seleccione un ciclo</option>';
+            
+            if(!carId) { ddlCiclo.disabled = true; return; }
+
+            var carrera = currentCarreras.find(c => c.id === carId);
+            if(carrera) {
+                var max = carrera.ciclosTotales || 10;
+                for(var i=0; i<max; i++) {
+                    ddlCiclo.innerHTML += `<option value="${romanos[i]} CICLO">${romanos[i]} CICLO</option>`;
+                }
+                ddlCiclo.disabled = false;
+            }
+        }
+
+        function filterCards() {
+            var text = document.getElementById("filter-text").value.toLowerCase();
+            var car = document.getElementById("filter-carrera").value.toLowerCase();
+            var cic = document.getElementById("filter-ciclo").value;
+            if(cic) cic = cic + " CICLO";
+
+            var cards = document.querySelectorAll(".course-card");
+            cards.forEach(c => {
+                var cNom = c.getAttribute("data-nombre");
+                var cCod = c.getAttribute("data-codigo");
+                var cCar = c.getAttribute("data-carrera");
+                var cCic = c.getAttribute("data-ciclo");
+
+                var matchText = text === "" || cNom.includes(text) || cCod.includes(text);
+                var matchCar = car === "" || cCar.includes(car);
+                var matchCic = cic === "" || cCic === cic;
+
+                if(matchText && matchCar && matchCic) {
+                    c.style.display = "flex";
+                } else {
+                    c.style.display = "none";
+                }
+            });
+        }
+
+        async function openEditModal(id, facultadId, escuelaId, carreraId, cicloRomano, nombre, codigo) {
+            facultadId = facultadId.toLowerCase();
+            escuelaId = escuelaId.toLowerCase();
+            carreraId = carreraId.toLowerCase();
+
             document.getElementById("edit-id").value = id;
             document.getElementById("edit-nombre").value = nombre;
+            document.getElementById("edit-codigo").value = codigo;
+            
+            document.getElementById("edit-facultadId").value = facultadId;
+            
+            await loadEditEscuelasAsync(facultadId);
+            document.getElementById("edit-escuelaId").value = escuelaId;
+            
+            await loadEditCarrerasAsync(escuelaId);
+            document.getElementById("edit-carreraId").value = carreraId;
+            
+            generateEditCiclos();
+            document.getElementById("edit-cicloRomano").value = cicloRomano;
+
             document.getElementById("edit-curso-modal").classList.add("active");
-            document.getElementById("edit-nombre").focus();
+        }
+
+        async function loadEditEscuelasAsync(facId) {
+            var ddlEscuela = document.getElementById("edit-escuelaId");
+            ddlEscuela.innerHTML = '<option value="">Cargando...</option>';
+            ddlEscuela.disabled = true;
+            if(!facId) return;
+
+            var res = await fetch('@Url.Action("GetEscuelas", "Curso")/' + facId);
+            var data = await res.json();
+            ddlEscuela.innerHTML = '<option value="">Seleccione una escuela</option>';
+            data.forEach(x => { ddlEscuela.innerHTML += `<option value="${x.id}">${x.text}</option>`; });
+            ddlEscuela.disabled = false;
+        }
+
+        let editCurrentCarreras = [];
+        async function loadEditCarrerasAsync(escId) {
+            var ddlCarrera = document.getElementById("edit-carreraId");
+            ddlCarrera.innerHTML = '<option value="">Cargando...</option>';
+            ddlCarrera.disabled = true;
+            if(!escId) return;
+
+            var res = await fetch('@Url.Action("GetCarreras", "Curso")/' + escId);
+            var data = await res.json();
+            editCurrentCarreras = data;
+            ddlCarrera.innerHTML = '<option value="">Seleccione una carrera/mención</option>';
+            data.forEach(x => { ddlCarrera.innerHTML += `<option value="${x.id}">${x.text}</option>`; });
+            ddlCarrera.disabled = false;
+        }
+
+        function loadEditEscuelas() {
+            var facId = document.getElementById("edit-facultadId").value;
+            loadEditEscuelasAsync(facId).then(() => {
+                document.getElementById("edit-carreraId").innerHTML = '<option value="">Seleccione primero la escuela</option>';
+                document.getElementById("edit-carreraId").disabled = true;
+                document.getElementById("edit-cicloRomano").innerHTML = '<option value="">Seleccione primero la carrera</option>';
+                document.getElementById("edit-cicloRomano").disabled = true;
+            });
+        }
+
+        function loadEditCarreras() {
+            var escId = document.getElementById("edit-escuelaId").value;
+            loadEditCarrerasAsync(escId).then(() => {
+                document.getElementById("edit-cicloRomano").innerHTML = '<option value="">Seleccione primero la carrera</option>';
+                document.getElementById("edit-cicloRomano").disabled = true;
+                if (editCurrentCarreras.length === 1) {
+                    document.getElementById("edit-carreraId").value = editCurrentCarreras[0].id;
+                    generateEditCiclos();
+                }
+            });
+        }
+
+        function generateEditCiclos() {
+            var carId = document.getElementById("edit-carreraId").value;
+            var ddlCiclo = document.getElementById("edit-cicloRomano");
+            ddlCiclo.innerHTML = '<option value="">Seleccione un ciclo</option>';
+            if(!carId) { ddlCiclo.disabled = true; return; }
+
+            var carrera = editCurrentCarreras.find(c => c.id === carId);
+            if(carrera) {
+                var max = carrera.ciclosTotales || 10;
+                for(var i=0; i<max; i++) {
+                    ddlCiclo.innerHTML += `<option value="${romanos[i]} CICLO">${romanos[i]} CICLO</option>`;
+                }
+                ddlCiclo.disabled = false;
+            }
         }
 
         function closeEditModal() {
             document.getElementById("edit-curso-modal").classList.remove("active");
             document.getElementById("edit-curso-form").reset();
+            document.getElementById("edit-escuelaId").disabled = true;
+            document.getElementById("edit-escuelaId").innerHTML = '<option value="">Seleccione primero la facultad</option>';
+            document.getElementById("edit-carreraId").disabled = true;
+            document.getElementById("edit-carreraId").innerHTML = '<option value="">Seleccione primero la escuela</option>';
+            document.getElementById("edit-cicloRomano").disabled = true;
+            document.getElementById("edit-cicloRomano").innerHTML = '<option value="">Seleccione primero la carrera</option>';
             document.getElementById("edit-modal-error").style.display = "none";
         }
 
@@ -286,17 +682,22 @@ else
             var originalHtml = submitBtn.innerHTML;
             
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando en BD y Drive...';
 
             var id = document.getElementById("edit-id").value;
-            var newName = document.getElementById("edit-nombre").value;
+            var nombre = document.getElementById("edit-nombre").value;
+            var codigo = document.getElementById("edit-codigo").value;
+            var facultadId = document.getElementById("edit-facultadId").value;
+            var escuelaId = document.getElementById("edit-escuelaId").value;
+            var carreraId = document.getElementById("edit-carreraId").value;
+            var cicloRomano = document.getElementById("edit-cicloRomano").value;
 
-            fetch('@Url.Action("Rename", "Curso")', {
+            fetch('@Url.Action("Edit", "Curso")', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'id=' + encodeURIComponent(id) + '&newName=' + encodeURIComponent(newName)
+                body: 'id=' + encodeURIComponent(id) + '&facultadId=' + encodeURIComponent(facultadId) + '&escuelaId=' + encodeURIComponent(escuelaId) + '&carreraId=' + encodeURIComponent(carreraId) + '&cicloRomano=' + encodeURIComponent(cicloRomano) + '&nombre=' + encodeURIComponent(nombre) + '&codigo=' + encodeURIComponent(codigo)
             })
             .then(response => response.json())
             .then(data => {
@@ -306,7 +707,7 @@ else
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalHtml;
                     var errDiv = document.getElementById("edit-modal-error");
-                    errDiv.innerText = data.message || "Ocurrió un error al renombrar.";
+                    errDiv.innerText = data.message || "Ocurrió un error al editar.";
                     errDiv.style.display = "block";
                 }
             })
@@ -314,6 +715,56 @@ else
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalHtml;
                 var errDiv = document.getElementById("edit-modal-error");
+                errDiv.innerText = "Error de conexión con el servidor.";
+                errDiv.style.display = "block";
+            });
+        }
+
+        function openDeleteModal(id, nombre) {
+            document.getElementById("delete-id").value = id;
+            document.getElementById("delete-curso-nombre").innerText = nombre;
+            document.getElementById("delete-curso-modal").classList.add("active");
+        }
+
+        function closeDeleteModal() {
+            document.getElementById("delete-curso-modal").classList.remove("active");
+            document.getElementById("delete-modal-error").style.display = "none";
+        }
+
+        function submitDeleteForm(e) {
+            e.preventDefault();
+            
+            var submitBtn = document.getElementById("delete-submit-btn");
+            var originalHtml = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Eliminando...';
+
+            var id = document.getElementById("delete-id").value;
+
+            fetch('@Url.Action("Delete", "Curso")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'id=' + encodeURIComponent(id)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                    var errDiv = document.getElementById("delete-modal-error");
+                    errDiv.innerText = data.message || "Ocurrió un error al eliminar.";
+                    errDiv.style.display = "block";
+                }
+            })
+            .catch(error => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHtml;
+                var errDiv = document.getElementById("delete-modal-error");
                 errDiv.innerText = "Error de conexión con el servidor.";
                 errDiv.style.display = "block";
             });
@@ -332,13 +783,15 @@ else
             var nombre = document.getElementById("nombre").value;
             var codigo = document.getElementById("codigo").value;
             var cicloId = document.getElementById("cicloId").value;
+            var carreraId = document.getElementById("carreraId").value;
+            var cicloRomano = document.getElementById("cicloRomano").value;
 
             fetch('@Url.Action("Create", "Curso")', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'cicloId=' + encodeURIComponent(cicloId) + '&nombre=' + encodeURIComponent(nombre) + '&codigo=' + encodeURIComponent(codigo)
+                body: 'cicloId=' + encodeURIComponent(cicloId) + '&carreraId=' + encodeURIComponent(carreraId) + '&cicloRomano=' + encodeURIComponent(cicloRomano) + '&nombre=' + encodeURIComponent(nombre) + '&codigo=' + encodeURIComponent(codigo)
             })
             .then(response => response.json())
             .then(data => {

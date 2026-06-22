@@ -173,6 +173,71 @@
         font-size: 32px;
         color: var(--primary-glow);
     }
+
+    .edit-btn {
+        color: white;
+        background: none;
+        border: none;
+        font-size: 14px;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: all 0.2s ease;
+        padding: 4px;
+        margin-left: 8px;
+    }
+    .edit-btn:hover {
+        color: var(--accent-color);
+        opacity: 1;
+        transform: scale(1.1);
+    }
+
+    .delete-btn {
+        color: white;
+        background: none;
+        border: none;
+        font-size: 14px;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: all 0.2s ease;
+        padding: 4px;
+        margin-left: 8px;
+    }
+    .delete-btn:hover {
+        color: #ff5252;
+        opacity: 1;
+        transform: scale(1.1);
+    }
+    
+    /* BREADCRUMB */
+    .action-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-muted);
+    }
+    .breadcrumb a {
+        color: var(--text-color);
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .breadcrumb a:hover {
+        color: var(--primary-glow);
+    }
+    .breadcrumb-separator {
+        color: rgba(255, 255, 255, 0.2);
+        font-size: 11px;
+    }
+    .breadcrumb-current {
+        color: var(--primary-glow);
+    }
 </style>
 
 <!-- SUCCESS/ERROR MESSAGES -->
@@ -190,6 +255,18 @@
         <span>@TempData["Error"]</span>
     </div>
 }
+
+<div class="action-bar">
+    <div class="breadcrumb">
+        <a href="@Url.Action("Index", "Ciclo")"><i class="fa-solid fa-calendar-days" style="margin-right: 6px;"></i> Ciclos</a>
+        <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
+        <a href="@Url.Action("Index", "Curso", new { cicloId = Model.Curso.CicloAcademicoId })">@Model.Curso.CicloAcademico.Nombre</a>
+        <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
+        <a href="@Url.Action("Detail", "Curso", new { id = Model.CursoId })">@Model.Curso.Nombre</a>
+        <i class="fa-solid fa-chevron-right breadcrumb-separator"></i>
+        <span class="breadcrumb-current">@Model.Nombre</span>
+    </div>
+</div>
 
 <div class="detail-layout">
 
@@ -236,14 +313,9 @@
     <div class="glass-card">
         <div class="panel-header">
             <h2>Unidades de Examen</h2>
-            <div style="display: flex; gap: 10px;">
-                <a href="@Url.Action("Detail", "Curso", new { id = Model.CursoId })" class="btn btn-secondary">
-                    <i class="fa-solid fa-arrow-left"></i> Volver
-                </a>
-                <button class="btn btn-primary" onclick="openUnitModal()">
-                    <i class="fa-solid fa-plus"></i> Nueva Unidad
-                </button>
-            </div>
+            <button class="btn btn-primary" onclick="openUnitModal()">
+                <i class="fa-solid fa-plus"></i> Nueva Unidad
+            </button>
         </div>
 
         @if (!Model.Unidades.Any())
@@ -265,7 +337,15 @@
                     <div class="unit-card">
                         <div>
                             <div class="unit-info">
-                                <span class="unit-badge">@un.NombreUnidad</span>
+                                <div style="display: flex; align-items: center;">
+                                    <span class="unit-badge">@un.NombreUnidad</span>
+                                    <button class="edit-btn" onclick="openEditModal('@un.Id', '@un.NombreUnidad')" title="Renombrar">
+                                        <i class="fa-solid fa-pencil"></i>
+                                    </button>
+                                    <button class="delete-btn" onclick="openDeleteModal('@un.Id', '@un.NombreUnidad')" title="Eliminar">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </div>
                                 @if (un.DriveFolderId != null)
                                 {
                                     <span style="font-size: 13px; color: var(--text-muted);" title="Sincronizado con Google Drive"><i class="fa-brands fa-google-drive"></i></span>
@@ -363,6 +443,57 @@
                 <button type="button" class="btn btn-secondary" onclick="closeUnitModal()">Cancelar</button>
                 <button type="submit" class="btn btn-primary" id="unit-submit-btn">
                     <span>Guardar y Crear Carpeta en Drive</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL DELETE UNIT -->
+<div class="modal-overlay" id="delete-unit-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Eliminar Unidad</h3>
+            <button class="modal-close" onclick="closeDeleteModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p style="margin-bottom: 20px; font-size: 15px; color: var(--text-muted);">
+            ¿Estás seguro que deseas eliminar la unidad <strong id="delete-unit-nombre" style="color: white;"></strong>? <br><br>
+            <span style="color: #ff5252;"><i class="fa-solid fa-triangle-exclamation"></i> Advertencia:</span> Esto eliminará permanentemente todas las versiones de examen y calificaciones de los alumnos asociadas a esta unidad.
+        </p>
+        <form id="delete-unit-form" onsubmit="submitDeleteForm(event)">
+            <input type="hidden" id="delete-id" />
+            <div id="delete-modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="delete-submit-btn" style="background: #ff5252; box-shadow: 0 4px 15px 0 rgba(255, 82, 82, 0.4); border: none;">
+                    <span>Sí, Eliminar</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EDIT UNIT -->
+<div class="modal-overlay" id="edit-unit-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Renombrar Unidad</h3>
+            <button class="modal-close" onclick="closeEditModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <form id="edit-unit-form" onsubmit="submitEditForm(event)">
+            <input type="hidden" id="edit-id" />
+            <div class="form-group">
+                <label for="edit-nombre">Nuevo Nombre</label>
+                <input type="text" id="edit-nombre" class="form-input" required />
+            </div>
+
+            <div id="edit-modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px;">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" id="edit-submit-btn">
+                    <span>Guardar Cambios</span>
                 </button>
             </div>
         </form>
@@ -546,6 +677,111 @@
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalHtml;
                 var errDiv = document.getElementById("unit-modal-error");
+                errDiv.innerText = "Error de conexión con el servidor.";
+                errDiv.style.display = "block";
+            });
+        }
+
+        // EDIT MODAL UNIT
+        function openEditModal(id, nombre) {
+            document.getElementById("edit-id").value = id;
+            document.getElementById("edit-nombre").value = nombre;
+            document.getElementById("edit-unit-modal").classList.add("active");
+            document.getElementById("edit-nombre").focus();
+        }
+
+        function closeEditModal() {
+            document.getElementById("edit-unit-modal").classList.remove("active");
+            document.getElementById("edit-unit-form").reset();
+            document.getElementById("edit-modal-error").style.display = "none";
+        }
+
+        function submitEditForm(e) {
+            e.preventDefault();
+            
+            var submitBtn = document.getElementById("edit-submit-btn");
+            var originalHtml = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+            var id = document.getElementById("edit-id").value;
+            var newName = document.getElementById("edit-nombre").value;
+
+            fetch('@Url.Action("Rename", "Unidad")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'id=' + encodeURIComponent(id) + '&newName=' + encodeURIComponent(newName)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                    var errDiv = document.getElementById("edit-modal-error");
+                    errDiv.innerText = data.message || "Ocurrió un error al renombrar.";
+                    errDiv.style.display = "block";
+                }
+            })
+            .catch(error => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHtml;
+                var errDiv = document.getElementById("edit-modal-error");
+                errDiv.innerText = "Error de conexión con el servidor.";
+                errDiv.style.display = "block";
+            });
+        }
+
+        // DELETE MODAL UNIT
+        function openDeleteModal(id, nombre) {
+            document.getElementById("delete-id").value = id;
+            document.getElementById("delete-unit-nombre").innerText = nombre;
+            document.getElementById("delete-unit-modal").classList.add("active");
+        }
+
+        function closeDeleteModal() {
+            document.getElementById("delete-unit-modal").classList.remove("active");
+            document.getElementById("delete-modal-error").style.display = "none";
+        }
+
+        function submitDeleteForm(e) {
+            e.preventDefault();
+            
+            var submitBtn = document.getElementById("delete-submit-btn");
+            var originalHtml = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Eliminando...';
+
+            var id = document.getElementById("delete-id").value;
+
+            fetch('@Url.Action("Delete", "Unidad")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'id=' + encodeURIComponent(id)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalHtml;
+                    var errDiv = document.getElementById("delete-modal-error");
+                    errDiv.innerText = data.message || "Ocurrió un error al eliminar.";
+                    errDiv.style.display = "block";
+                }
+            })
+            .catch(error => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHtml;
+                var errDiv = document.getElementById("delete-modal-error");
                 errDiv.innerText = "Error de conexión con el servidor.";
                 errDiv.style.display = "block";
             });

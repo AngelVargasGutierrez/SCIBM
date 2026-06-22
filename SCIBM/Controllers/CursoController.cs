@@ -68,6 +68,9 @@ namespace SCIBM.Controllers
 
                 var cursos = await db.Cursos
                     .Include(c => c.Secciones)
+                    .Include(c => c.Carrera)
+                    .Include(c => c.Carrera.EscuelaProfesional)
+                    .Include(c => c.Carrera.EscuelaProfesional.Facultad)
                     .Where(c => c.CicloAcademicoId == cicloId.Value)
                     .OrderBy(c => c.Nombre)
                     .ToListAsync();
@@ -75,20 +78,49 @@ namespace SCIBM.Controllers
                 Session["MisCursos"] = cursos.ToDictionary(c => c.Id, c => c.Nombre);
                 ViewBag.CicloId = cicloId.Value;
                 ViewBag.CicloNombre = ciclo.Nombre;
+                ViewBag.Facultades = await db.Facultades.OrderBy(f => f.Nombre).ToListAsync();
 
                 return View(cursos);
             }
         }
 
+        [HttpGet]
+        public async Task<JsonResult> GetEscuelas(Guid id)
+        {
+            using (var db = new ScibmContext())
+            {
+                var escuelas = await db.EscuelasProfesionales
+                    .Where(e => e.FacultadId == id)
+                    .Select(e => new { id = e.Id, text = e.Nombre })
+                    .OrderBy(e => e.text)
+                    .ToListAsync();
+                return Json(escuelas, JsonRequestBehavior.AllowGet);
+            }
+        }
+
+        [HttpGet]
+        public async Task<JsonResult> GetCarreras(Guid id)
+        {
+            using (var db = new ScibmContext())
+            {
+                var carreras = await db.Carreras
+                    .Where(c => c.EscuelaProfesionalId == id)
+                    .Select(c => new { id = c.Id, text = c.Nombre, ciclosTotales = c.CiclosTotales })
+                    .OrderBy(c => c.text)
+                    .ToListAsync();
+                return Json(carreras, JsonRequestBehavior.AllowGet);
+            }
+        }
+
         // POST: Curso/Create
         [HttpPost]
-        public async Task<ActionResult> Create(Guid cicloId, string nombre, string codigo)
+        public async Task<ActionResult> Create(Guid cicloId, Guid carreraId, string cicloRomano, string nombre, string codigo)
         {
             if (Session["UserEmail"] == null)
                 return Json(new { success = false, message = "Sesión expirada." });
 
-            if (string.IsNullOrEmpty(nombre) || string.IsNullOrEmpty(codigo))
-                return Json(new { success = false, message = "El nombre y el código de curso son obligatorios." });
+            if (string.IsNullOrEmpty(nombre) || string.IsNullOrEmpty(codigo) || string.IsNullOrEmpty(cicloRomano))
+                return Json(new { success = false, message = "Todos los campos son obligatorios." });
 
             string email = Session["UserEmail"].ToString();
 
@@ -99,13 +131,36 @@ namespace SCIBM.Controllers
                     var ciclo = await db.CiclosAcademicos.FirstOrDefaultAsync(c => c.Id == cicloId && c.DocenteEmail == email);
                     if (ciclo == null) return Json(new { success = false, message = "Ciclo inválido." });
 
+                    var carrera = await db.Carreras
+                        .Include(c => c.EscuelaProfesional)
+                        .Include(c => c.EscuelaProfesional.Facultad)
+                        .FirstOrDefaultAsync(c => c.Id == carreraId);
+                    if (carrera == null) return Json(new { success = false, message = "Carrera inválida." });
+
                     string accessToken = await GetValidAccessTokenAsync(db, email);
-                    string rootFolderId = ciclo.DriveFolderId; // La carpeta padre ahora es el ciclo
+                    string rootFolderId = ciclo.DriveFolderId; // La carpeta padre es el ciclo (Semestre)
                     string courseFolderId = null;
 
                     if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(rootFolderId))
                     {
-                        courseFolderId = await GoogleDriveHelper.GetOrCreateFolderAsync(nombre, rootFolderId, accessToken);
+                        // Construir la jerarquía completa
+                        // Ruta en Drive: FAING -> EPIS_Ingeniería de Sistemas -> V CICLO -> Álgebra
+                        string[] path = new string[] 
+                        { 
+                            carrera.EscuelaProfesional.Facultad.Siglas, 
+                            $"{carrera.EscuelaProfesional.Siglas}_{carrera.Nombre.Replace(" ", "")}", 
+                            cicloRomano, 
+                            nombre // El último nodo es la carpeta del Curso
+                        };
+
+                        courseFolderId = await GoogleDriveHelper.GetOrCreatePathAsync(path, rootFolderId, accessToken);
+
+                        // Crear subcarpetas EXAMENES y REPORTES dentro del curso
+                        if (!string.IsNullOrEmpty(courseFolderId))
+                        {
+                            await GoogleDriveHelper.GetOrCreateFolderAsync("EXAMENES", courseFolderId, accessToken);
+                            await GoogleDriveHelper.GetOrCreateFolderAsync("REPORTES", courseFolderId, accessToken);
+                        }
                     }
 
                     var curso = new Curso
@@ -113,24 +168,13 @@ namespace SCIBM.Controllers
                         Nombre = nombre,
                         Codigo = codigo,
                         CicloAcademicoId = cicloId,
+                        CarreraId = carreraId,
+                        CicloRomano = cicloRomano,
                         DriveFolderId = courseFolderId
                     };
                     db.Cursos.Add(curso);
 
-                    // Crear sección por defecto
-                    string seccionFolderId = null;
-                    if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(courseFolderId))
-                    {
-                        seccionFolderId = await GoogleDriveHelper.GetOrCreateFolderAsync("Sección Única", courseFolderId, accessToken);
-                    }
-
-                    var seccion = new Seccion
-                    {
-                        CursoId = curso.Id,
-                        Nombre = "Sección Única",
-                        DriveFolderId = seccionFolderId
-                    };
-                    db.Secciones.Add(seccion);
+                    // ATENCIÓN: Se eliminó la creación automática de "Sección Única".
 
                     await db.SaveChangesAsync();
 
@@ -169,15 +213,15 @@ namespace SCIBM.Controllers
             }
         }
 
-        // POST: Curso/Rename
+        // POST: Curso/Edit
         [HttpPost]
-        public async Task<ActionResult> Rename(Guid id, string newName)
+        public async Task<ActionResult> Edit(Guid id, Guid facultadId, Guid escuelaId, Guid carreraId, string cicloRomano, string nombre, string codigo)
         {
             if (Session["UserEmail"] == null)
                 return Json(new { success = false, message = "Sesión expirada." });
 
-            if (string.IsNullOrEmpty(newName))
-                return Json(new { success = false, message = "El nombre no puede estar vacío." });
+            if (string.IsNullOrEmpty(nombre) || string.IsNullOrEmpty(codigo) || string.IsNullOrEmpty(cicloRomano))
+                return Json(new { success = false, message = "Todos los campos son obligatorios." });
 
             string email = Session["UserEmail"].ToString();
 
@@ -185,24 +229,70 @@ namespace SCIBM.Controllers
             {
                 try
                 {
-                    var curso = await db.Cursos.Include(c => c.CicloAcademico).FirstOrDefaultAsync(c => c.Id == id && c.CicloAcademico.DocenteEmail == email);
+                    var curso = await db.Cursos
+                        .Include(c => c.Carrera)
+                        .Include(c => c.CicloAcademico)
+                        .FirstOrDefaultAsync(c => c.Id == id && c.CicloAcademico.DocenteEmail == email);
+                    
                     if (curso == null)
                         return Json(new { success = false, message = "Curso no encontrado o sin permisos." });
 
-                    bool exists = await db.Cursos.AnyAsync(c => c.CicloAcademicoId == curso.CicloAcademicoId && c.Nombre == newName && c.Id != id);
+                    bool exists = await db.Cursos.AnyAsync(c => c.CicloAcademicoId == curso.CicloAcademicoId && c.CarreraId == carreraId && c.CicloRomano == cicloRomano && c.Nombre == nombre && c.Id != id);
                     if (exists)
-                        return Json(new { success = false, message = "Ya existe otro curso con este nombre en este ciclo." });
+                        return Json(new { success = false, message = "Ya existe otro curso con este nombre en este ciclo y carrera." });
 
-                    curso.Nombre = newName;
+                    bool pathChanged = curso.CarreraId != carreraId || curso.CicloRomano != cicloRomano;
+                    bool nameChanged = curso.Nombre != nombre;
 
-                    if (!string.IsNullOrEmpty(curso.DriveFolderId))
+                    var nuevaCarrera = await db.Carreras
+                        .Include(c => c.EscuelaProfesional)
+                        .Include(c => c.EscuelaProfesional.Facultad)
+                        .FirstOrDefaultAsync(c => c.Id == carreraId);
+
+                    if (nuevaCarrera == null) return Json(new { success = false, message = "Carrera inválida." });
+
+                    string accessToken = await GetValidAccessTokenAsync(db, email);
+
+                    if (!string.IsNullOrEmpty(accessToken) && !string.IsNullOrEmpty(curso.DriveFolderId))
                     {
-                        string accessToken = await GetValidAccessTokenAsync(db, email);
-                        if (!string.IsNullOrEmpty(accessToken))
+                        string oldParentId = await GoogleDriveHelper.GetParentIdAsync(curso.DriveFolderId, accessToken);
+                        string rootFolderId = curso.CicloAcademico.DriveFolderId; // Semestre
+
+                        if (pathChanged)
                         {
-                            await GoogleDriveHelper.RenameFolderAsync(curso.DriveFolderId, newName, accessToken);
+                            // 1. Obtener/Crear nueva ruta
+                            string[] newPath = new string[] 
+                            { 
+                                nuevaCarrera.EscuelaProfesional.Facultad.Siglas, 
+                                $"{nuevaCarrera.EscuelaProfesional.Siglas}_{nuevaCarrera.Nombre.Replace(" ", "")}", 
+                                cicloRomano
+                            };
+                            
+                            string newParentId = await GoogleDriveHelper.GetOrCreatePathAsync(newPath, rootFolderId, accessToken);
+
+                            // 2. Mover la carpeta del curso a la nueva ruta
+                            if (!string.IsNullOrEmpty(newParentId))
+                            {
+                                await GoogleDriveHelper.MoveFolderAsync(curso.DriveFolderId, newParentId, accessToken);
+                            }
+                        }
+
+                        if (nameChanged)
+                        {
+                            await GoogleDriveHelper.RenameFolderAsync(curso.DriveFolderId, nombre, accessToken);
+                        }
+
+                        // 3. Limpiar el rastro de la ruta vieja si quedó vacía
+                        if (pathChanged && !string.IsNullOrEmpty(oldParentId))
+                        {
+                            await GoogleDriveHelper.CleanupEmptyParentsAsync(oldParentId, rootFolderId, accessToken);
                         }
                     }
+
+                    curso.Nombre = nombre;
+                    curso.Codigo = codigo;
+                    curso.CarreraId = carreraId;
+                    curso.CicloRomano = cicloRomano;
 
                     await db.SaveChangesAsync();
 
@@ -213,7 +303,7 @@ namespace SCIBM.Controllers
                 }
                 catch (Exception ex)
                 {
-                    return Json(new { success = false, message = "Error al renombrar: " + ex.Message });
+                    return Json(new { success = false, message = "Error al editar: " + ex.Message });
                 }
             }
         }

@@ -421,9 +421,34 @@ Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
             }
         }
 
-        // POST: Examen/ScanTemplateWithGemini
+        // GET: Examen/EditSolucionario/5
+        public async Task<ActionResult> EditSolucionario(Guid? id, string tab = "editor")
+        {
+            if (Session["UserEmail"] == null) return RedirectToAction("Login", "Auth");
+            if (id == null) return RedirectToAction("Index", "Curso");
+
+            using (var db = new ScibmContext())
+            {
+                var examen = await db.Examenes
+                    .Include(e => e.Unidad)
+                    .Include(e => e.Unidad.Seccion.Curso.CicloAcademico)
+                    .Include(e => e.Preguntas)
+                    .Include(e => e.Preguntas.Select(p => p.SubPreguntas))
+                    .FirstOrDefaultAsync(e => e.Id == id.Value);
+
+                if (examen == null || examen.Unidad.Seccion.Curso.CicloAcademico.DocenteEmail != Session["UserEmail"].ToString())
+                {
+                    return HttpNotFound();
+                }
+
+                ViewBag.ActiveTab = tab; // "editor" o "calibracion"
+                return View(examen);
+            }
+        }
+
+        // POST: Examen/SaveSolucionarioData
         [HttpPost]
-        public async Task<ActionResult> ScanTemplateWithGemini(Guid examenId)
+        public async Task<ActionResult> SaveSolucionarioData(Guid examenId, List<Pregunta> preguntasEditadas)
         {
             if (Session["UserEmail"] == null) return Json(new { success = false, message = "No autorizado" });
 
@@ -431,46 +456,25 @@ Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
             {
                 using (var db = new ScibmContext())
                 {
-                    var examen = await db.Examenes.FindAsync(examenId);
-                    if (examen == null || string.IsNullOrEmpty(examen.RutaPdfOriginal))
-                        return Json(new { success = false, message = "Examen o PDF no encontrado." });
+                    var examen = await db.Examenes.Include(e => e.Preguntas).FirstOrDefaultAsync(e => e.Id == examenId);
+                    if (examen == null) return Json(new { success = false, message = "Examen no encontrado" });
 
-                    string physicalPath = Server.MapPath(examen.RutaPdfOriginal);
-                    if (!System.IO.File.Exists(physicalPath))
-                        return Json(new { success = false, message = "El archivo físico PDF no se encuentra." });
-
-                    var gemini = new GeminiApiService();
-                    
-                    string prompt = @"Eres un asistente de OCR avanzado para exámenes. Analiza la primera página de este examen en blanco.
-Identifica todas las preguntas. Para cada pregunta, extrae:
-1. 'numeroPregunta' (int): Identifica el número de la pregunta. Puede estar en números arábigos (1, 2, 3...) o romanos (I, II, III, IV...). Conviértelo siempre a un entero (ej: III -> 3).
-2. 'enunciado' (texto de la pregunta).
-3. 'tipo': Puede ser 'OpcionMultiple', 'VerdaderoFalso', 'RespuestaLibre' (espacios, líneas o huecos cortos para llenar palabras) o 'Desarrollo' (grandes rectángulos o áreas extensas vacías destinadas a redactar párrafos completos).
-4. 'puntaje' (float): Busca SOLO DENTRO del texto de la pregunta específica (NO en el título ni encabezado del examen) si menciona puntos (ej: '(2 ptos)', '0.5 puntos'). Extrae solo ese número. REGLAS ESTRICTAS: Si la pregunta no dice sus propios puntos, asume 1.0. Si el número es mayor a 20, es un error, asume 1.0. NUNCA asocies el puntaje total del examen a una sola pregunta.
-5. 'posX', 'posY', 'width', 'height': Coordenadas relativas en porcentaje (0.0 a 100.0) de la ubicación aproximada del bloque de respuestas (las letras, paréntesis o líneas). Para Desarrollo, intenta abarcar todo el espacio destinado a la respuesta.
-
-Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
-{
-  ""preguntas"": [
-    {
-      ""numeroPregunta"": 1,
-      ""enunciado"": ""¿Qué es la célula? (2 ptos)"",
-      ""tipo"": ""OpcionMultiple"",
-      ""puntaje"": 2.0,
-      ""posX"": 10.5, ""posY"": 20.0, ""width"": 50.0, ""height"": 15.0
-    }
-  ]
-}";
-
-                    string jsonResponse = await gemini.AnalyzePdfAsync(physicalPath, prompt);
-
-                    if (jsonResponse.StartsWith("```json"))
+                    if (preguntasEditadas != null)
                     {
-                        jsonResponse = jsonResponse.Substring(7);
-                        if (jsonResponse.EndsWith("```")) jsonResponse = jsonResponse.Substring(0, jsonResponse.Length - 3);
+                        foreach (var pEdit in preguntasEditadas)
+                        {
+                            var pDb = examen.Preguntas.FirstOrDefault(x => x.Id == pEdit.Id);
+                            if (pDb != null)
+                            {
+                                pDb.Enunciado = string.IsNullOrEmpty(pEdit.Enunciado) ? pDb.Enunciado : pEdit.Enunciado;
+                                pDb.RespuestaCorrecta = pEdit.RespuestaCorrecta ?? "";
+                                pDb.Puntaje = pEdit.Puntaje;
+                            }
+                        }
+                        await db.SaveChangesAsync();
                     }
 
-                    return Content(jsonResponse, "application/json");
+                    return Json(new { success = true, message = "Respuestas y puntajes actualizados correctamente." });
                 }
             }
             catch (Exception ex)
@@ -479,6 +483,49 @@ Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
             }
         }
 
+        // POST: Examen/SaveCalibracionVisual
+        [HttpPost]
+        public async Task<ActionResult> SaveCalibracionVisual(Guid examenId, double stampX, double stampY, double stampWidth, double stampHeight, List<Pregunta> preguntasCalibradas)
+        {
+            if (Session["UserEmail"] == null) return Json(new { success = false, message = "No autorizado" });
+
+            try
+            {
+                using (var db = new ScibmContext())
+                {
+                    var examen = await db.Examenes.Include(e => e.Preguntas).FirstOrDefaultAsync(e => e.Id == examenId);
+                    if (examen == null) return Json(new { success = false, message = "Examen no encontrado" });
+
+                    // Guardar tamaño y ubicación del sello de nota final (Siempre asume Pagina 1 por lógica visual)
+                    examen.StampX = stampX;
+                    examen.StampY = stampY;
+                    examen.StampWidth = stampWidth;
+                    examen.StampHeight = stampHeight;
+
+                    // Actualizar puntos de checks de las preguntas
+                    if (preguntasCalibradas != null)
+                    {
+                        foreach (var pCal in preguntasCalibradas)
+                        {
+                            var pDb = examen.Preguntas.FirstOrDefault(x => x.Id == pCal.Id);
+                            if (pDb != null)
+                            {
+                                pDb.PosX = pCal.PosX;
+                                pDb.PosY = pCal.PosY;
+                                pDb.Pagina = pCal.Pagina > 0 ? pCal.Pagina : 1;
+                            }
+                        }
+                    }
+
+                    await db.SaveChangesAsync();
+                    return Json(new { success = true, message = "Calibración visual guardada correctamente.", redirectUrl = Url.Action("Detail", "Examen", new { id = examenId }) });
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
 
         // POST: Examen/SubirPlantillaExistente
         [HttpPost]
@@ -531,36 +578,7 @@ Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
             }
         }
 
-        // GET: Examen/ScanTemplate/5
-        public async Task<ActionResult> ScanTemplate(Guid? id)
-        {
-            if (Session["UserEmail"] == null)
-            {
-                return RedirectToAction("Login", "Auth");
-            }
 
-            if (id == null)
-            {
-                return RedirectToAction("Index", "Curso");
-            }
-
-            using (var db = new ScibmContext())
-            {
-                var examen = await db.Examenes
-                    .Include(e => e.Unidad)
-                    .Include(e => e.Unidad.Seccion.Curso.CicloAcademico)
-                    .Include(e => e.Preguntas)
-                    .Include(e => e.Preguntas.Select(p => p.SubPreguntas))
-                    .FirstOrDefaultAsync(e => e.Id == id.Value);
-
-                if (examen == null || examen.Unidad.Seccion.Curso.CicloAcademico.DocenteEmail != Session["UserEmail"].ToString())
-                {
-                    return HttpNotFound();
-                }
-
-                return View(examen);
-            }
-        }
 
         [HttpPost]
         public async Task<ActionResult> AnalizarSolucionarioGemini(Guid examenId, string titulo, HttpPostedFileBase pdfFile)
@@ -649,115 +667,6 @@ Devuelve ÚNICAMENTE un arreglo JSON válido (sin formato markdown adicional), e
             }
         }
 
-// POST: Examen/GuardarPlantilla
-        [HttpPost]
-        public async Task<ActionResult> GuardarPlantilla(Guid examenId, string preguntasJson, double stampX, double stampY, double stampWidth, double stampHeight)
-        {
-            if (Session["UserEmail"] == null) return Json(new { success = false, message = "No autorizado" });
-
-            try
-            {
-                using (var db = new ScibmContext())
-                {
-                    var examen = await db.Examenes.Include(e => e.Preguntas).FirstOrDefaultAsync(e => e.Id == examenId);
-                    if (examen == null) return Json(new { success = false, message = "Examen no encontrado" });
-
-                    examen.StampX = stampX;
-                    examen.StampY = stampY;
-                    examen.StampWidth = stampWidth;
-                    examen.StampHeight = stampHeight;
-
-                    // Borrar preguntas anteriores
-                    db.Preguntas.RemoveRange(examen.Preguntas);
-                    await db.SaveChangesAsync();
-
-                    var preguntasFront = JsonConvert.DeserializeObject<List<PreguntaTemp>>(preguntasJson);
-
-                    foreach(var pFront in preguntasFront)
-                    {
-                        string safeTipo = string.IsNullOrEmpty(pFront.Tipo) ? "OpcionMultiple" : pFront.Tipo;
-                        if (safeTipo.Length > 30) safeTipo = safeTipo.Substring(0, 30);
-
-                        string safeRespuesta = string.IsNullOrWhiteSpace(pFront.RespuestaCorrecta) ? "-" : pFront.RespuestaCorrecta;
-                        if (safeRespuesta.Length > 150) safeRespuesta = safeRespuesta.Substring(0, 150);
-
-                        var pPadre = new Pregunta
-                        {
-                            Id = Guid.NewGuid(),
-                            ExamenId = examen.Id,
-                            PreguntaPadreId = null,
-                            Inciso = null,
-                            NumeroPregunta = pFront.NumeroPregunta,
-                            Pagina = pFront.Pagina > 0 ? pFront.Pagina : 1,
-                            Enunciado = string.IsNullOrEmpty(pFront.Enunciado) ? $"Pregunta {pFront.NumeroPregunta}" : pFront.Enunciado,
-                            Tipo = safeTipo,
-                            RespuestaCorrecta = safeRespuesta,
-                            Puntaje = pFront.Puntaje > 0 ? pFront.Puntaje : 0.0,
-                            PosX = pFront.PosX,
-                            PosY = pFront.PosY,
-                            Width = pFront.Width,
-                            Height = pFront.Height,
-                            OpcionesJson = pFront.OpcionesJson
-                        };
-
-                        db.Preguntas.Add(pPadre);
-
-                        var opciones = string.IsNullOrEmpty(pFront.OpcionesJson) ? new List<OpcionTemp>() : JsonConvert.DeserializeObject<List<OpcionTemp>>(pFront.OpcionesJson);
-                        bool isInciso = (pFront.Tipo == "RespuestaLibre" || pFront.Tipo == "VerdaderoFalso") && opciones.Count > 1;
-
-                        if (isInciso && opciones.Count > 0)
-                        {
-                            try {
-                                if (opciones != null && opciones.Count > 1) 
-                                {
-                                    double puntajeHijo = pFront.Puntaje;
-                                    pPadre.Puntaje = 0; // Contenedor padre no suma para no duplicar
-
-                                    foreach (var opt in opciones)
-                                    {
-                                        var pHija = new Pregunta
-                                        {
-                                            Id = Guid.NewGuid(),
-                                            ExamenId = examen.Id,
-                                            PreguntaPadreId = pPadre.Id,
-                                            Inciso = opt.label,
-                                            NumeroPregunta = pFront.NumeroPregunta,
-                                            Pagina = pFront.Pagina > 0 ? pFront.Pagina : 1,
-                                            Enunciado = $"{pPadre.Enunciado} - Inciso {opt.label}",
-                                            Tipo = pFront.Tipo,
-                                            RespuestaCorrecta = string.IsNullOrWhiteSpace(opt.val) ? "-" : (opt.val.Length > 150 ? opt.val.Substring(0,150) : opt.val),
-                                            Puntaje = puntajeHijo,
-                                            PosX = opt.x,
-                                            PosY = opt.y,
-                                            Width = opt.w,
-                                            Height = opt.h,
-                                            OpcionesJson = "[]"
-                                        };
-                                        db.Preguntas.Add(pHija);
-                                    }
-                                }
-                            } catch {}
-                        }
-                    }
-
-                    await db.SaveChangesAsync();
-                    TempData["Success"] = "¡Plantilla de examen y coordenadas guardadas exitosamente!";
-                    return Json(new { success = true, redirectUrl = Url.Action("Detail", "Examen", new { id = examenId }) });
-                }
-            }
-            catch (System.Data.Entity.Validation.DbEntityValidationException ex)
-            {
-                var errorMessages = ex.EntityValidationErrors
-                    .SelectMany(x => x.ValidationErrors)
-                    .Select(x => x.PropertyName + ": " + x.ErrorMessage);
-                string fullErrorMessage = string.Join(" | ", errorMessages);
-                return Json(new { success = false, message = "Error de validación: " + fullErrorMessage });
-            }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, message = ex.Message });
-            }
-        }
 
 // POST: Examen/ConfirmarSolucionario
         [HttpPost]
@@ -774,6 +683,16 @@ Devuelve ÚNICAMENTE un arreglo JSON válido (sin formato markdown adicional), e
             {
                 using (var db = new ScibmContext())
                 {
+                    // Identificar las preguntas que fueron eliminadas en la interfaz de confirmación
+                    var idsRecibidos = preguntasEditadas.Select(p => p.Id).ToList();
+                    var preguntasEnDb = await db.Preguntas.Where(p => p.ExamenId == examenId).ToListAsync();
+                    var preguntasAborrar = preguntasEnDb.Where(p => !idsRecibidos.Contains(p.Id)).ToList();
+                    
+                    if (preguntasAborrar.Any())
+                    {
+                        db.Preguntas.RemoveRange(preguntasAborrar);
+                    }
+
                     for (int i = 0; i < preguntasEditadas.Count; i++)
                     {
                         var pEdit = preguntasEditadas[i];
@@ -822,7 +741,7 @@ Devuelve ÚNICAMENTE un arreglo JSON válido (sin formato markdown adicional), e
                 TempData["Error"] = "Error al guardar los cambios: " + ex.Message;
             }
 
-            return RedirectToAction("Detail", "Examen", new { id = examenId });
+            return RedirectToAction("EditSolucionario", "Examen", new { id = examenId, tab = "calibracion" });
         }
 
         [HttpPost]
@@ -1255,13 +1174,6 @@ Reglas del JSON:
                                 double cx = pregunta.PosX;
                                 double cy = pregunta.PosY;
 
-                                // Si el profesor ajustó las coordenadas, las usamos
-                                if (res.CorrectionStamps != null && res.CorrectionStamps.ContainsKey(qIndex.ToString()))
-                                {
-                                    cx = res.CorrectionStamps[qIndex.ToString()].x;
-                                    cy = res.CorrectionStamps[qIndex.ToString()].y;
-                                }
-
                                 correctionData.Add(new PdfStamperHelper.CorrectionStampData
                                 {
                                     X = cx,
@@ -1276,7 +1188,13 @@ Reglas del JSON:
 
                         // 4. Estampar la nota final y las correcciones en el PDF
                         string notaTexto = notaFinal.ToString("0.0");
-                        PdfStamperHelper.StampGradeAndCorrections(tempPhysicalPath, finalPhysicalPath, notaTexto, res.Stamp, correctionData);
+                        var masterStamp = new StampInfoTemp { 
+                            x = examen.StampX, 
+                            y = examen.StampY, 
+                            w = examen.StampWidth, 
+                            h = examen.StampHeight 
+                        };
+                        PdfStamperHelper.StampGradeAndCorrections(tempPhysicalPath, finalPhysicalPath, notaTexto, masterStamp, correctionData);
 
                         // 4. Guardar registros en base de datos (Evitar duplicados)
                         ExamenAlumno examenAlumno = null;
@@ -1427,6 +1345,96 @@ Reglas del JSON:
             }
         }
 
+        // POST: Examen/MatricularYVincularAlumno
+        [HttpPost]
+        public async Task<ActionResult> MatricularYVincularAlumno(Guid calificacionId)
+        {
+            if (Session["UserEmail"] == null)
+            {
+                return Json(new { success = false, message = "Sesión expirada" });
+            }
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var calificacion = await db.ExamenesAlumnos
+                        .Include(ea => ea.Examen)
+                        .Include(ea => ea.Examen.Unidad)
+                        .FirstOrDefaultAsync(ea => ea.Id == calificacionId);
+
+                    if (calificacion == null)
+                    {
+                        return Json(new { success = false, message = "La calificación no existe." });
+                    }
+
+                    if (calificacion.AlumnoMatriculadoId != null)
+                    {
+                        return Json(new { success = false, message = "Este alumno ya está matriculado y vinculado." });
+                    }
+
+                    string fullName = calificacion.NombreAlumno?.Trim();
+                    if (string.IsNullOrEmpty(fullName))
+                    {
+                        return Json(new { success = false, message = "No hay un nombre detectado para matricular." });
+                    }
+
+                    // Lógica de separación de Nombres y Apellidos
+                    string[] parts = fullName.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    string nombres = "";
+                    string apellidos = "";
+
+                    if (parts.Length >= 4)
+                    {
+                        // 4+ palabras: las 2 primeras son nombres, el resto apellidos
+                        nombres = parts[0] + " " + parts[1];
+                        apellidos = string.Join(" ", parts.Skip(2));
+                    }
+                    else if (parts.Length == 3)
+                    {
+                        // 3 palabras: 1 nombre, 2 apellidos
+                        nombres = parts[0];
+                        apellidos = parts[1] + " " + parts[2];
+                    }
+                    else if (parts.Length == 2)
+                    {
+                        // 2 palabras: 1 nombre, 1 apellido
+                        nombres = parts[0];
+                        apellidos = parts[1];
+                    }
+                    else
+                    {
+                        // 1 palabra
+                        nombres = parts[0];
+                        apellidos = "";
+                    }
+
+                    // Crear el AlumnoMatriculado
+                    var nuevoAlumno = new AlumnoMatriculado
+                    {
+                        Id = Guid.NewGuid(),
+                        SeccionId = calificacion.Examen.Unidad.SeccionId,
+                        NombreCompleto = fullName,
+                        Nombres = nombres,
+                        Apellidos = apellidos
+                    };
+
+                    db.AlumnosMatriculados.Add(nuevoAlumno);
+
+                    // Vincular al examen actual
+                    calificacion.AlumnoMatriculadoId = nuevoAlumno.Id;
+
+                    await db.SaveChangesAsync();
+
+                    return Json(new { success = true, message = "Alumno matriculado y vinculado exitosamente." });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error al matricular: " + ex.Message });
+                }
+            }
+        }
+
         // POST: Examen/SincronizarExamenConDrive
         [HttpPost]
         public async Task<ActionResult> SincronizarExamenConDrive(Guid examenId)
@@ -1452,21 +1460,34 @@ Reglas del JSON:
                 try
                 {
                     string accessToken = await GetValidAccessTokenAsync(db, Session["UserEmail"].ToString());
-                    string unitFolderId = examen.Unidad.DriveFolderId;
-
-                    if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(unitFolderId))
+                    
+                    // Usar la carpeta de la VERSIÓN del examen (no de la Unidad)
+                    string versionFolderId = examen.DriveFolderId;
+                    
+                    // Si la versión no tiene carpeta propia, crearla dentro de la carpeta de la Unidad
+                    if (string.IsNullOrEmpty(versionFolderId))
                     {
-                        TempData["Error"] = "No se pudo establecer conexión con Google Drive.";
+                        string unitFolderId = examen.Unidad.DriveFolderId;
+                        if (!string.IsNullOrEmpty(unitFolderId))
+                        {
+                            versionFolderId = await GoogleDriveHelper.GetOrCreateFolderAsync(examen.NombreVersion, unitFolderId, accessToken);
+                            examen.DriveFolderId = versionFolderId;
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(accessToken) || string.IsNullOrEmpty(versionFolderId))
+                    {
+                        TempData["Error"] = "No se pudo establecer conexión con Google Drive o no existe la carpeta de la versión.";
                         return RedirectToAction("Detail", "Unidad", new { id = examen.UnidadId });
                     }
 
-                    // 1. Subir plantilla en blanco
+                    // 1. Subir plantilla en blanco como "EXAMEN MAESTRO.pdf"
                     if (string.IsNullOrEmpty(examen.DriveFileIdBlanco))
                     {
                         string localPath = Server.MapPath(examen.RutaPdfOriginal);
                         if (System.IO.File.Exists(localPath))
                         {
-                            string fileId = await GoogleDriveHelper.UploadPdfFileAsync("Plantilla_Examen_Blanco.pdf", localPath, unitFolderId, accessToken);
+                            string fileId = await GoogleDriveHelper.UploadPdfFileAsync("EXAMEN MAESTRO.pdf", localPath, versionFolderId, accessToken);
                             examen.DriveFileIdBlanco = fileId;
                         }
                     }
@@ -1477,7 +1498,7 @@ Reglas del JSON:
                         string localSolucionarioPath = Server.MapPath($"~/App_Data/Examenes/{examenId}_solucionario.pdf");
                         if (System.IO.File.Exists(localSolucionarioPath))
                         {
-                            string fileId = await GoogleDriveHelper.UploadPdfFileAsync("Plantilla_Examen_Solucionario.pdf", localSolucionarioPath, unitFolderId, accessToken);
+                            string fileId = await GoogleDriveHelper.UploadPdfFileAsync("EXAMEN SOLUCIONARIO.pdf", localSolucionarioPath, versionFolderId, accessToken);
                             examen.DriveFileIdSolucionario = fileId;
                         }
                     }
@@ -1485,11 +1506,19 @@ Reglas del JSON:
                     examen.SincronizadoDrive = true;
                     db.Entry(examen).State = EntityState.Modified;
 
-                    // 3. Subir exámenes calificados de alumnos renombrados
+                    // 3. Subir exámenes calificados de alumnos con etiquetas [MAYOR NOTA] / [MENOR NOTA]
                     var alumnosCalificados = await db.ExamenesAlumnos
                         .Include(ea => ea.AlumnoMatriculado)
                         .Where(ea => ea.ExamenId == examenId && !ea.SincronizadoDrive)
                         .ToListAsync();
+
+                    // Calcular nota máxima y mínima para etiquetas
+                    double notaMaxima = 0, notaMinima = 20;
+                    if (alumnosCalificados.Any())
+                    {
+                        notaMaxima = alumnosCalificados.Max(a => a.Nota);
+                        notaMinima = alumnosCalificados.Min(a => a.Nota);
+                    }
 
                     int syncedCount = 0;
                     foreach (var al in alumnosCalificados)
@@ -1504,11 +1533,19 @@ Reglas del JSON:
                                 nameInDrive = al.AlumnoMatriculado.NombreCompleto;
                             }
                             
-                            // Asegurarse de sanitizar el nombre para archivos
+                            // Sanitizar nombre
                             nameInDrive = nameInDrive.Replace(",", "").Replace("/", "-").Replace("\\", "-");
-                            string driveFileName = $"{nameInDrive}.pdf";
 
-                            string fileId = await GoogleDriveHelper.UploadPdfFileAsync(driveFileName, localPath, unitFolderId, accessToken);
+                            // Agregar etiqueta de MAYOR/MENOR NOTA (soportando empates)
+                            string prefix = "";
+                            if (al.Nota == notaMaxima) prefix = "[MAYOR NOTA] ";
+                            if (al.Nota == notaMinima) prefix = "[MENOR NOTA] ";
+                            // Si la nota más alta y más baja son iguales (todos sacaron lo mismo), solo marcar como MAYOR
+                            if (notaMaxima == notaMinima && al.Nota == notaMaxima) prefix = "[MAYOR NOTA] ";
+
+                            string driveFileName = $"{prefix}{nameInDrive}_{al.Nota.ToString("0.0")}.pdf";
+
+                            string fileId = await GoogleDriveHelper.UploadPdfFileAsync(driveFileName, localPath, versionFolderId, accessToken);
                             if (!string.IsNullOrEmpty(fileId))
                             {
                                 al.DriveFileId = fileId;
@@ -1748,11 +1785,37 @@ Reglas del JSON:
 
                 var seccionId = examen.Unidad.SeccionId;
 
+                string apellidos = "-";
+                string nombres = "-";
+                string nombreLimpio = nombreCompleto.Trim();
+
+                if (nombreLimpio.Contains(","))
+                {
+                    var parts = nombreLimpio.Split(new[] { ',' }, 2);
+                    apellidos = parts[0].Trim();
+                    nombres = parts[1].Trim();
+                }
+                else
+                {
+                    var parts = nombreLimpio.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length == 1)
+                    {
+                        apellidos = parts[0];
+                    }
+                    else if (parts.Length > 1)
+                    {
+                        nombres = parts[parts.Length - 1];
+                        apellidos = string.Join(" ", parts.Take(parts.Length - 1));
+                    }
+                }
+
                 // Crear el nuevo alumno
                 var nuevoAlumno = new AlumnoMatriculado
                 {
                     SeccionId = seccionId,
-                    NombreCompleto = nombreCompleto.Trim()
+                    NombreCompleto = nombreLimpio,
+                    Apellidos = apellidos,
+                    Nombres = nombres
                 };
 
                 db.AlumnosMatriculados.Add(nuevoAlumno);
@@ -1763,6 +1826,60 @@ Reglas del JSON:
                     alumnoId = nuevoAlumno.Id,
                     nombreCompleto = nuevoAlumno.NombreCompleto
                 });
+            }
+        }
+
+        // GET: Examen/GetPdfOriginal
+        public ActionResult GetPdfOriginal(Guid id)
+        {
+            if (Session["UserEmail"] == null) return new HttpStatusCodeResult(403);
+
+            using (var db = new ScibmContext())
+            {
+                var examen = db.Examenes.Find(id);
+                if (examen == null || string.IsNullOrEmpty(examen.RutaPdfOriginal))
+                {
+                    return HttpNotFound();
+                }
+
+                string physicalPath = Server.MapPath(examen.RutaPdfOriginal);
+                if (!System.IO.File.Exists(physicalPath))
+                {
+                    return HttpNotFound();
+                }
+
+                return File(physicalPath, "application/pdf");
+            }
+        }
+
+        // POST: Examen/DeletePregunta
+        [HttpPost]
+        public async Task<ActionResult> DeletePregunta(Guid preguntaId)
+        {
+            if (Session["UserEmail"] == null) return Json(new { success = false, message = "Sesión expirada" });
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var pregunta = await db.Preguntas.Include(p => p.SubPreguntas).FirstOrDefaultAsync(p => p.Id == preguntaId);
+                    if (pregunta == null) return Json(new { success = false, message = "La pregunta no existe." });
+
+                    // Si es padre y tiene hijos, EF los borrará por Cascade si está configurado, o manualmente:
+                    if (pregunta.SubPreguntas != null && pregunta.SubPreguntas.Any())
+                    {
+                        db.Preguntas.RemoveRange(pregunta.SubPreguntas);
+                    }
+
+                    db.Preguntas.Remove(pregunta);
+                    await db.SaveChangesAsync();
+
+                    return Json(new { success = true, message = "Pregunta eliminada." });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error: " + ex.Message });
+                }
             }
         }
     }

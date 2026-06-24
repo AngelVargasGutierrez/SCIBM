@@ -114,6 +114,7 @@
     <Compile Include="Controllers\CicloController.cs" />
     <Compile Include="Controllers\CursoController.cs" />
     <Compile Include="Controllers\ExamenController.cs" />
+    <Compile Include="Controllers\ReporteController.cs" />
     <Compile Include="Controllers\SeccionController.cs" />
     <Compile Include="Services\GeminiApiService.cs" />
     <Compile Include="Controllers\UnidadController.cs" />
@@ -121,6 +122,7 @@
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
     <Compile Include="Helpers\GoogleDriveHelper.cs" />
+    <Compile Include="Helpers\GoogleSheetsHelper.cs" />
     <Compile Include="Helpers\PdfStamperHelper.cs" />
     <Compile Include="Models\Entities.cs" />
     <Compile Include="Models\Context.cs" />
@@ -141,6 +143,7 @@
     <Content Include="Views\Examen\ScanTemplate.cshtml" />
     <Content Include="Views\Examen\GradeOverview.cshtml" />
     <Content Include="Views\Examen\Detail.cshtml" />
+    <Content Include="Views\Reporte\Index.cshtml" />
     <None Include="packages.config" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>

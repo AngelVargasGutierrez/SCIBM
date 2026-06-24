@@ -1,0 +1,781 @@
+@model SCIBM.Models.Examen
+
+@{
+    ViewBag.Title = "Editar Solucionario y Calibración";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    string activeTab = ViewBag.ActiveTab as string ?? "editor";
+
+    // Preparar lista plana de preguntas para el calibrador visual
+    var preguntasPlanas = new List<SCIBM.Models.Pregunta>();
+    foreach (var p in Model.Preguntas.Where(x => x.PreguntaPadreId == null).OrderBy(x => x.NumeroPregunta))
+    {
+        if (p.SubPreguntas != null && p.SubPreguntas.Any())
+        {
+            preguntasPlanas.AddRange(p.SubPreguntas.OrderBy(x => x.Inciso));
+        }
+        else
+        {
+            preguntasPlanas.Add(p);
+        }
+    }
+}
+
+<!-- TABS NAVIGATION & HEADER -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+    <div class="tabs-container" style="display: flex; gap: 10px;">
+        <button class="btn @(activeTab == "editor" ? "btn-primary" : "btn-secondary") tab-btn" onclick="switchTab('editor')">
+            <i class="fa-solid fa-table-list"></i> Pestaña 1: Editor de Puntajes
+        </button>
+        <button class="btn @(activeTab == "calibracion" ? "btn-primary" : "btn-secondary") tab-btn" onclick="switchTab('calibracion')" @(string.IsNullOrEmpty(Model.RutaPdfOriginal) ? "disabled" : "")>
+            <i class="fa-solid fa-crosshairs"></i> Pestaña 2: Calibración Visual
+        </button>
+    </div>
+    <div>
+        <span id="total-score-badge" class="badge" style="background: var(--primary-glow); color: black; font-size: 15px; padding: 6px 15px; border-radius: 20px; font-weight: bold; box-shadow: 0 0 10px rgba(38,208,206,0.3);">
+            Total: 0.0 pts
+        </span>
+    </div>
+</div>
+
+<!-- CONTENIDO TAB 1: EDITOR -->
+<div id="tab-editor" class="tab-content" style="display: @(activeTab == "editor" ? "block" : "none");">
+    <div class="glass-card" style="padding: 24px;">
+        <h4 style="margin-bottom: 15px; color: var(--accent-color); font-size: 16px;"><i class="fa-solid fa-pen"></i> Editar Solucionario</h4>
+        
+        <form id="editorForm" onsubmit="saveEditorData(event)">
+            <input type="hidden" name="examenId" value="@Model.Id" />
+            
+            <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+                @foreach (var padre in Model.Preguntas.Where(p => p.PreguntaPadreId == null).OrderBy(p => p.NumeroPregunta))
+                {
+                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px;">
+                        
+                        @if (padre.SubPreguntas != null && padre.SubPreguntas.Any())
+                        {
+                            <!-- Pregunta Padre con Incisos -->
+                            <div style="font-weight: 600; font-size: 14px; margin-bottom: 10px; color: var(--primary-glow);">
+                                Pregunta @padre.NumeroPregunta: @padre.Enunciado
+                            </div>
+                            
+                            foreach (var hijo in padre.SubPreguntas.OrderBy(h => h.Inciso))
+                            {
+                                <div id="row-@hijo.Id" style="display: flex; gap: 10px; margin-bottom: 5px; padding-left: 15px; border-left: 2px solid rgba(255,255,255,0.1); align-items: flex-start;">
+                                    <input type="hidden" name="preguntasEditadas.Index" value="@hijo.Id" />
+                                    <input type="hidden" name="preguntasEditadas[@hijo.Id].Id" value="@hijo.Id" />
+                                    
+                                    <div style="flex: 5;">
+                                        <label style="display: block; margin-bottom: 4px; font-size: 11px; color: var(--text-muted);">Enunciado Inciso @hijo.Inciso</label>
+                                        <textarea name="preguntasEditadas[@hijo.Id].Enunciado" class="form-control dark-input" rows="1" style="width: 100%; box-sizing: border-box; font-size: 12px; padding: 4px; resize: both; min-height: 28px; line-height: 1.5;">@hijo.Enunciado</textarea>
+                                    </div>
+                                    <div style="flex: 2;">
+                                        <label style="display: block; margin-bottom: 4px; font-size: 11px; color: var(--text-muted);">Respuesta Correcta</label>
+                                        <input type="text" name="preguntasEditadas[@hijo.Id].RespuestaCorrecta" value="@hijo.RespuestaCorrecta" class="form-control dark-input" style="width: 100%; box-sizing: border-box; font-size: 12px; padding: 4px; height: 28px;" />
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <label style="display: block; margin-bottom: 4px; font-size: 11px; color: var(--text-muted);">Puntaje</label>
+                                        <input type="number" step="0.5" min="0" name="preguntasEditadas[@hijo.Id].Puntaje" value="@hijo.Puntaje" class="form-control puntaje-input dark-input" style="width: 100%; box-sizing: border-box; font-size: 12px; padding: 4px; height: 28px;" oninput="calcularTotal()" />
+                                    </div>
+                                    <div>
+                                        <button type="button" class="btn btn-outline-danger trash-btn" style="padding: 6px 10px; margin-top: 20px;" onclick="eliminarPregunta('@hijo.Id', '@hijo.Inciso')" title="Eliminar inciso">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <!-- Pregunta Simple -->
+                            <div id="row-@padre.Id" style="display: flex; gap: 10px; align-items: flex-start;">
+                                <input type="hidden" name="preguntasEditadas.Index" value="@padre.Id" />
+                                <input type="hidden" name="preguntasEditadas[@padre.Id].Id" value="@padre.Id" />
+                                
+                                <div style="flex: 5;">
+                                    <label style="display: block; margin-bottom: 4px; font-size: 11px; color: var(--text-muted);">Enunciado P. @padre.NumeroPregunta</label>
+                                    <textarea name="preguntasEditadas[@padre.Id].Enunciado" class="form-control dark-input" rows="1" style="width: 100%; box-sizing: border-box; font-size: 12px; padding: 4px; resize: both; min-height: 28px; line-height: 1.5;">@padre.Enunciado</textarea>
+                                </div>
+                                <div style="flex: 2;">
+                                    <label style="display: block; margin-bottom: 4px; font-size: 11px; color: var(--text-muted);">Respuesta Correcta</label>
+                                    <input type="text" name="preguntasEditadas[@padre.Id].RespuestaCorrecta" value="@padre.RespuestaCorrecta" class="form-control dark-input" style="width: 100%; box-sizing: border-box; font-size: 12px; padding: 4px; height: 28px;" />
+                                </div>
+                                <div style="flex: 1;">
+                                    <label style="display: block; margin-bottom: 4px; font-size: 11px; color: var(--text-muted);">Puntaje</label>
+                                    <input type="number" step="0.5" min="0" name="preguntasEditadas[@padre.Id].Puntaje" value="@padre.Puntaje" class="form-control puntaje-input dark-input" style="width: 100%; box-sizing: border-box; font-size: 12px; padding: 4px; height: 28px;" oninput="calcularTotal()" />
+                                </div>
+                                <div>
+                                    <button type="button" class="btn btn-outline-danger trash-btn" style="padding: 6px 10px; margin-top: 20px;" onclick="eliminarPregunta('@padre.Id', '@padre.NumeroPregunta')" title="Eliminar pregunta">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right; display: none;">
+                <!-- Botón removido a favor de la Barra de Acción Global -->
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- CONTENIDO TAB 2: CALIBRACION -->
+<div id="tab-calibracion" class="tab-content" style="display: @(activeTab == "calibracion" ? "block" : "none");">
+    @if (!string.IsNullOrEmpty(Model.RutaPdfOriginal))
+    {
+        <div style="display: flex; gap: 20px;">
+            <!-- VISOR PDF -->
+            <div style="flex: 1; background: #1E1E1E; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
+                
+                <!-- CONTROLES PAGINACION Y ZOOM -->
+                <div style="padding: 10px; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; gap: 15px;">
+                    <button class="btn btn-secondary" onclick="changePage(-1)"><i class="fa-solid fa-caret-left"></i></button>
+                    <span style="font-weight: bold;">Página <span id="pageNum">1</span> / <span id="pageCount">?</span></span>
+                    <button class="btn btn-secondary" onclick="changePage(1)"><i class="fa-solid fa-caret-right"></i></button>
+                    
+                    <div style="border-left: 1px solid rgba(255,255,255,0.2); height: 20px; margin: 0 10px;"></div>
+                    
+                    <button class="btn btn-secondary" onclick="zoomOut()" title="Alejar"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+                    <span style="font-weight: bold; font-size: 13px;" id="zoom-label">150%</span>
+                    <button class="btn btn-secondary" onclick="zoomIn()" title="Acercar"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+                </div>
+                
+                <!-- CANVAS PDF Y PUNTOS -->
+                <div id="pdf-container" style="position: relative; overflow: auto; background: #333; height: 60vh; display: flex; justify-content: center; align-items: flex-start; padding: 20px;">
+                    <div id="canvas-wrapper" style="position: relative; display: inline-block;">
+                        <canvas id="pdf-render" style="box-shadow: 0 0 20px rgba(0,0,0,0.5); display: block;"></canvas>
+                        
+                        <!-- Capa de puntos -->
+                        <div id="points-layer" style="position: absolute; top: 0; left: 0; pointer-events: none; width: 100%; height: 100%;"></div>
+                        
+                        <!-- SELLO DE NOTA -->
+                        <div id="sello-nota" style="position: absolute; border: 3px dashed #E74C3C; background: rgba(231,76,60,0.1); cursor: move; display: none; padding: 5px; color: #E74C3C; font-weight: bold; align-items: center; justify-content: center; overflow: hidden; box-sizing: border-box;">
+                            <span id="sello-nota-texto">20</span>
+                            <div class="resize-handle" style="position: absolute; right: -5px; bottom: -5px; width: 15px; height: 15px; background: #E74C3C; cursor: nwse-resize;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL LATERAL -->
+            <div style="flex: 0 0 350px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; max-height: 60vh;">
+                
+                <!-- PASO 1 -->
+                <div class="glass-card" style="padding: 10px 15px;">
+                    <h4 style="margin-bottom: 10px; color: var(--accent-color); font-size: 14px; display: flex; align-items: center;"><span style="display: inline-block; width: 20px; height: 20px; background: var(--accent-color); color: black; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; font-weight: bold; margin-right: 8px;">1</span> Sello de Nota Final</h4>
+                    <p style="font-size: 11px; line-height: 1.4; color: var(--text-muted); margin-bottom: 10px;">Acomoda el cuadro rojo en el PDF para indicar dónde se estampará la nota gigante (Solo en Hoja 1).</p>
+                    <button class="btn btn-secondary" style="width: 100%; font-size: 12px;" onclick="resetSello()">Restaurar Sello al inicio</button>
+                </div>
+
+                <!-- PASO 2 -->
+                <div class="glass-card" style="padding: 10px 15px; flex: 1; display: flex; flex-direction: column;">
+                    <h4 style="margin-bottom: 10px; color: var(--accent-color); font-size: 14px; display: flex; align-items: center;"><span style="display: inline-block; width: 20px; height: 20px; background: var(--accent-color); color: black; border-radius: 50%; text-align: center; line-height: 20px; font-size: 11px; font-weight: bold; margin-right: 8px;">2</span> Posición de Checks (✓/✗)</h4>
+                    <p style="font-size: 11px; line-height: 1.4; color: var(--text-muted); margin-bottom: 10px;">Activa una pregunta y haz clic en el PDF para marcar dónde irá su check. Si te equivocas, haz clic en el chip y ponlo de nuevo.</p>
+                    
+                    <div style="overflow-y: auto; flex: 1; padding-right: 5px;" id="questions-list">
+                        @foreach (var p in preguntasPlanas)
+                        {
+                            string label = (p.PreguntaPadreId != null) ? $"{p.NumeroPregunta}.{p.Inciso}" : p.NumeroPregunta.ToString();
+                            string snippet = p.Enunciado.Length > 25 ? p.Enunciado.Substring(0, 25) + "..." : p.Enunciado;
+                            
+                            <div class="q-chip" id="chip-@p.Id" onclick="activateQuestion('@p.Id', '@label', '@snippet')"
+                                 data-id="@p.Id" data-x="@p.PosX" data-y="@p.PosY" data-page="@(p.Pagina > 0 ? p.Pagina : 1)"
+                                 style="padding: 8px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+                                <div>
+                                    <strong style="color: var(--primary-glow);">@label</strong> <span style="font-size: 11px; color: var(--text-muted);">@snippet</span>
+                                </div>
+                                <i class="fa-solid fa-circle-check status-icon" style="color: #4CAF50; display: @(p.PosX > 0 ? "block" : "none");"></i>
+                                <i class="fa-solid fa-circle-exclamation error-icon" style="color: #E74C3C; display: @(p.PosX == 0 ? "block" : "none");"></i>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Botón Guardar Calibración removido a favor de la Barra de Acción Global -->
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="glass-card" style="padding: 40px; text-align: center;">
+            <i class="fa-solid fa-file-pdf" style="font-size: 48px; color: var(--text-muted); margin-bottom: 15px;"></i>
+            <h3>No hay documento PDF subido</h3>
+            <p style="color: var(--text-muted);">Sube primero una plantilla o solucionario desde el Detalle de la Versión para poder calibrar visualmente.</p>
+        </div>
+    }
+</div>
+
+<style>
+    .tab-btn { opacity: 0.7; transition: 0.3s; }
+    .tab-btn.btn-primary { opacity: 1; border: 1px solid var(--primary-glow); }
+    .q-chip:hover { background: rgba(255,255,255,0.1) !important; }
+    .q-chip.active { background: rgba(38,208,206,0.2) !important; border-color: var(--primary-glow) !important; box-shadow: inset 4px 0 0 var(--primary-glow); }
+    #custom-cursor { position: absolute; pointer-events: none; z-index: 9999; display: none; align-items: center; gap: 8px; transform: translate(-10px, -10px); }
+    #custom-cursor .dot { width: 20px; height: 20px; border: 2px solid #E74C3C; border-radius: 50%; position: relative; }
+    #custom-cursor .dot::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 4px; height: 4px; background: #E74C3C; border-radius: 50%; }
+    #custom-cursor .label { background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; border: 1px solid #E74C3C; white-space: nowrap;}
+    .pdf-point { position: absolute; transform: translate(-50%, -50%); pointer-events: none; display: flex; align-items: center; justify-content: center; }
+    .pdf-point i { font-size: 14px; text-shadow: 0 0 3px black; }
+    
+    /* STICKY ACTION BAR */
+    .sticky-action-bar {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(11, 19, 43, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--glass-border);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(38,208,206,0.2);
+        padding: 15px 25px;
+        border-radius: 50px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        z-index: 1000;
+        transition: all 0.3s ease;
+    }
+    .btn-cancel-glass {
+        background: rgba(255, 255, 255, 0.1);
+        color: #ff8fa3;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    .btn-cancel-glass:hover {
+        background: rgba(255, 143, 163, 0.15);
+        border-color: #ff8fa3;
+        color: #ffb3c1;
+    }
+    .btn-save-glow {
+        background: var(--primary-glow);
+        color: #0b132b;
+        border: none;
+        padding: 10px 25px;
+        border-radius: 25px;
+        font-weight: bold;
+        box-shadow: 0 0 15px rgba(38,208,206,0.5);
+        transition: all 0.2s;
+    }
+    .btn-save-glow:hover {
+        background: var(--accent-hover);
+        box-shadow: 0 0 25px rgba(38,208,206,0.8);
+        transform: translateY(-2px);
+    }
+
+    /* LOADING DIALOG & MODALS */
+    .progress-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(11, 19, 43, 0.95);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 3000;
+        gap: 20px;
+    }
+    .progress-bar {
+        width: 320px;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid var(--glass-border);
+    }
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent-color), var(--primary-glow));
+        transition: width 0.4s ease;
+    }
+
+    /* DARK INPUTS PARA FORMULARIO */
+    .dark-input {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 4px;
+        transition: border-color 0.3s, background-color 0.3s;
+    }
+    .dark-input:focus {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        border-color: var(--primary-glow) !important;
+        box-shadow: 0 0 5px rgba(38, 208, 206, 0.5) !important;
+        outline: none;
+    }
+
+    /* TRASH BUTTON ROVER */
+    .trash-btn {
+        transition: all 0.2s ease-in-out;
+    }
+    .trash-btn:hover {
+        background-color: rgba(231, 76, 60, 0.2) !important;
+        border-color: #E74C3C !important;
+        color: #E74C3C !important;
+        box-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+    }
+</style>
+
+<div id="custom-cursor">
+    <div class="dot"></div>
+    <div class="label" id="cursor-label">Selecciona una pregunta</div>
+</div>
+
+<!-- STICKY ACTION BAR FLOTANTE -->
+<div class="sticky-action-bar">
+    <a href="@Url.Action("Detail", "Examen", new { id = Model.Id })" class="btn btn-cancel-glass">
+        <i class="fa-solid fa-xmark"></i> Cancelar / Volver
+    </a>
+    <button onclick="saveAll()" class="btn btn-save-glow">
+        <i class="fa-solid fa-check-double"></i> Guardar Todo
+    </button>
+</div>
+
+    <!-- GLASS ALERT MODAL -->
+    <div class="progress-overlay" id="glass-alert-modal" style="display: none; z-index: 3000;">
+        <div class="glass-card" style="max-width: 400px; text-align: center; padding: 30px; animation: slideUp 0.3s ease-out;">
+            <i id="alert-icon" class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff5252; margin-bottom: 15px;"></i>
+            <h3 id="alert-title" style="margin-bottom: 10px; color: white;">Atención</h3>
+            <p id="alert-message" style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Mensaje de error.</p>
+            <button class="btn btn-primary" onclick="closeAlertModal()" style="width: 100%;">Entendido</button>
+        </div>
+    </div>
+
+    <!-- OCR LOADER MODAL -->
+    <div class="progress-overlay" id="ocr-loader" style="display: none; z-index: 3000;">
+        <i class="fa-solid fa-floppy-disk" style="font-size: 64px; color: var(--primary-glow); text-shadow: 0 0 20px var(--primary-glow); animation: pulse 1.5s infiniteAlternate;"></i>
+        <h3 id="ocr-loader-title">Guardando Todo...</h3>
+        <p id="ocr-loader-subtitle" style="color: var(--text-muted); font-size: 14.5px;">Sincronizando solucionario y coordenadas...</p>
+        <div class="progress-bar">
+            <div class="progress-fill" id="ocr-progress-bar" style="width: 0%;"></div>
+        </div>
+    </div>
+
+@section scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+    <script>
+        // Lógica de Tabs
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('btn-primary'); b.classList.add('btn-secondary');
+            });
+            event.currentTarget.classList.remove('btn-secondary');
+            event.currentTarget.classList.add('btn-primary');
+            
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            document.getElementById('tab-' + tabId).style.display = 'block';
+
+            if(tabId === 'calibracion' && !pdfDoc) {
+                initPDF();
+            }
+        }
+
+        // GUARDADO DE TEXTOS Y PUNTAJES (Ahora devuelve promesa)
+        function saveEditorData(e) {
+            if(e) e.preventDefault();
+            let form = document.getElementById('editorForm');
+            let formData = new FormData(form);
+
+            return fetch('@Url.Action("SaveSolucionarioData", "Examen")', {
+                method: 'POST',
+                body: formData
+            }).then(r => r.json());
+        }
+
+        // --- Pestaña 2: Calibración PDF ---
+        let pdfDoc = null;
+        let pageNum = 1;
+        let canvas = document.getElementById('pdf-render');
+        let ctx = canvas ? canvas.getContext('2d') : null;
+        let renderTask = null;
+        let points = []; // Array de { id, x, y, p } (p = pagina)
+
+        // Sello Data
+        let selloData = {
+            x: @(Model.StampX > 0 ? Model.StampX : 70),
+            y: @(Model.StampY > 0 ? Model.StampY : 10),
+            w: @(Model.StampWidth > 0 ? Model.StampWidth : 20),
+            h: @(Model.StampHeight > 0 ? Model.StampHeight : 10)
+        };
+
+        function initPDF() {
+            let url = '@Url.Action("GetPdfOriginal", "Examen", new { id = Model.Id })';
+            if(url && url !== '') {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+                pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
+                    pdfDoc = pdfDoc_;
+                    document.getElementById('pageCount').textContent = pdfDoc.numPages;
+                    loadPointsFromDOM();
+                    renderPage(pageNum);
+                });
+            }
+        }
+
+        function loadPointsFromDOM() {
+            document.querySelectorAll('.q-chip').forEach(chip => {
+                let x = parseFloat(chip.getAttribute('data-x'));
+                let y = parseFloat(chip.getAttribute('data-y'));
+                let p = parseInt(chip.getAttribute('data-page'));
+                if(x > 0 && y > 0) {
+                    points.push({ id: chip.getAttribute('data-id'), x: x, y: y, p: p, label: chip.querySelector('strong').innerText });
+                }
+            });
+        }
+
+        let currentScale = 1.5;
+
+        function renderPage(num) {
+            if(!pdfDoc) return;
+            pageNum = num;
+            document.getElementById('pageNum').textContent = num;
+            
+            if(renderTask) { renderTask.cancel(); }
+
+            pdfDoc.getPage(num).then(function(page) {
+                var viewport = page.getViewport({scale: currentScale});
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                var renderContext = { canvasContext: ctx, viewport: viewport };
+                renderTask = page.render(renderContext);
+                
+                renderTask.promise.then(function() {
+                    drawPoints(viewport);
+                    updateSelloUI(viewport);
+                }).catch(err => {
+                    if (err.name !== 'RenderingCancelledException') { console.error(err); }
+                });
+            });
+        }
+
+        function changePage(offset) {
+            if(!pdfDoc) return;
+            if (pageNum + offset <= 0 || pageNum + offset > pdfDoc.numPages) return;
+            renderPage(pageNum + offset);
+        }
+
+        function zoomIn() {
+            if(currentScale >= 3.0) return;
+            currentScale += 0.25;
+            document.getElementById('zoom-label').innerText = Math.round(currentScale * 100) + '%';
+            renderPage(pageNum);
+        }
+
+        function zoomOut() {
+            if(currentScale <= 0.5) return;
+            currentScale -= 0.25;
+            document.getElementById('zoom-label').innerText = Math.round(currentScale * 100) + '%';
+            renderPage(pageNum);
+        }
+
+        // DIBUJAR PUNTOS Y SELLO
+        function drawPoints(viewport) {
+            let container = document.getElementById('points-layer');
+            container.innerHTML = '';
+            
+            points.forEach(pt => {
+                if(pt.p === pageNum) {
+                    // Convert % to px
+                    let pxX = (pt.x / 100) * viewport.width;
+                    let pxY = (pt.y / 100) * viewport.height;
+                    
+                    let div = document.createElement('div');
+                    div.className = 'pdf-point';
+                    div.style.left = pxX + 'px';
+                    div.style.top = pxY + 'px';
+                    div.innerHTML = `<i class="fa-solid fa-check" style="color:#2ECC71;"></i><span style="font-size:10px; color:white; background:black; padding:1px 3px; border-radius:3px; margin-left:3px;">${pt.label}</span>`;
+                    container.appendChild(div);
+                }
+            });
+        }
+
+        let selloDOM = document.getElementById('sello-nota');
+        let selloTextoDOM = document.getElementById('sello-nota-texto');
+        
+        function updateSelloUI(viewport) {
+            if(pageNum === 1) {
+                selloDOM.style.display = 'flex';
+                // Apply bounds
+                let scaledHeight = (selloData.h / 100 * viewport.height);
+                selloDOM.style.left = (selloData.x / 100 * viewport.width) + 'px';
+                selloDOM.style.top = (selloData.y / 100 * viewport.height) + 'px';
+                selloDOM.style.width = (selloData.w / 100 * viewport.width) + 'px';
+                selloDOM.style.height = scaledHeight + 'px';
+                
+                // Actualizar texto total en el recuadro
+                let totalPts = document.getElementById('total-pts') ? document.getElementById('total-pts').innerText.replace(' pts', '') : '20';
+                selloTextoDOM.innerText = totalPts;
+                // Escalar fuente
+                selloTextoDOM.style.fontSize = Math.max(10, scaledHeight * 0.7) + 'px';
+            } else {
+                selloDOM.style.display = 'none';
+            }
+        }
+
+        function resetSello() {
+            selloData = { x: 70, y: 10, w: 20, h: 10 };
+            if(pageNum !== 1) changePage(1 - pageNum);
+            else { pdfDoc.getPage(pageNum).then(page => updateSelloUI(page.getViewport({scale: currentScale}))); }
+        }
+
+        // LOGICA DE CURSOR INTELIGENTE Y CLICS
+        let activeQuestionId = null;
+        let cursorDOM = document.getElementById('custom-cursor');
+        let pdfContainer = document.getElementById('pdf-container');
+
+        function activateQuestion(id, label, snippet) {
+            document.querySelectorAll('.q-chip').forEach(c => c.classList.remove('active'));
+            document.getElementById('chip-' + id).classList.add('active');
+            activeQuestionId = id;
+            
+            document.getElementById('cursor-label').innerText = label + " - " + snippet;
+        }
+
+        // Seguir mouse en contenedor PDF
+        pdfContainer.addEventListener('mousemove', (e) => {
+            if(activeQuestionId) {
+                cursorDOM.style.display = 'flex';
+                cursorDOM.style.left = e.pageX + 'px';
+                cursorDOM.style.top = e.pageY + 'px';
+            } else {
+                cursorDOM.style.display = 'none';
+            }
+        });
+        pdfContainer.addEventListener('mouseleave', () => cursorDOM.style.display = 'none');
+
+        // Hacer clic para poner punto
+        pdfContainer.addEventListener('click', (e) => {
+            // No hacer nada si se clickeó el sello (arrastre)
+            if(e.target === selloDOM || e.target.classList.contains('resize-handle')) return;
+
+            if(activeQuestionId) {
+                let rect = canvas.getBoundingClientRect();
+                let clientX = e.clientX - rect.left;
+                let clientY = e.clientY - rect.top;
+                
+                // Ignorar si clic fuera del canvas real
+                if(clientX < 0 || clientX > rect.width || clientY < 0 || clientY > rect.height) return;
+
+                let pctX = (clientX / rect.width) * 100;
+                let pctY = (clientY / rect.height) * 100;
+
+                // Actualizar o agregar punto
+                let idx = points.findIndex(p => p.id === activeQuestionId);
+                let chip = document.getElementById('chip-' + activeQuestionId);
+                let lbl = chip.querySelector('strong').innerText;
+
+                if(idx > -1) {
+                    points[idx].x = pctX; points[idx].y = pctY; points[idx].p = pageNum;
+                } else {
+                    points.push({ id: activeQuestionId, x: pctX, y: pctY, p: pageNum, label: lbl });
+                }
+
+                // UI feedback
+                chip.setAttribute('data-x', pctX);
+                chip.setAttribute('data-y', pctY);
+                chip.setAttribute('data-page', pageNum);
+                chip.querySelector('.status-icon').style.display = 'block';
+                chip.querySelector('.error-icon').style.display = 'none';
+
+                // Re-dibujar
+                pdfDoc.getPage(pageNum).then(page => drawPoints(page.getViewport({scale: currentScale})));
+
+                // AVANCE AUTOMÁTICO AL SIGUIENTE CHIP
+                let nextChip = chip.nextElementSibling;
+                if(nextChip && nextChip.classList.contains('q-chip')) {
+                    nextChip.click(); // Activa la siguiente pregunta
+                } else {
+                    // Si ya no hay más, desactiva la mira
+                    activeQuestionId = null;
+                    document.querySelectorAll('.q-chip').forEach(c => c.classList.remove('active'));
+                    cursorDOM.style.display = 'none';
+                }
+            }
+        });
+
+        // DRAG AND DROP BASICO DEL SELLO DE NOTAS
+        let isDragging = false, isResizing = false;
+        let dragStartX, dragStartY, startSelloX, startSelloY, startSelloW, startSelloH;
+
+        selloDOM.addEventListener('mousedown', (e) => {
+            if(e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+            } else {
+                isDragging = true;
+            }
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            startSelloX = selloData.x; startSelloY = selloData.y;
+            startSelloW = selloData.w; startSelloH = selloData.h;
+            e.stopPropagation();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if(!isDragging && !isResizing) return;
+            pdfDoc.getPage(1).then(page => {
+                let vp = page.getViewport({scale: currentScale});
+                let dx = ((e.clientX - dragStartX) / vp.width) * 100;
+                let dy = ((e.clientY - dragStartY) / vp.height) * 100;
+
+                if(isDragging) {
+                    selloData.x = Math.max(0, Math.min(100 - selloData.w, startSelloX + dx));
+                    selloData.y = Math.max(0, Math.min(100 - selloData.h, startSelloY + dy));
+                } else if (isResizing) {
+                    selloData.w = Math.max(5, Math.min(100 - selloData.x, startSelloW + dx));
+                    selloData.h = Math.max(2, Math.min(100 - selloData.y, startSelloH + dy));
+                }
+                updateSelloUI(vp);
+            });
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; isResizing = false; });
+
+        // GUARDADO DE CALIBRACIÓN (Ahora devuelve promesa)
+        function saveCalibracion() {
+            let chips = document.querySelectorAll('.q-chip');
+            let missing = [];
+            let pData = [];
+
+            chips.forEach(c => {
+                let x = parseFloat(c.dataset.x);
+                let y = parseFloat(c.dataset.y);
+                let id = c.dataset.id;
+                let p = parseInt(c.dataset.page) || 1;
+
+                if(isNaN(x) || x === 0 || isNaN(y) || y === 0) {
+                    missing.push(c.querySelector('strong').innerText);
+                    c.style.borderColor = '#E74C3C'; // Alertar en rojo
+                } else {
+                    pData.push({ Id: id, PosX: x, PosY: y, Pagina: p });
+                }
+            });
+
+            if(missing.length > 0) {
+                return Promise.resolve({
+                    success: false, 
+                    message: "Falta ubicar en el PDF: " + missing.join(", ")
+                });
+            }
+
+            let payload = {
+                examenId: '@Model.Id',
+                stampX: selloData.x,
+                stampY: selloData.y,
+                stampWidth: selloData.w,
+                stampHeight: selloData.h,
+                preguntasCalibradas: pData
+            };
+
+            return fetch('@Url.Action("SaveCalibracionVisual", "Examen")', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }).then(r => r.json());
+        }
+        
+        // MAESTRO: GUARDAR TODO (Pestaña 1 y Pestaña 2)
+        async function saveAll() {
+            var loader = document.getElementById("ocr-loader");
+            var fill = document.getElementById("ocr-progress-bar");
+            var loaderTitle = document.getElementById("ocr-loader-title");
+            
+            try {
+                // Mostrar un estado de carga en pantalla completa
+                loader.style.display = "flex";
+                fill.style.width = "40%";
+                loaderTitle.innerText = "Guardando solucionario y calibración...";
+
+                // Ejecutar ambas promesas
+                let editorRes = await saveEditorData();
+                fill.style.width = "70%";
+                let calibRes = await saveCalibracion();
+                fill.style.width = "90%";
+
+                if (editorRes.success && calibRes.success) {
+                    fill.style.width = "100%";
+                    loaderTitle.innerText = "¡Guardado Completo!";
+                    setTimeout(() => {
+                        window.location.href = '@Url.Action("Detail", "Examen", new { id = Model.Id })';
+                    }, 500);
+                } else {
+                    loader.style.display = "none";
+                    showGlassAlert("Error al Guardar", "Editor: " + (editorRes.message||"OK") + " | Calibración: " + (calibRes.message||"OK"));
+                }
+            } catch(e) {
+                loader.style.display = "none";
+                showGlassAlert("Error de Red", "Ocurrió un error de red al intentar guardar los cambios.");
+            }
+        }
+
+        // Función Helper para Modales de Alerta
+        function showGlassAlert(title, message, isError = true) {
+            document.getElementById("alert-title").innerText = title;
+            document.getElementById("alert-message").innerText = message;
+            
+            var icon = document.getElementById("alert-icon");
+            if (isError) {
+                icon.className = "fa-solid fa-triangle-exclamation";
+                icon.style.color = "#ff5252";
+            } else {
+                icon.className = "fa-solid fa-circle-check";
+                icon.style.color = "var(--primary-glow)";
+            }
+
+            document.getElementById("glass-alert-modal").style.display = "flex";
+        }
+
+        function closeAlertModal() {
+            document.getElementById("glass-alert-modal").style.display = "none";
+        }
+
+        // Inicializar
+        if('@activeTab' === 'calibracion') {
+            setTimeout(initPDF, 500); // Dar tiempo a cargar scripts
+        }
+        
+        // --- PUNTAJE TOTAL Y ELIMINAR ---
+        function calcularTotal() {
+            let total = 0;
+            document.querySelectorAll('.puntaje-input').forEach(input => {
+                if(input.value && !isNaN(input.value)) {
+                    total += parseFloat(input.value);
+                }
+            });
+            document.getElementById('total-score-badge').innerText = "Total: " + total.toFixed(1) + " pts";
+        }
+
+        function eliminarPregunta(id, label) {
+            if(confirm("¿Estás seguro de eliminar la pregunta/inciso " + label + "? Esta acción borrará el registro de la base de datos.")) {
+                fetch('@Url.Action("DeletePregunta", "Examen")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'preguntaId=' + id
+                }).then(r => r.json()).then(res => {
+                    if(res.success) {
+                        // Remover del DOM
+                        let row = document.getElementById('row-' + id);
+                        if(row) row.remove();
+                        // Remover el chip si existe en la pestaña de calibracion
+                        let chip = document.getElementById('chip-' + id);
+                        if(chip) chip.remove();
+                        // Recalcular total
+                        calcularTotal();
+                    } else {
+                        alert("Error: " + res.message);
+                    }
+                }).catch(e => alert("Error de red."));
+            }
+        }
+
+        // Calcular al cargar
+        document.addEventListener('DOMContentLoaded', calcularTotal);
+    </script>
+}

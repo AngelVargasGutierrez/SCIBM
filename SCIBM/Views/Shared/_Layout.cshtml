@@ -282,7 +282,7 @@
             box-shadow: var(--glass-shadow);
         }
         .header-title h1 {
-            font-size: 22px;
+            font-size: 19px;
             font-weight: 600;
         }
         .header-title span {
@@ -514,40 +514,16 @@
                 </li>
                 
                 <li class="menu-title">Métricas y Reportes</li>
-                <!-- ACORDEON REPORTES -->
                 @{
-                    var misCursos = Session["MisCursos"] as Dictionary<Guid, string>;
-                    bool isReportActive = ViewContext.RouteData.Values["action"]?.ToString() == "Reporte";
+                    bool isReportActive = ViewContext.RouteData.Values["controller"]?.ToString() == "Reporte";
                 }
-                <li class="menu-item @(isReportActive ? "open" : "")" id="reportes-accordion">
-                    <a class="menu-link" onclick="toggleAccordion()">
+                <li class="menu-item">
+                    <a href="@Url.Action("Index", "Reporte")" class="menu-link @(isReportActive ? "active" : "")">
                         <div>
                             <i class="fa-solid fa-chart-line icon-left"></i>
                             <span>Reportes</span>
                         </div>
-                        <i class="fa-solid fa-chevron-right chevron"></i>
                     </a>
-                    <ul class="submenu">
-                        @if (misCursos != null && misCursos.Any())
-                        {
-                            foreach (var c in misCursos)
-                            {
-                                string courseIdStr = ViewContext.RouteData.Values["id"]?.ToString();
-                                bool isThisCourseActive = isReportActive && courseIdStr == c.Key.ToString();
-                                <li class="submenu-item">
-                                    <a href="@Url.Action("Reporte", "Curso", new { id = c.Key })" class="submenu-link @(isThisCourseActive ? "active" : "")" title="@c.Value">
-                                        @c.Value
-                                    </a>
-                                </li>
-                            }
-                        }
-                        else
-                        {
-                            <li class="submenu-item">
-                                <span class="submenu-link" style="opacity: 0.5; font-style: italic;">Sin cursos registrados</span>
-                            </li>
-                        }
-                    </ul>
                 </li>
             </ul>
         </div>

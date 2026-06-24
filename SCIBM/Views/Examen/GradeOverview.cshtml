@@ -187,7 +187,7 @@
 
     <!-- RIGHT COLUMN: CURRENT STUDENT VERIFICATION -->
     <div class="glass-card breakdown-card" id="breakdown-panel-el" style="display: none;">
-        <div class="panel-header">
+        <div class="panel-header" style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
             <div style="flex-grow:1; display:flex; flex-direction:column; gap:6px;">
                 <!-- SELECCIÓN O ASOCIACIÓN DE MATRÍCULA -->
                 <label style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Asociar a Alumno Matriculado</label>
@@ -203,9 +203,9 @@
                 </select>
             </div>
             
-            <div style="text-align: right; padding-left: 20px;">
-                <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; display: block; margin-bottom: 4px;">Nota Final</span>
-                <span class="grade-badge" id="breakdown-grade" style="font-size: 26px;">0.0</span>
+            <div style="margin-left: 20px; margin-top: 15px; background: rgba(46, 196, 182, 0.1); border: 1px solid rgba(46, 196, 182, 0.3); border-radius: 12px; padding: 10px 25px; box-shadow: 0 0 20px rgba(46, 196, 182, 0.15); display: inline-flex; flex-direction: column; justify-content: center; align-items: center; align-self: flex-start; min-width: 120px;">
+                <span style="font-size: 12px; text-transform: uppercase; color: #2ec4b6; font-weight: bold; letter-spacing: 1px; display: block; margin-bottom: 5px;">Nota Final</span>
+                <span id="breakdown-grade" style="font-size: 38px; font-weight: 800; color: #fff; text-shadow: 0 0 15px rgba(46, 196, 182, 0.6); line-height: 1;">0.0</span>
             </div>
         </div>
 
@@ -225,6 +225,10 @@
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <h4 style="font-size:13px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin:0;">Vista del Documento</h4>
                     <div style="display:flex; align-items:center;">
+                        <!-- ZOOM BUTTONS -->
+                        <button class="btn" style="background:rgba(255,255,255,0.1); color:white; border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" onclick="changePdfScale(-0.15)" title="Alejar"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+                        <button class="btn" style="background:rgba(255,255,255,0.1); color:white; border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer; margin-left:4px; margin-right:12px;" onclick="changePdfScale(0.15)" title="Acercar"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+
                         <button class="btn" style="background:rgba(255,255,255,0.1); color:white; border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" onclick="changePdfPage(-1)">◀ Ant</button>
                         <span id="pdf-page-indicator" style="font-size:12px; font-weight:bold; margin:0 8px; color:var(--text-muted);">Pág 1/1</span>
                         <button class="btn" style="background:rgba(255,255,255,0.1); color:white; border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" onclick="changePdfPage(1)">Sig ▶</button>
@@ -250,8 +254,9 @@
                 <i class="fa-solid fa-triangle-exclamation"></i> Este examen esta marcado como observado (sin matricula).
             </div>
             <div style="margin-left:auto; display:flex; gap:12px;">
-                <a href="@Url.Action("Detail", "Examen", new { id = Model.Id })" class="btn btn-secondary">Cancelar</a>
-                <button class="btn btn-primary" onclick="guardarNotasFinales()">Guardar Calificaciones</button>
+                <a href="@Url.Action("Detail", "Examen", new { id = Model.Id })" class="btn btn-secondary" title="Volver al detalle del examen">Cancelar</a>
+                <button class="btn" style="background:var(--accent-color); color:black; font-weight:bold; border:none; border-radius:8px; padding: 10px 20px; cursor:pointer;" onclick="guardarYSiguiente()"><i class="fa-solid fa-forward-step"></i> Guardar y Siguiente</button>
+                <button class="btn btn-primary" onclick="guardarNotasFinales()" title="Guardar todos los exámenes restantes a la base de datos"><i class="fa-solid fa-floppy-disk"></i> Guardar Restantes</button>
             </div>
         </div>
     </div>
@@ -259,12 +264,34 @@
 </div>
 
 <!-- LOADING OCR PROGRESS DIALOG -->
-<div class="progress-overlay" id="grader-loader">
+<div class="progress-overlay" id="grader-loader" style="display: none;">
     <i class="fa-solid fa-wand-magic-sparkles" style="font-size: 64px; color: var(--primary-glow); text-shadow: 0 0 20px var(--primary-glow); animation: pulse 1.5s infiniteAlternate;"></i>
     <h3 id="loader-title">Procesando exámenes...</h3>
     <p id="loader-subtitle" style="color: var(--text-muted); font-size: 14.5px;">Cargando motor de escaneo...</p>
     <div class="progress-bar">
         <div class="progress-fill" id="loader-progress-bar"></div>
+    </div>
+</div>
+
+<!-- MODALES DE CONFIRMACION / ALERTA -->
+<div class="progress-overlay" id="custom-alert-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(11, 19, 43, 0.95); z-index: 4000; justify-content: center; align-items: center;">
+    <div class="glass-card" style="max-width: 400px; text-align: center; padding: 30px; animation: slideUp 0.3s ease-out; border: 1px solid var(--glass-border); border-radius: 12px; background: rgba(255,255,255,0.05);">
+        <i id="custom-alert-icon" class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff5252; margin-bottom: 15px;"></i>
+        <h3 id="custom-alert-title" style="margin-bottom: 10px; color: white;">Atención</h3>
+        <p id="custom-alert-message" style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Mensaje de error.</p>
+        <button class="btn btn-primary" onclick="closeCustomAlert()" style="width: 100%;">Entendido</button>
+    </div>
+</div>
+
+<div class="progress-overlay" id="matricular-confirm-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(11, 19, 43, 0.95); z-index: 4000; justify-content: center; align-items: center;">
+    <div class="glass-card" style="max-width: 400px; text-align: center; padding: 30px; animation: slideUp 0.3s ease-out; border: 1px solid var(--glass-border); border-radius: 12px; background: rgba(255,255,255,0.05);">
+        <i class="fa-solid fa-user-plus" style="font-size: 48px; color: var(--accent-color); margin-bottom: 15px;"></i>
+        <h3 style="margin-bottom: 10px; color: white;">Registrar Alumno</h3>
+        <p id="matricular-confirm-message" style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;"></p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn btn-secondary" onclick="closeMatricularConfirm()">Cancelar</button>
+            <button class="btn btn-primary" onclick="proceedMatricularAlVuelo()" style="background: var(--accent-color); color: black;">Registrar Alumno</button>
+        </div>
     </div>
 </div>
 
@@ -308,8 +335,8 @@
                 puntaje: @p.Puntaje.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 posX: @p.PosX.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 posY: @p.PosY.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                width: @p.Width.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                height: @p.Height.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                width: 25,
+                height: 5,
                 opcionesJson: @Html.Raw(string.IsNullOrEmpty(p.OpcionesJson) ? "[]" : JsonConvert.SerializeObject(p.OpcionesJson))
             });
             </text>
@@ -602,13 +629,13 @@
                         </div>
                         <span class="grade-badge" style="font-size:15px;">${score.toFixed(1)}</span>
                     </div>
-                    <div class="raw-name" style="display:flex; justify-content:space-between; align-items:center; margin-top: 4px;">
-                        <div>
-                            <div>PDF: ${res.fileName}</div>
-                            <div style="color:var(--text-muted);">IA: "${res.nombreAlumnoRaw}"</div>
-                            ${res.tieneObservacion ? `<div style="color:#ff5252; font-size:11px; margin-top:2px; font-weight:normal;">Detalle: ${res.observacion}</div>` : ''}
+                    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top: 4px; gap:8px;">
+                        <div style="flex:1; min-width:0; font-size: 11px; color: var(--text-muted); opacity: 0.8;">
+                            <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">PDF: ${res.fileName}</div>
+                            <div style="font-style: italic; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">IA: "${res.nombreAlumnoRaw}"</div>
+                            ${res.tieneObservacion ? `<div style="color:#ff5252; margin-top:2px; font-weight:normal; line-height:1.2;">Detalle: ${res.observacion}</div>` : ''}
                         </div>
-                        <div style="display:flex; gap:5px; margin-right:5px; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 4px;">
+                        <div style="display:flex; gap:5px; flex-shrink:0; align-items:center; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 4px; margin-bottom:auto;">
                             ${actionsHtml}
                         </div>
                     </div>
@@ -622,6 +649,14 @@
             });
         }
 
+        function normalizarTexto(texto) {
+            return (texto || "")
+                .toUpperCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Quitar tildes
+                .replace(/[^A-Z0-9]/g, "") // Quitar símbolos, puntos, comas, espacios
+                .trim();
+        }
+
         // Calcular la nota sumando los puntajes de aciertos
         function calcularNotaPreliminar(res) {
             var total = 0;
@@ -631,7 +666,18 @@
                     (resp.inciso ? p.inciso === resp.inciso : !p.inciso)
                 );
                 if (q && q.puntaje > 0) {
-                    var esCorrecto = (q.respuestaCorrecta || "").toUpperCase() === (resp.respuestaDada || "").toUpperCase();
+                    var corrNorm = normalizarTexto(q.respuestaCorrecta);
+                    var dadaNorm = normalizarTexto(resp.respuestaDada);
+                    
+                    var esCorrecto = (corrNorm === dadaNorm);
+                    
+                    // Flexibilidad Humana: si la respuesta es larga, permitimos que una incluya a la otra
+                    if (!esCorrecto && corrNorm.length >= 4 && dadaNorm.length >= 4) {
+                        if (corrNorm.includes(dadaNorm) || dadaNorm.includes(corrNorm)) {
+                            esCorrecto = true;
+                        }
+                    }
+
                     if (resp.esCorrectoManual) esCorrecto = true;
                     if (esCorrecto) total += q.puntaje;
                 }
@@ -750,10 +796,16 @@
         // Forzar pregunta como correcta (para respuestas libres)
         function toggleCorrectoManual(rIdx, isChecked) {
             var res = resultadosAlumnos[activeStudentIndex];
-            res.respuestas[rIdx].esCorrectoManual = isChecked;
+            // Si lo desmarca, lo devolvemos a null para que recaiga en la validación automática de la IA
+            res.respuestas[rIdx].esCorrectoManual = isChecked ? true : null;
+            
+            // Recalcular la nota preliminar (borramos notaFinal para forzar recalculo)
+            res.notaFinal = undefined;
+            res.notaPreliminar = calcularNotaPreliminar(res);
             
             renderAnswersVerifyList(res);
             renderScannedList();
+            renderPdfOverlay(document.getElementById("preview-canvas").width, document.getElementById("preview-canvas").height);
         }
 
         // Asociar alumno matriculado desde el dropdown
@@ -771,6 +823,7 @@
         var previewPdfDoc = null;
         var currentPdfPage = 1;
         var totalPdfPages = 1;
+        var currentPdfScale = 0.65;
 
         function renderPdfPreview(url) {
             var pCanvas = document.getElementById("preview-canvas");
@@ -783,7 +836,7 @@
                 document.getElementById("pdf-page-indicator").innerText = "Pág " + currentPdfPage + "/" + totalPdfPages;
                 
                 pdf.getPage(currentPdfPage).then(function(page) {
-                    var viewport = page.getViewport({ scale: 0.65 });
+                    var viewport = page.getViewport({ scale: currentPdfScale });
                     pCanvas.width = viewport.width;
                     pCanvas.height = viewport.height;
 
@@ -811,7 +864,7 @@
                 if (selloModoActivo) confirmarExamenActual();
                 
                 previewPdfDoc.getPage(currentPdfPage).then(function(page) {
-                    var viewport = page.getViewport({ scale: 0.65 });
+                    var viewport = page.getViewport({ scale: currentPdfScale });
                     pCanvas.width = viewport.width;
                     pCanvas.height = viewport.height;
 
@@ -823,6 +876,29 @@
                     });
                 });
             }
+        }
+
+        function changePdfScale(delta) {
+            if (!previewPdfDoc) return;
+            currentPdfScale += delta;
+            if (currentPdfScale < 0.2) currentPdfScale = 0.2;
+            if (currentPdfScale > 3.0) currentPdfScale = 3.0;
+
+            var pCanvas = document.getElementById("preview-canvas");
+            var pCtx = pCanvas.getContext("2d");
+            
+            previewPdfDoc.getPage(currentPdfPage).then(function(page) {
+                var viewport = page.getViewport({ scale: currentPdfScale });
+                pCanvas.width = viewport.width;
+                pCanvas.height = viewport.height;
+
+                page.render({
+                    canvasContext: pCtx,
+                    viewport: viewport
+                }).promise.then(function() {
+                    renderPdfOverlay(viewport.width, viewport.height);
+                });
+            });
         }
 
         // ============================================
@@ -918,7 +994,7 @@
                     mark.style.position = "absolute";
                     mark.style.left = (q.posX) + "%";
                     mark.style.top = (q.posY) + "%";
-                    mark.style.fontSize = "16px";
+                    mark.style.fontSize = "12px";
                     mark.style.fontWeight = "bold";
                     mark.style.cursor = "move";
                     mark.style.textShadow = "0px 0px 3px white";
@@ -929,7 +1005,7 @@
                         mark.innerHTML = `<i class="fa-solid fa-check"></i>`;
                     } else {
                         mark.style.color = "#ff5252";
-                        mark.innerHTML = `<i class="fa-solid fa-xmark"></i> <span style="font-size:10px;">Cor: ${q.respuestaCorrecta}</span>`;
+                        mark.innerHTML = `<i class="fa-solid fa-xmark"></i> <span style="font-size:9px;">Cor: ${q.respuestaCorrecta}</span>`;
                     }
                     
                     makeDraggable(mark, null, function(newX, newY) {
@@ -1051,15 +1127,44 @@
         }
 
         // 4. Funciones de Accion Rápida (Matricular y Eliminar)
+        let activeMatriculaIdx = -1;
+
+        function showCustomAlert(title, message, iconColor = "#ff5252", iconClass = "fa-triangle-exclamation") {
+            document.getElementById("custom-alert-title").innerText = title;
+            document.getElementById("custom-alert-message").innerText = message;
+            document.getElementById("custom-alert-icon").className = `fa-solid ${iconClass}`;
+            document.getElementById("custom-alert-icon").style.color = iconColor;
+            document.getElementById("custom-alert-modal").style.display = "flex";
+        }
+        function closeCustomAlert() {
+            document.getElementById("custom-alert-modal").style.display = "none";
+        }
+
+        function closeMatricularConfirm() {
+            activeMatriculaIdx = -1;
+            document.getElementById("matricular-confirm-modal").style.display = "none";
+        }
+
         function matricularAlVuelo(idx) {
             var res = resultadosAlumnos[idx];
             var nombreLeido = res.nombreAlumnoRaw;
             if (nombreLeido === "Ilegible / Sin Nombre" || nombreLeido === "Desconocido") {
-                alert("La IA no pudo leer un nombre válido. Escríbalo manualmente o intente de nuevo.");
+                showCustomAlert("Nombre Inválido", "La IA no pudo leer un nombre válido. Escríbalo manualmente o intente de nuevo.");
                 return;
             }
 
-            if (!confirm(`¿Deseas registrar a "${nombreLeido}" como nuevo alumno matriculado en este curso?`)) return;
+            activeMatriculaIdx = idx;
+            document.getElementById("matricular-confirm-message").innerText = `¿Deseas registrar a "${nombreLeido}" como nuevo alumno matriculado en este curso?`;
+            document.getElementById("matricular-confirm-modal").style.display = "flex";
+        }
+
+        function proceedMatricularAlVuelo() {
+            if (activeMatriculaIdx === -1) return;
+            var idx = activeMatriculaIdx;
+            var res = resultadosAlumnos[idx];
+            var nombreLeido = res.nombreAlumnoRaw;
+            
+            closeMatricularConfirm();
 
             var formData = new URLSearchParams();
             formData.append('examenId', '@Model.Id');
@@ -1083,21 +1188,25 @@
                     
                     // Actualizar dropdown si es el alumno seleccionado activo
                     if (activeStudentIndex === idx) {
-                        var sel = document.getElementById("student-match-select");
-                        var opt = document.createElement('option');
-                        opt.value = data.alumnoId;
-                        opt.innerHTML = data.nombreCompleto;
-                        sel.appendChild(opt);
-                        sel.value = data.alumnoId;
-                        document.getElementById("warning-match-el").style.display = "none";
+                        var sel = document.getElementById("select-matricula-al");
+                        if(sel) {
+                            var opt = document.createElement('option');
+                            opt.value = data.alumnoId;
+                            opt.innerHTML = data.nombreCompleto;
+                            sel.appendChild(opt);
+                            sel.value = data.alumnoId;
+                        }
+                        var warn = document.getElementById("warning-match-el");
+                        if(warn) warn.style.display = "none";
                     }
 
                     renderScannedList();
+                    showCustomAlert("¡Éxito!", "Alumno registrado y asociado correctamente.", "#2ec4b6", "fa-circle-check");
                 } else {
-                    alert(data.message || "Error al registrar alumno");
+                    showCustomAlert("Error al Registrar", data.message || "Error al registrar alumno");
                 }
             })
-            .catch(e => alert("Error de red."));
+            .catch(e => showCustomAlert("Error de red", "No se pudo conectar con el servidor."));
         }
 
         function eliminarExamen(idx) {
@@ -1115,6 +1224,19 @@
                 } else if (activeStudentIndex > idx) {
                     activeStudentIndex--; // Ajustar índice activo
                 }
+            }
+            renderScannedList();
+        }
+
+        // Marcar como sellado/verificado y pasar al siguiente
+        function guardarYSiguiente() {
+            var res = resultadosAlumnos[activeStudentIndex];
+            res.sellado = true; // Marcar como Revisado y Sellado
+            
+            if (activeStudentIndex < resultadosAlumnos.length - 1) {
+                selectStudent(activeStudentIndex + 1);
+            } else {
+                showCustomAlert("Lote Revisado", "Has llegado al final de la lista de escaneos. Presiona 'Guardar Restantes' para finalizar y subir todo.", "#2ec4b6", "fa-check-double");
             }
             renderScannedList();
         }

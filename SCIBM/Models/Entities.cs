@@ -356,8 +356,6 @@ namespace SCIBM.Models
 
         public double PosX { get; set; }
         public double PosY { get; set; }
-        public double Width { get; set; }
-        public double Height { get; set; }
 
         public string OpcionesJson { get; set; } // [{"label":"A","x":10,"y":20,"w":5,"h":5},...]
 
@@ -410,6 +408,29 @@ namespace SCIBM.Models
         public string Observacion { get; set; }
 
         public DateTime FechaCalificacion { get; set; }
+
+        // Propiedades calculadas (No se guardan en BD)
+        [NotMapped]
+        public string EstadoRendimiento
+        {
+            get
+            {
+                if (Nota < 10.5) return "Desaprobado";
+                if (Nota < 14.0) return "Regular";
+                return "Aprobado";
+            }
+        }
+
+        [NotMapped]
+        public string ColorRendimiento
+        {
+            get
+            {
+                if (Nota < 10.5) return "#ff5252";   // Rojo
+                if (Nota < 14.0) return "#ff9f1c";   // Naranja / Ámbar
+                return "#2ec4b6";                      // Verde
+            }
+        }
 
         // Propiedades de navegación
         public virtual Examen Examen { get; set; }

@@ -191,6 +191,44 @@
 
     <!-- COLUMNA 1: LISTADO DE CALIFICACIONES -->
     <div>
+        <!-- MODAL DE MATRICULACION -->
+        <div class="modal-overlay" id="modal-matricular">
+            <div class="modal-box" style="max-width: 450px;">
+                <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                    <h3 style="color: #2ec4b6;"><i class="fa-solid fa-user-plus"></i> Matricular Alumno</h3>
+                    <button type="button" class="modal-close" onclick="cerrarModalMatricular()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div style="padding: 20px 0;">
+                    <p style="color: var(--text-muted); font-size: 15px; margin-bottom: 15px;">¿Deseas agregar a este alumno a la lista oficial de la sección?</p>
+                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                        <strong style="color: #fff; font-size: 16px;" id="lbl-nombre-matricular">---</strong>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                    <button type="button" class="btn btn-secondary" onclick="cerrarModalMatricular()" style="padding: 8px 20px;">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="btn-confirmar-matricular" style="padding: 8px 20px;">Sí, Matricular</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL DE ELIMINACION -->
+        <div class="modal-overlay" id="modal-eliminar">
+            <div class="modal-box" style="max-width: 450px;">
+                <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                    <h3 style="color: #ff5252;"><i class="fa-solid fa-triangle-exclamation"></i> Confirmar Eliminación</h3>
+                    <button type="button" class="modal-close" onclick="cerrarModalEliminar()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div style="padding: 20px 0;">
+                    <p style="color: var(--text-muted); font-size: 15px;">¿Estás seguro de que deseas eliminar permanentemente el registro y PDF de:</p>
+                    <p style="color: #fff; font-size: 16px; font-weight: bold; margin-top: 10px;" id="lbl-nombre-eliminar">---</p>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                    <button type="button" class="btn btn-secondary" onclick="cerrarModalEliminar()" style="padding: 8px 20px;">Cancelar</button>
+                    <button type="button" class="btn btn-danger" id="btn-confirmar-eliminar" style="padding: 8px 20px; background: rgba(255, 82, 82, 0.2); border: 1px solid #ff5252; color: #ff5252;">Sí, Eliminar</button>
+                </div>
+            </div>
+        </div>
+
         <!-- TABLA DE CALIFICACIONES DE ALUMNOS -->
         <div class="glass-card">
             <div class="panel-header">
@@ -216,6 +254,7 @@
                                 <th>Estado Drive</th>
                                 <th>Observación</th>
                                 <th>Nota</th>
+                                <th>Rendimiento</th>
                                 <th style="width: 50px;"></th>
                             </tr>
                         </thead>
@@ -262,10 +301,27 @@
                                         <span class="grade-badge">@c.Nota.ToString("0.0")</span>
                                     </td>
                                     <td>
+                                        @{
+                                            string bgColor = c.ColorRendimiento + "22";
+                                            string borderColor = c.ColorRendimiento + "55";
+                                            string iconClass = c.EstadoRendimiento == "Aprobado" ? "fa-circle-check" : c.EstadoRendimiento == "Regular" ? "fa-triangle-exclamation" : "fa-circle-xmark";
+                                        }
+                                        <span style="display:inline-block; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; background: @bgColor; color: @c.ColorRendimiento; border: 1px solid @borderColor;">
+                                            <i class="fa-solid @iconClass"></i>
+                                            @c.EstadoRendimiento
+                                        </span>
+                                    </td>
+                                    <td>
                                         <a href="@Url.Action("ViewPdf", "Examen", new { id = c.Id })" target="_blank" class="btn btn-outline-info" style="padding: 4px 8px; margin-right: 4px;" title="Ver PDF Corregido">
                                             <i class="fa-solid fa-eye"></i>
                                         </a>
-                                        <button class="btn btn-outline-danger" style="padding: 4px 8px;" onclick="eliminarCalificacion('@c.Id', '@(c.AlumnoMatriculadoId != null ? c.AlumnoMatriculado.NombreCompleto : c.NombreAlumno)')" title="Eliminar este registro">
+                                        @if (c.AlumnoMatriculadoId == null)
+                                        {
+                                            <button class="btn btn-outline-success" style="padding: 4px 8px; margin-right: 4px;" onclick="abrirModalMatricular('@c.Id', '@c.NombreAlumno')" title="Matricular y Vincular a este alumno">
+                                                <i class="fa-solid fa-user-plus"></i>
+                                            </button>
+                                        }
+                                        <button class="btn btn-outline-danger" style="padding: 4px 8px;" onclick="abrirModalEliminar('@c.Id', '@(c.AlumnoMatriculadoId != null ? c.AlumnoMatriculado.NombreCompleto : c.NombreAlumno)')" title="Eliminar este registro">
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
                                     </td>
@@ -281,6 +337,21 @@
     <!-- COLUMNA 2: ACCIONES Y CARGA DE ALUMNOS -->
     <div class="action-panel">
         
+        <!-- RESPALDO Y LIMPIEZA -->
+        <div class="glass-card" style="padding: 24px;">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">
+                <i class="fa-solid fa-cloud"></i> Respaldo y Limpieza
+            </h3>
+
+            <!-- BOTON SINCRONIZAR -->
+            <form action="@Url.Action("SincronizarExamenConDrive", "Examen")" method="POST" onsubmit="showSyncLoading(event)" style="margin-bottom: 12px;">
+                <input type="hidden" name="examenId" value="@Model.Id" />
+                <button type="submit" class="btn btn-success" id="sync-btn" style="width: 100%; padding: 8px 12px; font-size: 13px;">
+                    <i class="fa-brands fa-google-drive"></i> Subir a Google Drive
+                </button>
+            </form>
+        </div>
+
         <!-- ESTADO DEL EXAMEN PLANTILLA -->
         <div class="glass-card" style="padding: 24px;">
             <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--accent-color);">
@@ -305,52 +376,21 @@
                     }
                 </div>
 
-                @if (!string.IsNullOrEmpty(Model.RutaPdfOriginal) || totalPreguntas > 0)
-                {
-                    <a href="@Url.Action("ScanTemplate", "Examen", new { id = Model.Id })" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; margin-bottom: 15px;">
-                        <i class="fa-solid fa-pen-to-square"></i> Editar Calibración (Clásico)
-                    </a>
-                    
-                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
-                        ¿Te equivocaste de archivo? Puedes sobrescribir la plantilla (se borrará la calibración actual):
-                    </div>
-                }
-
-                <form action="@Url.Action("SubirPlantillaExistente", "Examen")" method="POST" enctype="multipart/form-data">
-                    <input type="hidden" name="examenId" value="@Model.Id" />
-                    
-                    <div class="form-group" style="margin-bottom: 10px;">
-                        <label for="pdfFile" class="file-upload-custom">
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
-                            <span id="pdfFile-display" style="font-weight: 500; font-size: 12px;">Haz clic para subir un nuevo PDF en blanco</span>
-                        </label>
-                        <input type="file" id="pdfFile" name="pdfFile" accept=".pdf" style="display: none;" required onchange="updateFileName(this)" />
-                    </div>
-
-                    <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px;">
-                        <i class="fa-solid fa-upload"></i> Subir PDF y Calibrar
-                    </button>
-                </form>
-
                 <div class="panel-divider" style="margin: 20px 0;"></div>
-                
-                <h4 style="font-size: 14px; margin-bottom: 10px; color: #26D0CE;"><i class="fa-solid fa-brain"></i> Actualizar Solucionario (IA)</h4>
-                <form action="@Url.Action("AnalizarSolucionarioGemini", "Examen")" method="POST" enctype="multipart/form-data" onsubmit="showCalificarLoading(event)">
-                    <input type="hidden" name="examenId" value="@Model.Id" />
-                    <input type="hidden" name="titulo" value="@Model.NombreVersion" />
-                    
-                    <div class="form-group" style="margin-bottom: 10px;">
-                        <label for="pdfSolucionarioUpdate" class="file-upload-custom" style="padding: 15px 10px;">
-                            <i class="fa-solid fa-brain"></i>
-                            <span id="pdfSolucionarioUpdate-display" style="font-weight: 500; font-size: 12px;">Haz clic para subir solucionario (.pdf)</span>
-                        </label>
-                        <input type="file" id="pdfSolucionarioUpdate" name="pdfFile" accept=".pdf" style="display: none;" required onchange="updateFileName(this)" />
-                    </div>
 
-                    <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; background: linear-gradient(135deg, #1A2980, #26D0CE); border: none;">
-                        <i class="fa-solid fa-brain"></i> Leer Solucionario con IA
+                <!-- BOTONES DE GESTION -->
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button type="button" class="btn btn-secondary" onclick="openUploadModal()" style="width: 100%; padding: 10px; font-size: 13px; background: rgba(255,255,255,0.05);">
+                        <i class="fa-solid fa-upload"></i> Subir PDF y Analizar
                     </button>
-                </form>
+                    
+                    @if (totalPreguntas > 0)
+                    {
+                        <a href="@Url.Action("EditSolucionario", "Examen", new { id = Model.Id })" class="btn btn-secondary" style="width: 100%; padding: 10px; font-size: 13px; background: rgba(255,255,255,0.05);">
+                            <i class="fa-solid fa-pen"></i> Editar Solucionario Manual
+                        </a>
+                    }
+                </div>
             </div>
         </div>
 
@@ -371,8 +411,10 @@
                         <i class="fa-solid fa-robot"></i>
                         <span id="archivosAlumnosIA-display" style="font-weight: 500; font-size: 12px;">Haz clic para seleccionar exámenes a procesar con IA</span>
                     </label>
-                    <input type="file" id="archivosAlumnosIA" name="archivosAlumnos" accept=".pdf" style="display: none;" multiple required onchange="updateFileName(this)" />
+                    <input type="file" id="archivosAlumnosIA" name="archivosAlumnos" accept=".pdf" style="display: none;" multiple required onchange="handleFileSelection(this)" />
                 </div>
+                
+                <div id="file-preview-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;"></div>
 
                 <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; background: linear-gradient(135deg, #1A2980, #26D0CE); border: none;">
                     <i class="fa-solid fa-robot"></i> Calificar Estudiantes con IA
@@ -380,24 +422,55 @@
             </form>
         </div>
 
-        <!-- RESPALDO Y LIMPIEZA -->
-        <div class="glass-card" style="padding: 24px;">
-            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">
-                <i class="fa-solid fa-cloud"></i> Respaldo y Limpieza
-            </h3>
 
-            <!-- BOTON SINCRONIZAR -->
-            <form action="@Url.Action("SincronizarExamenConDrive", "Examen")" method="POST" onsubmit="showSyncLoading(event)" style="margin-bottom: 12px;">
-                <input type="hidden" name="examenId" value="@Model.Id" />
-                <button type="submit" class="btn btn-success" id="sync-btn" style="width: 100%; padding: 8px 12px; font-size: 13px;">
-                    <i class="fa-brands fa-google-drive"></i> Subir a Google Drive
-                </button>
-            </form>
-        </div>
     </div>
 </div>
 
 
+
+<!-- MODAL UNIFICADO DE SUBIDA -->
+<div class="modal-overlay" id="upload-pdf-modal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Subir PDF y Analizar</h3>
+            <button type="button" class="modal-close" onclick="closeUploadModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <form id="unifiedUploadForm" method="POST" enctype="multipart/form-data" onsubmit="showUploadLoading(event)">
+            <input type="hidden" name="examenId" value="@Model.Id" />
+            <input type="hidden" name="titulo" value="@Model.NombreVersion" />
+
+            <div class="form-group" style="margin-top: 10px;">
+                <label>Tipo de Documento</label>
+                <div style="display: flex; gap: 15px; margin-top: 8px; margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: white;">
+                        <input type="radio" name="tipoDocumento" value="vacio" checked onchange="updateFormAction()" style="accent-color: var(--primary-glow);" />
+                        Examen Vacío (Plantilla)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: white;">
+                        <input type="radio" name="tipoDocumento" value="lleno" onchange="updateFormAction()" style="accent-color: var(--primary-glow);" />
+                        Examen Lleno (Solucionario)
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="unifiedPdfFile" class="file-upload-custom" style="padding: 30px 10px;">
+                    <i class="fa-solid fa-file-pdf"></i>
+                    <span id="unifiedPdfFile-display" style="font-weight: 500; font-size: 14px;">Haz clic para buscar o arrastra tu PDF aquí</span>
+                </label>
+                <input type="file" id="unifiedPdfFile" name="pdfFile" accept=".pdf" style="display: none;" required onchange="updateFileName(this)" />
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-outline" onclick="closeUploadModal()">Cancelar</button>
+                <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #1A2980, #26D0CE); border: none;">
+                    <i class="fa-solid fa-brain"></i> Analizar Documento
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <!-- LOADING OVERLAYS -->
 <div class="modal-overlay" id="loading-overlay">
@@ -408,8 +481,66 @@
     </div>
 </div>
 
-@section scripts {
+<!-- MODAL DE CONFIRMACIÓN ELIMINAR ARCHIVO -->
+<div class="modal-overlay" id="delete-file-confirm-modal">
+    <div class="modal-box" style="max-width: 400px; text-align: center; padding: 30px;">
+        <i class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff5252; margin-bottom: 15px;"></i>
+        <h3 style="margin-bottom: 10px; color: white;">Quitar Archivo</h3>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">¿Estás seguro de quitar este archivo de la lista para calificar?</p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button type="button" class="btn btn-secondary" onclick="closeConfirmRemoveFile()">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="proceedRemoveFile()" style="background: #ff5252; border-color: #ff5252; color: white;">Quitar Archivo</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL VISOR PDF PREVIEW -->
+<div class="modal-overlay" id="pdf-preview-modal">
+    <div class="modal-box" style="width: 90vw; height: 90vh; max-width: 1200px; padding: 0; display: flex; flex-direction: column; overflow: hidden; background: #222;">
+        <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); background: #1a1a1a;">
+            <h3 id="pdf-preview-title" style="font-size: 16px; margin: 0;">Vista Previa del Archivo</h3>
+            <button type="button" class="modal-close" onclick="closePdfPreview()" style="color: white; font-size: 20px;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="flex: 1; position: relative;">
+            <iframe id="pdf-preview-frame" style="width: 100%; height: 100%; border: none;"></iframe>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
     <script>
+        // Funciones del Modal Unificado
+        var hasExistingPdf = "@(!string.IsNullOrEmpty(Model.RutaPdfOriginal) ? "true" : "false")" === "true";
+
+        function openUploadModal() {
+            if (hasExistingPdf) {
+                var isConfirmed = confirm("¡Cuidado! Ya existe un documento cargado y calibrado para esta versión. Si subes uno nuevo, SOBRESCRIBIRÁS los datos de la versión y perderás la calibración actual.\n\n¿Estás completamente seguro de que deseas subir un nuevo documento?");
+                if (!isConfirmed) return;
+            }
+            document.getElementById('upload-pdf-modal').classList.add('active');
+            updateFormAction();
+        }
+        function closeUploadModal() {
+            document.getElementById('upload-pdf-modal').classList.remove('active');
+        }
+        function updateFormAction() {
+            var isVacio = document.querySelector('input[name="tipoDocumento"]:checked').value === "vacio";
+            var form = document.getElementById('unifiedUploadForm');
+            // Si es vacío (Plantilla) llama a SubirPlantillaExistente, si es lleno llama a AnalizarSolucionarioGemini
+            if (isVacio) {
+                form.action = "@Url.Action("SubirPlantillaExistente", "Examen")";
+            } else {
+                form.action = "@Url.Action("AnalizarSolucionarioGemini", "Examen")";
+            }
+        }
+        function showUploadLoading(e) {
+            closeUploadModal();
+            var isVacio = document.querySelector('input[name="tipoDocumento"]:checked').value === "vacio";
+            document.getElementById("loading-text").innerText = isVacio ? "Procesando plantilla en blanco..." : "Leyendo y analizando solucionario con IA...";
+            document.getElementById("loading-overlay").classList.add("active");
+        }
+
+        // Funciones previas
         function updateFileName(input) {
             var display = document.getElementById(input.id + "-display");
             if (input.files && input.files.length > 1) {
@@ -426,6 +557,14 @@
         }
 
         function showCalificarLoading(e) {
+            let isConfigurado = @((!string.IsNullOrEmpty(Model.RutaPdfOriginal) && Model.Preguntas.Any() && Model.Preguntas.Any(p => p.PosX > 0)).ToString().ToLower());
+            
+            if (!isConfigurado) {
+                e.preventDefault();
+                alert("¡Espera! Termina de configurar tu examen.\n\nAún no has definido las respuestas ni las ubicaciones de los sellos visuales. Por favor, ingresa a 'Gestionar Solucionario / Calibración' para completar la plantilla antes de calificar a los estudiantes.");
+                return false;
+            }
+
             document.getElementById("loading-text").innerText = "Escaneando y calificando exámenes de alumnos...";
             document.getElementById("loading-overlay").classList.add("active");
         }
@@ -436,28 +575,191 @@
             }
         }
 
-        function eliminarCalificacion(id, nombre) {
-            if (confirm("¿Estás seguro de eliminar la calificación de " + nombre + "? Esta acción no se puede deshacer.")) {
-                fetch('@Url.Action("DeleteCalificacion", "Examen")', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'calificacionId=' + id
-                })
-                .then(r => r.json())
-                .then(res => {
-                    if (res.success) {
-                        location.reload();
-                    } else {
-                        alert("Error: " + res.message);
-                    }
-                })
-                .catch(e => alert("Error de red al intentar eliminar."));
-            }
+        // --- LOGICA MODAL ELIMINAR ---
+        var calificacionAEliminar = null;
+        function abrirModalEliminar(id, nombre) {
+            calificacionAEliminar = id;
+            document.getElementById('lbl-nombre-eliminar').innerText = nombre;
+            document.getElementById('modal-eliminar').classList.add('active');
         }
+        function cerrarModalEliminar() {
+            calificacionAEliminar = null;
+            document.getElementById('modal-eliminar').classList.remove('active');
+        }
+        document.getElementById('btn-confirmar-eliminar').addEventListener('click', function() {
+            if (!calificacionAEliminar) return;
+            var id = calificacionAEliminar;
+            cerrarModalEliminar();
+            
+            fetch('@Url.Action("DeleteCalificacion", "Examen")', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'calificacionId=' + id
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) { location.reload(); }
+                else { alert("Error: " + res.message); }
+            })
+            .catch(e => alert("Error de red al intentar eliminar."));
+        });
+
+        // --- LOGICA MODAL MATRICULAR ---
+        var calificacionAMatricular = null;
+        function abrirModalMatricular(id, nombre) {
+            calificacionAMatricular = id;
+            document.getElementById('lbl-nombre-matricular').innerText = nombre;
+            document.getElementById('modal-matricular').classList.add('active');
+        }
+        function cerrarModalMatricular() {
+            calificacionAMatricular = null;
+            document.getElementById('modal-matricular').classList.remove('active');
+        }
+        document.getElementById('btn-confirmar-matricular').addEventListener('click', function() {
+            if (!calificacionAMatricular) return;
+            var id = calificacionAMatricular;
+            cerrarModalMatricular();
+            
+            fetch('@Url.Action("MatricularYVincularAlumno", "Examen")', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'calificacionId=' + id
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) { location.reload(); }
+                else { alert("Error: " + res.message); }
+            })
+            .catch(e => alert("Error de red al intentar matricular."));
+        });
 
         function showSyncLoading(e) {
             document.getElementById("loading-text").innerText = "Estampando notas y sincronizando archivos con Google Drive...";
             document.getElementById("loading-overlay").classList.add("active");
+        }
+        // VARIABLES GLOBALES PARA MANEJO DE ARCHIVOS IA
+        let fileIndexToRemove = -1;
+        let pdfObjectUrls = [];
+        let globalDataTransfer = new DataTransfer();
+
+        function handleFileSelection(input) {
+            // Acumular archivos sin sobrescribir los anteriores
+            if (input.files && input.files.length > 0) {
+                for (let i = 0; i < input.files.length; i++) {
+                    let exists = false;
+                    for (let j = 0; j < globalDataTransfer.files.length; j++) {
+                        if (globalDataTransfer.files[j].name === input.files[i].name) {
+                            exists = true; break;
+                        }
+                    }
+                    if (!exists) {
+                        globalDataTransfer.items.add(input.files[i]);
+                    }
+                }
+            }
+            // Actualizar el input con la lista completa acumulada
+            input.files = globalDataTransfer.files;
+            renderFileList(input);
+        }
+
+        function renderFileList(input) {
+            const listContainer = document.getElementById("file-preview-list");
+            const displaySpan = document.getElementById("archivosAlumnosIA-display");
+            listContainer.innerHTML = "";
+            
+            // Limpiar URLs de blobs anteriores para no saturar memoria
+            pdfObjectUrls.forEach(url => URL.revokeObjectURL(url));
+            pdfObjectUrls = [];
+
+            if (input.files && input.files.length > 0) {
+                displaySpan.innerText = input.files.length + " archivo(s) seleccionado(s)";
+                
+                Array.from(input.files).forEach((file, index) => {
+                    const objUrl = URL.createObjectURL(file);
+                    pdfObjectUrls.push(objUrl);
+
+                    const card = document.createElement("div");
+                    card.style.cssText = "display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);";
+                    
+                    const nameSpan = document.createElement("span");
+                    nameSpan.style.cssText = "font-size: 13px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;";
+                    nameSpan.innerText = file.name;
+                    nameSpan.title = file.name;
+
+                    const actionsDiv = document.createElement("div");
+                    actionsDiv.style.cssText = "display: flex; gap: 8px;";
+
+                    const viewBtn = document.createElement("button");
+                    viewBtn.type = "button";
+                    viewBtn.className = "btn";
+                    viewBtn.style.cssText = "padding: 4px 8px; font-size: 12px; background: rgba(38,208,206,0.2); color: var(--primary-glow); border: 1px solid var(--primary-glow); border-radius: 4px; cursor: pointer;";
+                    viewBtn.innerHTML = '<i class="fa-solid fa-eye"></i>';
+                    viewBtn.title = "Ver PDF";
+                    viewBtn.onclick = () => openPdfPreview(objUrl, file.name);
+
+                    const removeBtn = document.createElement("button");
+                    removeBtn.type = "button";
+                    removeBtn.className = "btn";
+                    removeBtn.style.cssText = "padding: 4px 8px; font-size: 12px; background: rgba(231,76,60,0.2); color: #E74C3C; border: 1px solid #E74C3C; border-radius: 4px; cursor: pointer;";
+                    removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                    removeBtn.title = "Quitar archivo";
+                    removeBtn.onclick = () => confirmRemoveFile(index);
+
+                    actionsDiv.appendChild(viewBtn);
+                    actionsDiv.appendChild(removeBtn);
+
+                    card.appendChild(nameSpan);
+                    card.appendChild(actionsDiv);
+                    listContainer.appendChild(card);
+                });
+            } else {
+                displaySpan.innerText = "Haz clic para seleccionar exámenes a procesar con IA";
+            }
+        }
+
+        function openPdfPreview(url, fileName) {
+            document.getElementById("pdf-preview-title").innerText = fileName;
+            document.getElementById("pdf-preview-frame").src = url;
+            document.getElementById("pdf-preview-modal").classList.add("active");
+        }
+
+        function closePdfPreview() {
+            document.getElementById("pdf-preview-modal").classList.remove("active");
+            document.getElementById("pdf-preview-frame").src = "";
+        }
+
+        function confirmRemoveFile(index) {
+            fileIndexToRemove = index;
+            document.getElementById("delete-file-confirm-modal").classList.add("active");
+        }
+
+        function closeConfirmRemoveFile() {
+            fileIndexToRemove = -1;
+            document.getElementById("delete-file-confirm-modal").classList.remove("active");
+        }
+
+        function proceedRemoveFile() {
+            if (fileIndexToRemove > -1) {
+                const input = document.getElementById("archivosAlumnosIA");
+                const dt = new DataTransfer();
+                
+                for (let i = 0; i < globalDataTransfer.files.length; i++) {
+                    if (i !== fileIndexToRemove) {
+                        dt.items.add(globalDataTransfer.files[i]);
+                    }
+                }
+                
+                globalDataTransfer = dt;
+                input.files = globalDataTransfer.files;
+                
+                // Si ya no hay archivos, limpiar el input para que pueda volver a ser validado
+                if (input.files.length === 0) {
+                    input.value = "";
+                }
+                
+                renderFileList(input);
+            }
+            closeConfirmRemoveFile();
         }
     </script>
 }

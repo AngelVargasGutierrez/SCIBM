@@ -1,0 +1,565 @@
+@{
+    ViewBag.Title = "Dashboard de Reportes";
+    ViewBag.Subtitle = "Analítica Centralizada y Exportación";
+
+    var ciclos = ViewBag.Ciclos as List<SelectListItem>;
+    var facultades = ViewBag.Facultades as List<SelectListItem>;
+}
+
+<style>
+    /* STATS CARDS */
+    .stats-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+    .stat-card {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 20px 24px;
+        text-align: center;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-card.disabled {
+        opacity: 0.35;
+        pointer-events: none;
+    }
+    .stat-card .stat-icon {
+        font-size: 28px;
+        margin-bottom: 8px;
+    }
+    .stat-card .stat-value {
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 4px;
+    }
+    .stat-card .stat-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+    .stat-card .stat-names {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-style: italic;
+        line-height: 1.4;
+        max-height: 42px;
+        overflow: hidden;
+    }
+
+    /* FILTERS BAR */
+    .filters-bar {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-bottom: 24px;
+        padding: 20px 24px;
+        background: rgba(255,255,255,0.02);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+    }
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .filter-group label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        font-weight: 600;
+    }
+    .filter-group select {
+        font-size: 13px;
+        padding: 9px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--glass-border);
+        background: rgba(0,0,0,0.3);
+        color: white;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+    .filter-group select option {
+        background-color: #2b2b36; /* Fondo gris oscuro para las opciones */
+        color: white;
+    }
+    .filter-group select:focus {
+        outline: none;
+        border-color: var(--accent-color);
+    }
+    .filter-group select:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    /* CONTEXT TITLE */
+    .context-title {
+        font-size: 13px;
+        color: var(--text-muted);
+        text-align: center;
+        margin-bottom: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* REPORT TABLE */
+    .report-table-container {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 20px 24px;
+        overflow-x: auto;
+    }
+    table.report-tbl {
+        width: 100%;
+        border-collapse: collapse;
+        color: white;
+    }
+    table.report-tbl th {
+        padding: 12px 15px;
+        border-bottom: 2px solid rgba(255,255,255,0.08);
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        font-weight: 700;
+    }
+    table.report-tbl td {
+        padding: 10px 15px;
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+        font-size: 13.5px;
+    }
+    table.report-tbl tbody tr:hover {
+        background: rgba(255,255,255,0.02);
+    }
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: var(--text-muted);
+    }
+    .empty-state i {
+        font-size: 48px;
+        opacity: 0.2;
+        margin-bottom: 16px;
+        display: block;
+    }
+
+    /* FLOATING EXPORT BUTTON */
+    .fab-export {
+        position: fixed;
+        bottom: 32px;
+        right: 32px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.08);
+        color: rgba(255,255,255,0.3);
+        border: 1px solid var(--glass-border);
+        font-size: 22px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: not-allowed;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        z-index: 100;
+    }
+    .fab-export.enabled {
+        background: linear-gradient(135deg, #2ec4b6, #1db99f);
+        color: white;
+        cursor: pointer;
+        border-color: transparent;
+        box-shadow: 0 4px 25px rgba(46, 196, 182, 0.4);
+    }
+    .fab-export.enabled:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 35px rgba(46, 196, 182, 0.6);
+    }
+
+    /* RENDIMIENTO PILL */
+    .rendimiento-pill {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+</style>
+
+<!-- CONTEXT TITLE (Dinámico) -->
+<div class="context-title" id="context-title-el">Seleccione los filtros para ver estadísticas</div>
+
+<!-- STATS ROW (3 Tarjetas) -->
+<div class="stats-row">
+    <div class="stat-card disabled" id="stat-max">
+        <div class="stat-icon" style="color:#2ec4b6;">🏆</div>
+        <div class="stat-label">Nota Más Alta</div>
+        <div class="stat-value" id="stat-max-val">--</div>
+        <div class="stat-names" id="stat-max-names">Seleccione un Curso</div>
+    </div>
+    <div class="stat-card disabled" id="stat-avg">
+        <div class="stat-icon" style="color:#ff9f1c;">📊</div>
+        <div class="stat-label">Nota Promedio</div>
+        <div class="stat-value" id="stat-avg-val">--</div>
+        <div class="stat-names" id="stat-avg-names"><span id="stat-total-el">0</span> alumnos evaluados</div>
+    </div>
+    <div class="stat-card disabled" id="stat-min">
+        <div class="stat-icon" style="color:#ff5252;">⚠️</div>
+        <div class="stat-label">Nota Más Baja</div>
+        <div class="stat-value" id="stat-min-val">--</div>
+        <div class="stat-names" id="stat-min-names">Seleccione un Curso</div>
+    </div>
+</div>
+
+<!-- FILTERS BAR -->
+<div class="filters-bar">
+    <div class="filter-group">
+        <label>Semestre Académico</label>
+        <select id="f-ciclo" onchange="onFilterChange('ciclo')">
+            <option value="">-- Seleccione --</option>
+            @foreach (var c in ciclos)
+            {
+                <option value="@c.Value">@c.Text</option>
+            }
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Facultad</label>
+        <select id="f-facultad" onchange="onFilterChange('facultad')">
+            <option value="">-- Seleccione --</option>
+            @foreach (var f in facultades)
+            {
+                <option value="@f.Value">@f.Text</option>
+            }
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Escuela Profesional</label>
+        <select id="f-escuela" disabled onchange="onFilterChange('escuela')">
+            <option value="">-- Seleccione --</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Carrera</label>
+        <select id="f-carrera" disabled onchange="onFilterChange('carrera')">
+            <option value="">-- Seleccione --</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Curso</label>
+        <select id="f-curso" disabled onchange="onFilterChange('curso')">
+            <option value="">-- Seleccione --</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Sección</label>
+        <select id="f-seccion" disabled onchange="onFilterChange('seccion')">
+            <option value="">-- Todos --</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Unidad</label>
+        <select id="f-unidad" disabled onchange="onFilterChange('unidad')">
+            <option value="">-- Todos --</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Versión</label>
+        <select id="f-version" disabled onchange="onFilterChange('version')">
+            <option value="">-- Todos --</option>
+        </select>
+    </div>
+</div>
+
+<!-- TABLE -->
+<div class="report-table-container">
+    <table class="report-tbl" id="report-table">
+        <thead>
+            <tr>
+                <th style="width: 50px;">#</th>
+                <th>Nombre Completo</th>
+                <th style="width: 80px;">Nota</th>
+                <th style="width: 140px;">Rendimiento</th>
+            </tr>
+        </thead>
+        <tbody id="report-tbody">
+            <tr>
+                <td colspan="4">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-filter"></i>
+                        <h3>Aplique los filtros</h3>
+                        <p style="font-size: 13px; margin-top: 6px;">Los resultados aparecerán aquí cuando seleccione al menos un Curso.</p>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- FAB EXPORT -->
+<button class="fab-export" id="fab-export" title="Exportar a Google Sheets (Seleccione un Curso primero)" onclick="exportarASheets()">
+    <i class="fa-solid fa-file-export"></i>
+</button>
+
+@section scripts {
+    <script>
+        // ======== CASCADING FILTERS ========
+        function onFilterChange(level) {
+            var cicloId = document.getElementById("f-ciclo").value;
+            var facultadId = document.getElementById("f-facultad").value;
+            var escuelaId = document.getElementById("f-escuela").value;
+            var carreraId = document.getElementById("f-carrera").value;
+            var cursoId = document.getElementById("f-curso").value;
+            var seccionId = document.getElementById("f-seccion").value;
+            var unidadId = document.getElementById("f-unidad").value;
+            var versionId = document.getElementById("f-version").value;
+
+            // Resetear niveles inferiores
+            if (level === 'ciclo' || level === 'facultad') {
+                resetSelect("f-escuela"); resetSelect("f-carrera"); resetSelect("f-curso");
+                resetSelect("f-seccion"); resetSelect("f-unidad"); resetSelect("f-version");
+            }
+            if (level === 'escuela') {
+                resetSelect("f-carrera"); resetSelect("f-curso");
+                resetSelect("f-seccion"); resetSelect("f-unidad"); resetSelect("f-version");
+            }
+            if (level === 'carrera') {
+                resetSelect("f-curso"); resetSelect("f-seccion"); resetSelect("f-unidad"); resetSelect("f-version");
+            }
+            if (level === 'curso') {
+                resetSelect("f-seccion"); resetSelect("f-unidad"); resetSelect("f-version");
+            }
+            if (level === 'seccion') {
+                resetSelect("f-unidad"); resetSelect("f-version");
+            }
+            if (level === 'unidad') {
+                resetSelect("f-version");
+            }
+
+            // Cargar siguiente nivel
+            if (level === 'facultad' && facultadId) {
+                loadOptions('@Url.Action("GetEscuelas", "Reporte")?facultadId=' + facultadId, 'f-escuela');
+            }
+            if (level === 'escuela' && escuelaId) {
+                loadOptions('@Url.Action("GetCarreras", "Reporte")?escuelaId=' + escuelaId, 'f-carrera');
+            }
+            if (level === 'carrera' && carreraId && cicloId) {
+                loadOptions('@Url.Action("GetCursos", "Reporte")?carreraId=' + carreraId + '&cicloId=' + cicloId, 'f-curso', 'nombre');
+            }
+            if (level === 'curso' && cursoId) {
+                loadOptions('@Url.Action("GetSecciones", "Reporte")?cursoId=' + cursoId, 'f-seccion', 'nombre', true);
+            }
+            if (level === 'seccion' && seccionId) {
+                loadOptions('@Url.Action("GetUnidades", "Reporte")?seccionId=' + seccionId, 'f-unidad', 'nombreUnidad', true);
+            }
+            if (level === 'unidad' && unidadId) {
+                loadOptions('@Url.Action("GetVersiones", "Reporte")?unidadId=' + unidadId, 'f-version', 'nombreVersion', true);
+            }
+
+            // Refresh data si ya hay Curso seleccionado
+            cursoId = document.getElementById("f-curso").value;
+            if (cursoId) {
+                loadReportData();
+            } else {
+                clearReport();
+            }
+        }
+
+        function resetSelect(id) {
+            var sel = document.getElementById(id);
+            var isOptional = id === 'f-seccion' || id === 'f-unidad' || id === 'f-version';
+            sel.innerHTML = '<option value="">' + (isOptional ? '-- Todos --' : '-- Seleccione --') + '</option>';
+            sel.disabled = true;
+        }
+
+        function loadOptions(url, targetId, nameKey, isOptional) {
+            fetch(url)
+                .then(r => r.json())
+                .then(items => {
+                    var sel = document.getElementById(targetId);
+                    sel.innerHTML = '<option value="">' + (isOptional ? '-- Todos --' : '-- Seleccione --') + '</option>';
+                    items.forEach(item => {
+                        var opt = document.createElement("option");
+                        // Handle both camelCase and PascalCase
+                        opt.value = item.id || item.Id;
+                        
+                        var text = "";
+                        if (nameKey) {
+                            text = item[nameKey] || item[nameKey.charAt(0).toUpperCase() + nameKey.slice(1)];
+                        }
+                        if (!text) {
+                            text = item.nombre || item.Nombre || item.nombreUnidad || item.NombreUnidad || item.nombreVersion || item.NombreVersion || "Opción";
+                        }
+                        
+                        opt.textContent = text;
+                        sel.appendChild(opt);
+                    });
+                    sel.disabled = false;
+                });
+        }
+
+        // ======== LOAD REPORT DATA ========
+        function loadReportData() {
+            var cursoId = document.getElementById("f-curso").value;
+            if (!cursoId) return;
+
+            var url = '@Url.Action("GetReporteDinamico", "Reporte")?cursoId=' + cursoId;
+
+            var seccionId = document.getElementById("f-seccion").value;
+            var unidadId = document.getElementById("f-unidad").value;
+            var versionId = document.getElementById("f-version").value;
+
+            if (seccionId) url += '&seccionId=' + seccionId;
+            if (unidadId) url += '&unidadId=' + unidadId;
+            if (versionId) url += '&examenId=' + versionId;
+
+            // Activar tarjetas
+            document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('disabled'));
+
+            // Activar FAB
+            var fab = document.getElementById("fab-export");
+            fab.classList.add("enabled");
+            fab.title = "Exportar a Google Sheets";
+
+            // Actualizar título contextual
+            updateContextTitle();
+
+            fetch(url)
+                .then(r => r.json())
+                .then(res => {
+                    if (!res.success) return;
+
+                    // Actualizar stats
+                    document.getElementById("stat-max-val").textContent = res.stats.notaMax.toFixed(1);
+                    document.getElementById("stat-max-names").textContent = res.stats.alumnosMax || "Sin datos";
+                    document.getElementById("stat-max").style.borderColor = "#2ec4b6";
+
+                    document.getElementById("stat-avg-val").textContent = res.stats.notaPromedio.toFixed(1);
+                    document.getElementById("stat-avg-val").style.color = res.stats.colorPromedio;
+                    document.getElementById("stat-total-el").textContent = res.stats.total;
+                    document.getElementById("stat-avg").style.borderColor = res.stats.colorPromedio;
+
+                    document.getElementById("stat-min-val").textContent = res.stats.notaMin.toFixed(1);
+                    document.getElementById("stat-min-names").textContent = res.stats.alumnosMin || "Sin datos";
+                    document.getElementById("stat-min").style.borderColor = "#ff5252";
+
+                    // Actualizar tabla
+                    var tbody = document.getElementById("report-tbody");
+                    tbody.innerHTML = "";
+
+                    if (res.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-inbox"></i><h3>Sin resultados</h3></div></td></tr>';
+                        return;
+                    }
+
+                    res.data.forEach((r, i) => {
+                        var tr = document.createElement("tr");
+                        tr.innerHTML = `
+                            <td style="color:var(--text-muted);">${i + 1}</td>
+                            <td style="font-weight:500;">${r.nombre}</td>
+                            <td><span class="grade-badge" style="font-size:14px;">${r.nota.toFixed(1)}</span></td>
+                            <td>
+                                <span class="rendimiento-pill" style="background:${r.color}22; color:${r.color}; border:1px solid ${r.color}55;">
+                                    <i class="fa-solid ${r.estado === 'Aprobado' ? 'fa-circle-check' : r.estado === 'Regular' ? 'fa-triangle-exclamation' : 'fa-circle-xmark'}"></i>
+                                    ${r.estado}
+                                </span>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                });
+        }
+
+        function clearReport() {
+            document.querySelectorAll('.stat-card').forEach(c => c.classList.add('disabled'));
+            document.getElementById("stat-max-val").textContent = "--";
+            document.getElementById("stat-avg-val").textContent = "--";
+            document.getElementById("stat-min-val").textContent = "--";
+            document.getElementById("stat-max-names").textContent = "Seleccione un Curso";
+            document.getElementById("stat-min-names").textContent = "Seleccione un Curso";
+            document.getElementById("stat-total-el").textContent = "0";
+            document.getElementById("context-title-el").textContent = "Seleccione los filtros para ver estadísticas";
+
+            var fab = document.getElementById("fab-export");
+            fab.classList.remove("enabled");
+            fab.title = "Exportar a Google Sheets (Seleccione un Curso primero)";
+
+            var tbody = document.getElementById("report-tbody");
+            tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-filter"></i><h3>Aplique los filtros</h3><p style="font-size:13px; margin-top:6px;">Los resultados aparecerán aquí cuando seleccione al menos un Curso.</p></div></td></tr>';
+        }
+
+        function updateContextTitle() {
+            var parts = [];
+            var cursoSel = document.getElementById("f-curso");
+            if (cursoSel.value) parts.push("Curso: " + cursoSel.options[cursoSel.selectedIndex].text);
+
+            var secSel = document.getElementById("f-seccion");
+            if (secSel.value) parts.push("Sección: " + secSel.options[secSel.selectedIndex].text);
+
+            var uniSel = document.getElementById("f-unidad");
+            if (uniSel.value) parts.push("Unidad: " + uniSel.options[uniSel.selectedIndex].text);
+
+            var verSel = document.getElementById("f-version");
+            if (verSel.value) parts.push("Versión: " + verSel.options[verSel.selectedIndex].text);
+
+            document.getElementById("context-title-el").textContent = "Estadísticas de " + parts.join(" → ");
+        }
+
+        // ======== EXPORT (Google Sheets) ========
+        function exportarASheets() {
+            var fab = document.getElementById("fab-export");
+            if (!fab.classList.contains("enabled")) return;
+
+            var cursoId = document.getElementById("f-curso").value;
+            if (!cursoId) return;
+
+            var seccionId = document.getElementById("f-seccion").value;
+            var unidadId = document.getElementById("f-unidad").value;
+            var versionId = document.getElementById("f-version").value;
+
+            var formData = new FormData();
+            formData.append("cursoId", cursoId);
+            if (seccionId) formData.append("seccionId", seccionId);
+            if (unidadId) formData.append("unidadId", unidadId);
+            if (versionId) formData.append("examenId", versionId);
+
+            // Cambiar estado del botón a cargando
+            var originalHtml = fab.innerHTML;
+            fab.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+            fab.classList.remove("enabled");
+            fab.style.pointerEvents = "none";
+
+            fetch('@Url.Action("ExportarAGoogleSheets", "Reporte")', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    // Abrir el Google Sheet en una nueva pestaña
+                    window.open(res.url, '_blank');
+                } else {
+                    alert("Error: " + res.message);
+                }
+            })
+            .catch(err => {
+                alert("Ocurrió un error en la conexión.");
+            })
+            .finally(() => {
+                // Restaurar botón
+                fab.innerHTML = originalHtml;
+                fab.classList.add("enabled");
+                fab.style.pointerEvents = "auto";
+            });
+        }
+    </script>
+}

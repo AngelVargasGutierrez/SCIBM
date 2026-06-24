@@ -123,20 +123,38 @@ namespace SCIBM.Helpers
                             if (w <= 0) w = 120;
                             if (h <= 0) h = 45;
 
-                            // Rojo Pastel: RGB(255, 105, 97)
-                            XColor bgColor = XColor.FromArgb(120, 255, 105, 97);
+                            // Fondo blanco sólido con borde gris
+                            XColor bgColor = XColor.FromArgb(255, 255, 255, 255);
                             XSolidBrush bgBrush = new XSolidBrush(bgColor);
-                            XPen borderPen = new XPen(XColor.FromArgb(255, 255, 105, 97), 2);
-                            borderPen.DashStyle = XDashStyle.Dash;
+                            XPen borderPen = new XPen(XColor.FromArgb(255, 200, 200, 200), 2);
+                            borderPen.DashStyle = XDashStyle.Solid;
 
                             gfx.DrawRectangle(borderPen, bgBrush, x, y, w, h);
 
-                            double fontSize = Math.Max(10, Math.Min(18, h * 0.4));
+                            double fontSize = Math.Max(10, h * 0.7);
                             XFont font = new XFont("Arial", fontSize, XFontStyle.Bold);
                             XStringFormat format = new XStringFormat { LineAlignment = XLineAlignment.Center, Alignment = XStringAlignment.Center };
                             
-                            // Texto en un rojo un poco más oscuro para que resalte sobre el fondo pastel: RGB(180, 50, 50)
-                            gfx.DrawString(gradeText, font, new XSolidBrush(XColor.FromArgb(255, 180, 50, 50)), new XRect(x, y, w, h), format);
+                            // Parsear nota para color dinámico
+                            double gradeValue = 0;
+                            double.TryParse(gradeText, out gradeValue);
+
+                            XSolidBrush gradeBrush;
+                            if (gradeValue < 10.5)
+                            {
+                                gradeBrush = new XSolidBrush(XColor.FromArgb(255, 180, 50, 50)); // Rojo oscuro
+                            }
+                            else if (gradeValue < 14.0)
+                            {
+                                gradeBrush = new XSolidBrush(XColor.FromArgb(255, 230, 115, 0)); // Naranja / Ámbar
+                            }
+                            else
+                            {
+                                gradeBrush = new XSolidBrush(XColor.FromArgb(255, 34, 139, 34)); // Verde bosque
+                            }
+
+                            // Estampar nota con el color correspondiente
+                            gfx.DrawString(gradeText, font, gradeBrush, new XRect(x, y, w, h), format);
                         }
                     }
 
@@ -172,18 +190,22 @@ namespace SCIBM.Helpers
                                     double cy = currentPageHeight * (cor.Y / 100.0);
                                 
                                 // Para compensar diferencias entre HTML y PDF, desplazamos cy ligeramente
-                                cy += 12; // Base line offset aprox
+                                // cy += 12; // Base line offset aprox
 
                                 if (cor.IsCorrect)
                                 {
-                                    // Verde (Check)
-                                    // Unicode checkmark "✓" is U+2713
-                                    currentGfx.DrawString("✓", markFont, XBrushes.DarkCyan, cx, cy);
+                                    // Verde (Check) usando vectores
+                                    XPen checkPen = new XPen(XColors.DarkCyan, 2.5);
+                                    currentGfx.DrawLine(checkPen, cx, cy - 5, cx + 5, cy);
+                                    currentGfx.DrawLine(checkPen, cx + 5, cy, cx + 15, cy - 12);
                                 }
                                 else
                                 {
-                                    // Rojo (X)
-                                    currentGfx.DrawString("✗", markFont, XBrushes.DarkRed, cx, cy);
+                                    // Rojo (X) usando vectores
+                                    XPen crossPen = new XPen(XColors.DarkRed, 2.5);
+                                    currentGfx.DrawLine(crossPen, cx, cy - 10, cx + 10, cy);
+                                    currentGfx.DrawLine(crossPen, cx + 10, cy - 10, cx, cy);
+
                                     // Respuesta esperada
                                     currentGfx.DrawString($" Cor: {cor.CorrectAnswerText}", textFont, XBrushes.DarkRed, cx + 15, cy);
                                 }
@@ -239,8 +261,8 @@ namespace SCIBM.Helpers
                                 
                                 double qx = pageWidth * (p.PosX / 100.0);
                                 double qy = pageHeight * (p.PosY / 100.0);
-                                double qw = pageWidth * (p.Width / 100.0);
-                                double qh = pageHeight * (p.Height / 100.0);
+                                double qw = 200; // Valor por defecto
+                                double qh = 20;  // Valor por defecto
 
                                 if (p.Tipo == "OpcionMultiple" && !string.IsNullOrEmpty(p.OpcionesJson))
                                 {

@@ -163,5 +163,35 @@ namespace SCIBM.Controllers
                 }
             }
         }
+
+        // POST: Ciclo/Delete
+        [HttpPost]
+        public async Task<ActionResult> Delete(Guid id)
+        {
+            if (Session["UserEmail"] == null)
+                return Json(new { success = false, message = "Sesión expirada." });
+
+            string email = Session["UserEmail"].ToString();
+
+            using (var db = new ScibmContext())
+            {
+                try
+                {
+                    var ciclo = await db.CiclosAcademicos.FirstOrDefaultAsync(c => c.Id == id && c.DocenteEmail == email);
+                    
+                    if (ciclo == null)
+                        return Json(new { success = false, message = "Ciclo no encontrado o sin permisos." });
+
+                    db.CiclosAcademicos.Remove(ciclo);
+                    await db.SaveChangesAsync();
+
+                    return Json(new { success = true });
+                }
+                catch (Exception ex)
+                {
+                    return Json(new { success = false, message = "Error al eliminar: " + ex.Message });
+                }
+            }
+        }
     }
 }

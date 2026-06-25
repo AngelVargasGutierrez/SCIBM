@@ -1,319 +1,18 @@
-@model SCIBM.Models.Examen
-@using Newtonsoft.Json
-@{
-    ViewBag.Title = $"Revisión de Calificaciones: {Model.NombreVersion}";
-    ViewBag.Subtitle = "Valide las respuestas extraídas y resuelva observaciones antes de guardar";
-    var matriculados = ViewBag.AlumnosMatriculados as IEnumerable<SCIBM.Models.AlumnoMatriculado>;
-    var tempFiles = ViewBag.TempFiles as List<string>;
-}
 
-@section styles {
-    <style>
-        .grid-layout {
-            display: grid;
-            grid-template-columns: 380px 1fr;
-            gap: 30px;
-            height: calc(100vh - 180px);
-            min-height: 550px;
-        }
-
-        /* LEFT LIST COLUMN */
-        .list-card {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            overflow: hidden;
-        }
-        
-        .students-scanned-list {
-            flex-grow: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            padding-right: 5px;
-        }
-
-        .student-scan-item {
-            background: rgba(128, 128, 128, 0.05);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            padding: 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .student-scan-item.active {
-            border-color: var(--accent-color);
-            background: rgba(72, 202, 228, 0.04);
-        }
-        .student-scan-item.error {
-            border-color: #ff5252;
-            background: rgba(255, 82, 82, 0.02);
-        }
-
-        .item-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .raw-name {
-            font-size: 11px;
-            color: var(--text-muted);
-            opacity: 0.8;
-            font-style: italic;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
-        }
-
-        /* RIGHT BREAKDOWN COLUMN */
-        .breakdown-card {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        .breakdown-content {
-            flex-grow: 1;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-
-        .panel-column {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        .answers-grid-list {
-            flex-grow: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            padding-right: 5px;
-        }
-
-        .answer-verify-item {
-            background: rgba(128, 128, 128, 0.03);
-            border: 1px solid var(--glass-border);
-            border-radius: 8px;
-            padding: 12px 14px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 15px;
-        }
-        .answer-verify-item.correct {
-            border-left: 4px solid #2ec4b6;
-        }
-        .answer-verify-item.incorrect {
-            border-left: 4px solid #ff5252;
-        }
-
-        /* MINIPREV DEL PDF */
-        .pdf-preview-box {
-            flex-grow: 1;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            border: 1px solid var(--glass-border);
-            overflow: auto;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            padding: 10px;
-        }
-        #preview-canvas {
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            background: white;
-            display: block;
-        }
-
-        /* LOADER */
-        .progress-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(11, 19, 43, 0.95);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 3000;
-            gap: 20px;
-        }
-        .progress-bar {
-            width: 320px;
-            height: 8px;
-            background: rgba(128, 128, 128, 0.2);
-            border-radius: 4px;
-            overflow: hidden;
-            border: 1px solid var(--glass-border);
-        }
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--accent-color), var(--primary-glow));
-            width: 0%;
-            transition: width 0.1s ease;
-        }
-    </style>
-}
-
-<div class="grid-layout">
-
-    <!-- LEFT COLUMN: SCANNED STUDENTS LIST -->
-    <div class="glass-card list-card">
-        <div class="panel-header">
-            <h2>Hojas de Examen</h2>
-            <span style="font-size:12px; color:var(--text-muted);" id="scanned-count-indicator">Cargando...</span>
-        </div>
-
-        <div class="students-scanned-list" id="students-scanned-list-el">
-            <!-- Cargado por JS al procesar los archivos -->
-        </div>
-    </div>
-
-    <!-- RIGHT COLUMN: CURRENT STUDENT VERIFICATION -->
-    <div class="glass-card breakdown-card" id="breakdown-panel-el" style="display: none;">
-        <div class="panel-header" style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-            <div style="flex-grow:1; display:flex; flex-direction:column; gap:6px;">
-                <!-- SELECCIÓN O ASOCIACIÓN DE MATRÍCULA -->
-                <label style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px;">Asociar a Alumno Matriculado</label>
-                <select id="select-matricula-al" class="form-select" style="font-size:15px; font-weight:600; padding:10px; width: 100%;" onchange="asociarAlumnoMatriculado(this.value)">
-                    <option value="">-- Sin Coincidencia (Observado) --</option>
-                    @if (matriculados != null)
-                    {
-                        foreach (var al in matriculados.OrderBy(a => a.NombreCompleto))
-                        {
-                            <option value="@al.Id">@al.NombreCompleto</option>
-                        }
-                    }
-                </select>
-            </div>
-            
-            <div style="margin-left: 20px; margin-top: 15px; background: rgba(46, 196, 182, 0.1); border: 1px solid rgba(46, 196, 182, 0.3); border-radius: 12px; padding: 10px 25px; box-shadow: 0 0 20px rgba(46, 196, 182, 0.15); display: inline-flex; flex-direction: column; justify-content: center; align-items: center; align-self: flex-start; min-width: 120px;">
-                <span style="font-size: 12px; text-transform: uppercase; color: #2ec4b6; font-weight: bold; letter-spacing: 1px; display: block; margin-bottom: 5px;">Nota Final</span>
-                <span id="breakdown-grade" style="font-size: 38px; font-weight: 800; color: var(--text-color); text-shadow: 0 0 15px rgba(46, 196, 182, 0.6); line-height: 1;">0.0</span>
-            </div>
-        </div>
-
-        <!-- SPLIT VIEW: RESPUESTAS VS PDF PREVIEW -->
-        <div class="breakdown-content">
-            
-            <!-- PANEL: RESPUESTAS DETECTADAS -->
-            <div class="panel-column">
-                <h4 style="font-size:13px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Respuestas de la Hoja</h4>
-                <div class="answers-grid-list" id="answers-verify-list-el">
-                    <!-- Se carga dinámicamente -->
-                </div>
-            </div>
-
-            <!-- PANEL: VISTA PREVIA PDF -->
-            <div class="panel-column">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h4 style="font-size:13px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin:0;">Vista del Documento</h4>
-                    <div style="display:flex; align-items:center;">
-                        <!-- ZOOM BUTTONS -->
-                        <button class="btn" style="background:rgba(128,128,128,0.2); color:var(--text-color); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" onclick="changePdfScale(-0.15)" title="Alejar"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
-                        <button class="btn" style="background:rgba(128,128,128,0.2); color:var(--text-color); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer; margin-left:4px; margin-right:12px;" onclick="changePdfScale(0.15)" title="Acercar"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
-
-                        <button class="btn" style="background:rgba(128,128,128,0.2); color:var(--text-color); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" onclick="changePdfPage(-1)">◀ Ant</button>
-                        <span id="pdf-page-indicator" style="font-size:12px; font-weight:bold; margin:0 8px; color:var(--text-muted);">Pág 1/1</span>
-                        <button class="btn" style="background:rgba(128,128,128,0.2); color:var(--text-color); border:none; padding:4px 8px; font-size:11px; border-radius:4px; cursor:pointer;" onclick="changePdfPage(1)">Sig ▶</button>
-                        <button id="btn-colocar-sello" class="btn" style="background:#ff9f1c; color:white; border:none; padding:4px 10px; font-size:12px; border-radius:4px; font-weight:bold; cursor:pointer; margin-left:12px;" onclick="toggleSelloModo()">Colocar Sello</button>
-                        <button id="btn-guardar-examen" class="btn" style="background:#2ec4b6; color:white; border:none; padding:4px 10px; font-size:12px; border-radius:4px; font-weight:bold; cursor:pointer; display:none; margin-left:12px;" onclick="confirmarExamenActual()">Confirmar Examen</button>
-                    </div>
-                </div>
-                <div class="pdf-preview-box" id="pdf-preview-box">
-                    <div id="canvas-wrapper" style="position: relative; display: inline-block;">
-                        <canvas id="preview-canvas" style="display: block;"></canvas>
-                        <div id="pdf-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden;">
-                            <!-- Aquí se inyectarán los sellos -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- BOTÓN DE ACCIÓN FINAL -->
-        <div style="border-top:1px solid var(--glass-border); padding-top:15px; display:flex; justify-content:space-between; align-items:center;">
-            <div style="color:#ffb703; font-size:13.5px; display:none;" id="warning-match-el">
-                <i class="fa-solid fa-triangle-exclamation"></i> Este examen esta marcado como observado (sin matricula).
-            </div>
-            <div style="margin-left:auto; display:flex; gap:12px;">
-                <a href="@Url.Action("Detail", "Examen", new { id = Model.Id })" class="btn btn-secondary" title="Volver al detalle del examen">Cancelar</a>
-                <button id="btn-guardar-siguiente" class="btn" style="background:var(--accent-color); color:black; font-weight:bold; border:none; border-radius:8px; padding: 10px 20px; cursor:pointer;" onclick="guardarYSiguiente()"><i class="fa-solid fa-forward-step"></i> Guardar y Siguiente</button>
-                <button class="btn btn-primary" onclick="guardarNotasFinales()" title="Guardar todos los exámenes restantes a la base de datos"><i class="fa-solid fa-floppy-disk"></i> Guardar Restantes</button>
-            </div>
-        </div>
-    </div>
-
-</div>
-
-<!-- LOADING OCR PROGRESS DIALOG -->
-<div class="progress-overlay" id="grader-loader" style="display: none;">
-    <i class="fa-solid fa-wand-magic-sparkles" style="font-size: 64px; color: var(--primary-glow); text-shadow: 0 0 20px var(--primary-glow); animation: pulse 1.5s infiniteAlternate;"></i>
-    <h3 id="loader-title">Procesando exámenes...</h3>
-    <p id="loader-subtitle" style="color: var(--text-muted); font-size: 14.5px;">Cargando motor de escaneo...</p>
-    <div class="progress-bar">
-        <div class="progress-fill" id="loader-progress-bar"></div>
-    </div>
-</div>
-
-<!-- MODALES DE CONFIRMACION / ALERTA -->
-<div class="progress-overlay" id="custom-alert-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(11, 19, 43, 0.95); z-index: 4000; justify-content: center; align-items: center;">
-    <div class="glass-card" style="max-width: 400px; text-align: center; padding: 30px; animation: slideUp 0.3s ease-out; border: 1px solid var(--glass-border); border-radius: 12px; background: rgba(128,128,128,0.08);">
-        <i id="custom-alert-icon" class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff5252; margin-bottom: 15px;"></i>
-        <h3 id="custom-alert-title" style="margin-bottom: 10px; color: var(--text-color);">Atención</h3>
-        <p id="custom-alert-message" style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Mensaje de error.</p>
-        <button class="btn btn-primary" onclick="closeCustomAlert()" style="width: 100%;">Entendido</button>
-    </div>
-</div>
-
-<div class="progress-overlay" id="matricular-confirm-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(11, 19, 43, 0.95); z-index: 4000; justify-content: center; align-items: center;">
-    <div class="glass-card" style="max-width: 400px; text-align: center; padding: 30px; animation: slideUp 0.3s ease-out; border: 1px solid var(--glass-border); border-radius: 12px; background: rgba(128,128,128,0.08);">
-        <i class="fa-solid fa-user-plus" style="font-size: 48px; color: var(--accent-color); margin-bottom: 15px;"></i>
-        <h3 style="margin-bottom: 10px; color: var(--text-color);">Registrar Alumno</h3>
-        <p id="matricular-confirm-message" style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;"></p>
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <button class="btn btn-secondary" onclick="closeMatricularConfirm()">Cancelar</button>
-            <button class="btn btn-primary" onclick="proceedMatricularAlVuelo()" style="background: var(--accent-color); color: black;">Registrar Alumno</button>
-        </div>
-    </div>
-</div>
-
-@section scripts {
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
-
-    <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
         // Lista de alumnos matriculados en JS para la coincidencia difusa
         var matriculados = [];
-        @if (matriculados != null)
+        
         {
             foreach (var al in matriculados)
             {
                 <text>
                 matriculados.push({
-                    id: '@al.Id',
-                    nombreCompleto: @Html.Raw(JsonConvert.SerializeObject(al.NombreCompleto)),
-                    apellidos: @Html.Raw(JsonConvert.SerializeObject(al.Apellidos)),
-                    nombres: @Html.Raw(JsonConvert.SerializeObject(al.Nombres))
+                    id: '
+                    nombreCompleto: 
+                    apellidos: 
+                    nombres: 
                 });
                 </text>
             }
@@ -321,41 +20,41 @@
 
         // Estructura de plantilla del examen
         var plantillaPreguntas = [];
-        @foreach (var p in Model.Preguntas.OrderBy(pr => pr.NumeroPregunta))
+        
         {
             <text>
             plantillaPreguntas.push({
-                numeroPregunta: @p.NumeroPregunta,
-                inciso: @Html.Raw(JsonConvert.SerializeObject(p.Inciso)),
-                pagina: @p.Pagina,
-                preguntaPadreId: '@(p.PreguntaPadreId?.ToString() ?? "")',
-                enunciado: @Html.Raw(JsonConvert.SerializeObject(p.Enunciado)),
-                tipo: @Html.Raw(JsonConvert.SerializeObject(p.Tipo)),
-                respuestaCorrecta: @Html.Raw(JsonConvert.SerializeObject(p.RespuestaCorrecta)),
-                puntaje: @p.Puntaje.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                posX: @p.PosX.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                posY: @p.PosY.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                numeroPregunta: 
+                inciso: 
+                pagina: 
+                preguntaPadreId: '
+                enunciado: 
+                tipo: 
+                respuestaCorrecta: 
+                puntaje: 
+                posX: 
+                posY: 
                 width: 25,
                 height: 5,
-                opcionesJson: @Html.Raw(string.IsNullOrEmpty(p.OpcionesJson) ? "[]" : JsonConvert.SerializeObject(p.OpcionesJson))
+                opcionesJson: 
             });
             </text>
         }
 
         // Archivos temporales subidos
         var tempFiles = [];
-        @if (tempFiles != null)
+        
         {
             foreach (var tf in tempFiles)
             {
-                <text>tempFiles.push(@Html.Raw(JsonConvert.SerializeObject(tf)));</text>
+                <text>tempFiles.push(
             }
         }
 
         // Datos calificados (resultados en memoria)
         var resultadosAlumnos = [];
         var activeStudentIndex = -1;
-        var aiResultsJson = @Html.Raw(Session["AIGradingResults"] != null ? Session["AIGradingResults"].ToString() : "null");
+        var aiResultsJson = 
 
         // Iniciar procesamiento al cargar
         window.addEventListener('load', function() {
@@ -413,7 +112,7 @@
 
                 try {
                     // Cargar PDF del alumno
-                    var fileUrl = '@Url.Action("GetExamenPdf", "Examen")' + '?filename=' + encodeURIComponent(fileName) + '&isTemp=true';
+                    var fileUrl = '
                     var pdf = await pdfjsLib.getDocument(fileUrl).promise;
                     var page = await pdf.getPage(1); // Escaneamos la primera página para OMR/OCR nombre
                     
@@ -625,7 +324,7 @@
                     <div class="item-row">
                         <div style="display:flex; align-items:center; gap:8px;">
                             ${statusIcon}
-                            <strong style="font-size:14px; color:${res.tieneObservacion ? '#ff5252' : 'var(--text-color)'};">${displayName}</strong>
+                            <strong style="font-size:14px; color:${res.tieneObservacion ? '#ff5252' : '#ffffff'};">${displayName}</strong>
                         </div>
                         <span class="grade-badge" style="font-size:15px;">${score.toFixed(1)}</span>
                     </div>
@@ -712,23 +411,9 @@
             var warning = document.getElementById("warning-match-el");
             warning.style.display = res.tieneObservacion ? "block" : "none";
 
-            // UX: Ocultar o cambiar botón de "Guardar y Siguiente" si es el último registro
-            var btnSiguiente = document.getElementById("btn-guardar-siguiente");
-            if (btnSiguiente) {
-                if (idx >= resultadosAlumnos.length - 1) {
-                    btnSiguiente.style.display = "none";
-                } else {
-                    btnSiguiente.style.display = "block";
-                }
-            }
-
             // 4. Renderizar PDF del alumno en la vista previa
             var tempName = res.tempFilePath ? res.tempFilePath.split('/').pop() : encodeURIComponent(res.fileName);
-            var fileUrl = '@Url.Action("GetExamenPdf", "Examen")' + '?filename=' + tempName + '&folderType=alumnos';
-            renderPdfPreview(fileUrl);
-        }
-
-        // Renderizar el desglose de preguntas
+            var fileUrl = '
         function renderAnswersVerifyList(res) {
             var container = document.getElementById("answers-verify-list-el");
             container.innerHTML = "";
@@ -952,7 +637,7 @@
         // 5. FLUJO DE SELLADO INTERACTIVO
         // ============================================
         var selloModoActivo = false;
-        var selloGlobal = { x: @Model.StampX, y: @Model.StampY, w: @Model.StampWidth, h: @Model.StampHeight };
+        var selloGlobal = { x: 
         if (selloGlobal.w === 0) selloGlobal = { x: 50, y: 50, w: 20, h: 10 }; // Default if empty
 
         function toggleSelloModo() {
@@ -1214,10 +899,10 @@
             closeMatricularConfirm();
 
             var formData = new URLSearchParams();
-            formData.append('examenId', '@Model.Id');
+            formData.append('examenId', '
             formData.append('nombreCompleto', nombreLeido);
 
-            fetch('@Url.Action("RegistrarAlumnoRapido", "Examen")', {
+            fetch('
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData
@@ -1301,11 +986,11 @@
             loader.style.display = "flex";
 
             var data = {
-                examenId: '@Model.Id',
+                examenId: '
                 resultadosJson: JSON.stringify(resultadosAlumnos)
             };
 
-            fetch('@Url.Action("GuardarNotas", "Examen")', {
+            fetch('
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -1316,7 +1001,7 @@
             .then(res => {
                 if (res.success) {
                     fill.style.width = "100%";
-                    location.href = '@Url.Action("Detail", "Examen", new { id = Model.Id })';
+                    location.href = '
                 } else {
                     loader.style.display = "none";
                     alert(res.message || "Error al guardar calificaciones.");
@@ -1327,5 +1012,4 @@
                 alert("Error de conexión con el servidor.");
             });
         }
-    </script>
-}
+    

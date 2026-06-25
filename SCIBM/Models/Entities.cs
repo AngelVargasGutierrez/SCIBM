@@ -356,6 +356,8 @@ namespace SCIBM.Models
 
         public double PosX { get; set; }
         public double PosY { get; set; }
+        public double Width { get; set; }
+        public double Height { get; set; }
 
         public string OpcionesJson { get; set; } // [{"label":"A","x":10,"y":20,"w":5,"h":5},...]
 

@@ -60,7 +60,7 @@ namespace SCIBM.Controllers
                 var escuelas = await db.EscuelasProfesionales
                     .Where(e => e.FacultadId == facultadId)
                     .OrderBy(e => e.Nombre)
-                    .Select(e => new { e.Id, Nombre = e.Siglas + "_" + e.Nombre })
+                    .Select(e => new { e.Id, Nombre = e.Nombre })
                     .ToListAsync();
 
                 return Json(escuelas, JsonRequestBehavior.AllowGet);
@@ -400,3 +400,4 @@ namespace SCIBM.Controllers
         }
     }
 }
+    

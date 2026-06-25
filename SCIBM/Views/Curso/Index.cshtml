@@ -50,7 +50,7 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        color: #ffffff;
+        color: var(--text-color);
     }
     .course-code {
         font-size: 13px;
@@ -65,8 +65,8 @@
         align-items: center;
         gap: 20px;
         padding: 12px 0;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-top: 1px solid var(--glass-border);
+        border-bottom: 1px solid var(--glass-border);
     }
     .stat-item {
         display: flex;
@@ -138,15 +138,15 @@
         display: flex;
         gap: 15px;
         margin-bottom: 20px;
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(128, 128, 128, 0.05);
         padding: 15px;
         border-radius: 12px;
-        border: 1px solid rgba(255,255,255,0.05);
+        border: 1px solid var(--glass-border);
     }
     .filter-input {
-        background: rgba(0,0,0,0.2);
-        border: 1px solid rgba(255,255,255,0.1);
-        color: white;
+        background: rgba(128, 128, 128, 0.05);
+        border: 1px solid var(--glass-border);
+        color: var(--text-color);
         padding: 8px 12px;
         border-radius: 6px;
         width: 100%;
@@ -179,7 +179,7 @@
     }
     
     .edit-btn {
-        color: white;
+        color: var(--text-color);
         background: none;
         border: none;
         font-size: 16px;
@@ -194,7 +194,7 @@
         transform: scale(1.1);
     }
     .delete-btn {
-        color: white;
+        color: var(--text-color);
         background: none;
         border: none;
         font-size: 16px;

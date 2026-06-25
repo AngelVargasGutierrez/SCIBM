@@ -5,8 +5,15 @@
 <html lang="es">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Iniciar Sesión - SCIBM UPT</title>
+    <!-- Evitar parpadeo blanco nativo del navegador -->
+    <meta name="color-scheme" content="light dark">
+    <script>
+        const savedTheme = localStorage.getItem('scibm-theme') || 'dark';
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+    </script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome -->
@@ -16,10 +23,31 @@
         :root {
             --upt-blue: #1A4B8D;
             --upt-gold: #CD9B37;
-            --bg-color: #ffffff;
+            --bg-color: #f0f4f8; /* Color pastel suave para evitar contraste blanco fuerte */
             --text-color: #333333;
             --text-muted: #666666;
             --box-shadow: 0 10px 30px rgba(26, 75, 141, 0.15);
+            --box-bg: #ffffff;
+            --box-border: var(--upt-gold);
+            --btn-bg: #ffffff;
+            --btn-text: #444444;
+            --info-bg: rgba(26, 75, 141, 0.03);
+            --info-border: rgba(26, 75, 141, 0.2);
+        }
+
+        [data-theme="dark"] {
+            --upt-blue: #48cae4;
+            --upt-gold: #ff9f1c;
+            --bg-color: #0b132b;
+            --text-color: #f1faee;
+            --text-muted: #a8dadc;
+            --box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            --box-bg: #1c2541;
+            --box-border: #48cae4;
+            --btn-bg: rgba(255,255,255,0.05);
+            --btn-text: #f1faee;
+            --info-bg: rgba(72, 202, 228, 0.05);
+            --info-border: rgba(72, 202, 228, 0.2);
         }
 
         * {
@@ -88,8 +116,8 @@
         .login-box {
             width: 450px;
             max-width: 90%;
-            background: #ffffff;
-            border: 2px solid var(--upt-gold);
+            background: var(--box-bg);
+            border: 2px solid var(--box-border);
             border-radius: 16px;
             padding: 40px;
             box-shadow: var(--box-shadow);
@@ -113,9 +141,9 @@
 
         /* GOOGLE BUTTON */
         .google-btn {
-            background: #ffffff;
-            color: #444;
-            border: 1px solid #ddd;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--text-muted);
             padding: 14px 24px;
             border-radius: 12px;
             font-size: 16px;
@@ -144,10 +172,10 @@
             font-size: 13px;
             color: var(--text-muted);
             line-height: 1.5;
-            background: rgba(26, 75, 141, 0.03);
+            background: var(--info-bg);
             padding: 12px;
             border-radius: 10px;
-            border: 1px dashed rgba(26, 75, 141, 0.2);
+            border: 1px dashed var(--info-border);
         }
         .domain-info strong {
             color: var(--upt-blue);
@@ -172,9 +200,34 @@
             font-size: 18px;
             color: var(--upt-gold);
         }
+        
+        .theme-toggle {
+            background: rgba(100, 223, 223, 0.1);
+            border: 1px solid var(--upt-blue);
+            color: var(--upt-blue);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .theme-toggle:hover {
+            transform: scale(1.1) rotate(15deg);
+        }
     </style>
 </head>
 <body>
+
+    <!-- TOGGLE BUTTON -->
+    <div style="position: absolute; top: 20px; right: 20px; z-index: 100;">
+        <button class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">
+            <i class="fa-solid fa-moon" id="theme-icon"></i>
+        </button>
+    </div>
 
     <div class="bg-shape shape-1"></div>
     <div class="bg-shape shape-2"></div>
@@ -210,5 +263,35 @@
 
     </div>
 
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.removeAttribute('data-theme');
+                localStorage.setItem('scibm-theme', 'light');
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                localStorage.setItem('scibm-theme', 'dark');
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const icon = document.getElementById('theme-icon');
+            const savedTheme = localStorage.getItem('scibm-theme') || 'dark';
+            if (savedTheme === 'dark') {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            } else {
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            }
+        });
+    </script>
 </body>
 </html>

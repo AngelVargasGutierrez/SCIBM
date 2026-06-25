@@ -1,0 +1,155 @@
+=== GuardarNotas llamado: 2026-06-24 03:00:35 ===
+JSON recibido (primeros 2000 chars): [{"tempFilePath":"/App_Data/Examenes/Alumnos/e65b4baa-f06e-4c89-b516-70f3eb2015ac_Image_00007 (1).pdf","fileName":"Image_00007 (1).pdf","nombreAlumnoRaw":"Alanoca Miranda Emily","alumnoMatriculadoId":"7adc844f-745c-43e2-a16e-bf426d4c0526","tieneObservacion":false,"observacion":"","respuestas":[{"numeroPregunta":1,"inciso":"a","respuestaDada":"V"},{"numeroPregunta":1,"inciso":"b","respuestaDada":"V"},{"numeroPregunta":1,"inciso":"c","respuestaDada":""},{"numeroPregunta":1,"inciso":"d","respuestaDada":"V"},{"numeroPregunta":1,"inciso":"e","respuestaDada":"V"},{"numeroPregunta":2,"inciso":"1","respuestaDada":"D"},{"numeroPregunta":2,"inciso":"2","respuestaDada":"B"},{"numeroPregunta":2,"inciso":"3","respuestaDada":"C"},{"numeroPregunta":2,"inciso":"4","respuestaDada":"B"},{"numeroPregunta":2,"inciso":"5","respuestaDada":"B"},{"numeroPregunta":2,"inciso":"6","respuestaDada":"B"},{"numeroPregunta":2,"inciso":"7","respuestaDada":"A"},{"numeroPregunta":3,"inciso":"a","respuestaDada":"View State"},{"numeroPregunta":3,"inciso":"b","respuestaDada":"Git merge"},{"numeroPregunta":3,"inciso":"c","respuestaDada":"Git"},{"numeroPregunta":3,"inciso":"d","respuestaDada":"puerto dinamico"},{"numeroPregunta":3,"inciso":"e","respuestaDada":"aspx"},{"numeroPregunta":3,"inciso":"f","respuestaDada":"Windows Authentication"},{"numeroPregunta":3,"inciso":"g","respuestaDada":"Viow"},{"numeroPregunta":3,"inciso":"h","respuestaDada":"Publish Profile"},{"numeroPregunta":3,"inciso":"i","respuestaDada":"Layout. cshtml"},{"numeroPregunta":3,"inciso":"j","respuestaDada":"Index. Cshtml"},{"numeroPregunta":4,"inciso":"a","respuestaDada":"iis reset / status netstat \\7 / find","esCorrectoManual":true},{"numeroPregunta":4,"inciso":"b","respuestaDada":"public ActionResult Listar cis estudiante obj = new cls Estudiante (return view) var obj = newals estudiante return View (obj)","esCorrectoManual":true}],"stamp":{"x":82.07705192629815,"y":10.56547619047619,"w":8.584589614740368,"h":4.017857142857143},"no
+--- Alumno: Alanoca Miranda Emily ---
+  Pregunta 1 Inciso=a RespDada=V EsCorrectoManual=
+  Pregunta 1 Inciso=b RespDada=V EsCorrectoManual=
+  Pregunta 1 Inciso=c RespDada= EsCorrectoManual=
+  Pregunta 1 Inciso=d RespDada=V EsCorrectoManual=
+  Pregunta 1 Inciso=e RespDada=V EsCorrectoManual=
+  Pregunta 2 Inciso=1 RespDada=D EsCorrectoManual=
+  Pregunta 2 Inciso=2 RespDada=B EsCorrectoManual=
+  Pregunta 2 Inciso=3 RespDada=C EsCorrectoManual=
+  Pregunta 2 Inciso=4 RespDada=B EsCorrectoManual=
+  Pregunta 2 Inciso=5 RespDada=B EsCorrectoManual=
+  Pregunta 2 Inciso=6 RespDada=B EsCorrectoManual=
+  Pregunta 2 Inciso=7 RespDada=A EsCorrectoManual=
+  Pregunta 3 Inciso=a RespDada=View State EsCorrectoManual=
+  Pregunta 3 Inciso=b RespDada=Git merge EsCorrectoManual=
+  Pregunta 3 Inciso=c RespDada=Git EsCorrectoManual=
+  Pregunta 3 Inciso=d RespDada=puerto dinamico EsCorrectoManual=
+  Pregunta 3 Inciso=e RespDada=aspx EsCorrectoManual=
+  Pregunta 3 Inciso=f RespDada=Windows Authentication EsCorrectoManual=
+  Pregunta 3 Inciso=g RespDada=Viow EsCorrectoManual=
+  Pregunta 3 Inciso=h RespDada=Publish Profile EsCorrectoManual=
+  Pregunta 3 Inciso=i RespDada=Layout. cshtml EsCorrectoManual=
+  Pregunta 3 Inciso=j RespDada=Index. Cshtml EsCorrectoManual=
+  Pregunta 4 Inciso=a RespDada=iis reset / status netstat \7 / find EsCorrectoManual=True
+  Pregunta 4 Inciso=b RespDada=public ActionResult Listar cis estudiante obj = new cls Estudiante (return view) var obj = newals estudiante return View (obj) EsCorrectoManual=True
+--- Alumno: Huellpa Corpoch, Edo Alomo ---
+  Pregunta 1 Inciso=a RespDada=V EsCorrectoManual=
+  Pregunta 1 Inciso=b RespDada=V EsCorrectoManual=
+  Pregunta 1 Inciso=c RespDada=V EsCorrectoManual=
+  Pregunta 1 Inciso=d RespDada=F EsCorrectoManual=
+  Pregunta 1 Inciso=e RespDada=V EsCorrectoManual=
+  Pregunta 2 Inciso=a RespDada=C EsCorrectoManual=
+  Pregunta 2 Inciso=b RespDada=C EsCorrectoManual=
+  Pregunta 2 Inciso=c RespDada=C EsCorrectoManual=
+  Pregunta 2 Inciso=d RespDada=B EsCorrectoManual=
+  Pregunta 2 Inciso=e RespDada=B EsCorrectoManual=
+  Pregunta 2 Inciso=f RespDada=B EsCorrectoManual=
+  Pregunta 2 Inciso=g RespDada=A EsCorrectoManual=
+  Pregunta 3 Inciso=a RespDada=Steto Pangat EsCorrectoManual=
+  Pregunta 3 Inciso=b RespDada=git nege EsCorrectoManual=True
+  Pregunta 3 Inciso=c RespDada=git EsCorrectoManual=
+  Pregunta 3 Inciso=d RespDada=localhost EsCorrectoManual=
+  Pregunta 3 Inciso=e RespDada=.Sspx. EsCorrectoManual=True
+  Pregunta 3 Inciso=f RespDada=basic Authaticato EsCorrectoManual=
+  Pregunta 3 Inciso=g RespDada=View() EsCorrectoManual=
+  Pregunta 3 Inciso=h RespDada= EsCorrectoManual=
+  Pregunta 3 Inciso=i RespDada= EsCorrectoManual=
+  Pregunta 3 Inciso=j RespDada= EsCorrectoManual=
+  Pregunta 4 Inciso=a RespDada= EsCorrectoManual=False
+  Pregunta 4 Inciso=b RespDada= EsCorrectoManual=False
+--- Alumno: Ramos Garcia Ana Paula ---
+  Pregunta 1 Inciso=a RespDada=V EsCorrectoManual=
+  Pregunta 1 Inciso=b RespDada=V EsCorrectoManual=
+  Pregunta 1 Inciso=c RespDada=V EsCorrectoManual=
+  Pregunta 1 Inciso=d RespDada=V EsCorrectoManual=
+  Pregunta 1 Inciso=e RespDada=V EsCorrectoManual=
+  Pregunta 2 Inciso=a RespDada=c EsCorrectoManual=
+  Pregunta 2 Inciso=b RespDada=b EsCorrectoManual=
+  Pregunta 2 Inciso=c RespDada=c EsCorrectoManual=
+  Pregunta 2 Inciso=d RespDada=d EsCorrectoManual=
+  Pregunta 2 Inciso=e RespDada=b EsCorrectoManual=
+  Pregunta 2 Inciso=f RespDada=e EsCorrectoManual=
+  Pregunta 2 Inciso=g RespDada=a EsCorrectoManual=
+  Pregunta 3 Inciso=a RespDada=View state EsCorrectoManual=
+  Pregunta 3 Inciso=b RespDada=git merte EsCorrectoManual=True
+  Pregunta 3 Inciso=c RespDada=git EsCorrectoManual=
+  Pregunta 3 Inciso=d RespDada=generalmente 44300 o superior EsCorrectoManual=
+  Pregunta 3 Inciso=e RespDada=.ASPx EsCorrectoManual=
+  Pregunta 3 Inciso=f RespDada=anónima, Básica windows EsCorrectoManual=
+  Pregunta 3 Inciso=g RespDada=view () EsCorrectoManual=False
+  Pregunta 3 Inciso=h RespDada=C.publishsettings. EsCorrectoManual=True
+  Pregunta 3 Inciso=i RespDada=_Layout.cshtml EsCorrectoManual=
+  Pregunta 3 Inciso=j RespDada=Index.cshtml EsCorrectoManual=
+  Pregunta 4 Inciso=a RespDada=1.- Abrir el navegador y acceder a http://localhost 2.. Revisor que el servicio world wide web publishing service (w3src) iniciado 3.. Abrir el Administrador de lls (inetmar) y verificar que el servidor esté activo. 4. Ejecuta lisreset / status desde la console. EsCorrectoManual=True
+  Pregunta 4 Inciso=b RespDada=cls Estudiante obj = new cls Estudiante(); var obj = new cls Estudiante (); EsCorrectoManual=True
+--- CALCULO para Alanoca Miranda Emily ---
+  P1-a: RespCorrecta=V RespDada=V AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=0.5
+  P1-b: RespCorrecta=V RespDada=V AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=1
+  P1-c: RespCorrecta=V RespDada= AI=False ManualOverride= Final=False Puntaje=0.5 SumaHastaAhora=1
+  P1-d: RespCorrecta=F RespDada=V AI=False ManualOverride= Final=False Puntaje=0.5 SumaHastaAhora=1
+  P1-e: RespCorrecta=V RespDada=V AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=1.5
+  P2-1: RespCorrecta=c RespDada=D AI=False ManualOverride= Final=False Puntaje=0.5 SumaHastaAhora=1.5
+  P2-2: RespCorrecta=e RespDada=B AI=False ManualOverride= Final=False Puntaje=0.5 SumaHastaAhora=1.5
+  P2-3: RespCorrecta=c RespDada=C AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=2
+  P2-4: RespCorrecta=b RespDada=B AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=2.5
+  P2-5: RespCorrecta=b RespDada=B AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=3
+  P2-6: RespCorrecta=b RespDada=B AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=3.5
+  P2-7: RespCorrecta=a RespDada=A AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=4
+  P3-a: RespCorrecta=TempData RespDada=View State AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=4
+  P3-b: RespCorrecta=git merge RespDada=Git merge AI=True ManualOverride= Final=True Puntaje=1 SumaHastaAhora=5
+  P3-c: RespCorrecta=git status RespDada=Git AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=5
+  P3-d: RespCorrecta= puerto 44300 / 44xxx (HTTPS) o puerto  5000/5001 (.NET) RespDada=puerto dinamico AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=5
+  P3-e: RespCorrecta= .cshtml / .aspx RespDada=aspx AI=True ManualOverride= Final=True Puntaje=1 SumaHastaAhora=6
+  P3-f: RespCorrecta=Windows Authentication, Basic Authentication,  Anonymous Authentication RespDada=Windows Authentication AI=True ManualOverride= Final=True Puntaje=1 SumaHastaAhora=7
+  P3-g: RespCorrecta= return View() RespDada=Viow AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=7
+  P3-h: RespCorrecta=Publish  Profile (.publishsettings) RespDada=Publish Profile AI=True ManualOverride= Final=True Puntaje=1 SumaHastaAhora=8
+  P3-i: RespCorrecta= _Layout.cshtml RespDada=Layout. cshtml AI=True ManualOverride= Final=True Puntaje=1 SumaHastaAhora=9
+  P3-j: RespCorrecta= RouteConfig.cs (o en el HomeController, acción Index → Index.cshtml) RespDada=Index. Cshtml AI=True ManualOverride= Final=True Puntaje=1 SumaHastaAhora=10
+  P4-a: RespCorrecta= RespDada=iis reset / status netstat \7 / find AI=False ManualOverride=True Final=True Puntaje=1 SumaHastaAhora=11
+  P4-b: RespCorrecta= RespDada=public ActionResult Listar cis estudiante obj = new cls Estudiante (return view) var obj = newals estudiante return View (obj) AI=False ManualOverride=True Final=True Puntaje=3 SumaHastaAhora=14
+  === NOTA FINAL CALCULADA: 14 ===
+--- CALCULO para Huellpa Corpoch, Edo Alomo ---
+  P1-a: RespCorrecta=V RespDada=V AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=0.5
+  P1-b: RespCorrecta=V RespDada=V AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=1
+  P1-c: RespCorrecta=V RespDada=V AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=1.5
+  P1-d: RespCorrecta=F RespDada=F AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=2
+  P1-e: RespCorrecta=V RespDada=V AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=2.5
+  P2-a: PREGUNTA NO ENCONTRADA EN BD!
+  P2-b: PREGUNTA NO ENCONTRADA EN BD!
+  P2-c: PREGUNTA NO ENCONTRADA EN BD!
+  P2-d: PREGUNTA NO ENCONTRADA EN BD!
+  P2-e: PREGUNTA NO ENCONTRADA EN BD!
+  P2-f: PREGUNTA NO ENCONTRADA EN BD!
+  P2-g: PREGUNTA NO ENCONTRADA EN BD!
+  P3-a: RespCorrecta=TempData RespDada=Steto Pangat AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=2.5
+  P3-b: RespCorrecta=git merge RespDada=git nege AI=False ManualOverride=True Final=True Puntaje=1 SumaHastaAhora=3.5
+  P3-c: RespCorrecta=git status RespDada=git AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=3.5
+  P3-d: RespCorrecta= puerto 44300 / 44xxx (HTTPS) o puerto  5000/5001 (.NET) RespDada=localhost AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=3.5
+  P3-e: RespCorrecta= .cshtml / .aspx RespDada=.Sspx. AI=False ManualOverride=True Final=True Puntaje=1 SumaHastaAhora=4.5
+  P3-f: RespCorrecta=Windows Authentication, Basic Authentication,  Anonymous Authentication RespDada=basic Authaticato AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=4.5
+  P3-g: RespCorrecta= return View() RespDada=View() AI=True ManualOverride= Final=True Puntaje=1 SumaHastaAhora=5.5
+  P3-h: RespCorrecta=Publish  Profile (.publishsettings) RespDada= AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=5.5
+  P3-i: RespCorrecta= _Layout.cshtml RespDada= AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=5.5
+  P3-j: RespCorrecta= RouteConfig.cs (o en el HomeController, acción Index → Index.cshtml) RespDada= AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=5.5
+  P4-a: RespCorrecta= RespDada= AI=True ManualOverride=False Final=False Puntaje=1 SumaHastaAhora=5.5
+  P4-b: RespCorrecta= RespDada= AI=True ManualOverride=False Final=False Puntaje=3 SumaHastaAhora=5.5
+  === NOTA FINAL CALCULADA: 5.5 ===
+--- CALCULO para Ramos Garcia Ana Paula ---
+  P1-a: RespCorrecta=V RespDada=V AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=0.5
+  P1-b: RespCorrecta=V RespDada=V AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=1
+  P1-c: RespCorrecta=V RespDada=V AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=1.5
+  P1-d: RespCorrecta=F RespDada=V AI=False ManualOverride= Final=False Puntaje=0.5 SumaHastaAhora=1.5
+  P1-e: RespCorrecta=V RespDada=V AI=True ManualOverride= Final=True Puntaje=0.5 SumaHastaAhora=2
+  P2-a: PREGUNTA NO ENCONTRADA EN BD!
+  P2-b: PREGUNTA NO ENCONTRADA EN BD!
+  P2-c: PREGUNTA NO ENCONTRADA EN BD!
+  P2-d: PREGUNTA NO ENCONTRADA EN BD!
+  P2-e: PREGUNTA NO ENCONTRADA EN BD!
+  P2-f: PREGUNTA NO ENCONTRADA EN BD!
+  P2-g: PREGUNTA NO ENCONTRADA EN BD!
+  P3-a: RespCorrecta=TempData RespDada=View state AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=2
+  P3-b: RespCorrecta=git merge RespDada=git merte AI=False ManualOverride=True Final=True Puntaje=1 SumaHastaAhora=3
+  P3-c: RespCorrecta=git status RespDada=git AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=3
+  P3-d: RespCorrecta= puerto 44300 / 44xxx (HTTPS) o puerto  5000/5001 (.NET) RespDada=generalmente 44300 o superior AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=3
+  P3-e: RespCorrecta= .cshtml / .aspx RespDada=.ASPx AI=True ManualOverride= Final=True Puntaje=1 SumaHastaAhora=4
+  P3-f: RespCorrecta=Windows Authentication, Basic Authentication,  Anonymous Authentication RespDada=anónima, Básica windows AI=False ManualOverride= Final=False Puntaje=1 SumaHastaAhora=4
+  P3-g: RespCorrecta= return View() RespDada=view () AI=True ManualOverride=False Final=False Puntaje=1 SumaHastaAhora=4
+  P3-h: RespCorrecta=Publish  Profile (.publishsettings) RespDada=C.publishsettings. AI=False ManualOverride=True Final=True Puntaje=1 SumaHastaAhora=5
+  P3-i: RespCorrecta= _Layout.cshtml RespDada=_Layout.cshtml AI=True ManualOverride= Final=True Puntaje=1 SumaHastaAhora=6
+  P3-j: RespCorrecta= RouteConfig.cs (o en el HomeController, acción Index → Index.cshtml) RespDada=Index.cshtml AI=True ManualOverride= Final=True Puntaje=1 SumaHastaAhora=7
+  P4-a: RespCorrecta= RespDada=1.- Abrir el navegador y acceder a http://localhost 2.. Revisor que el servicio world wide web publishing service (w3src) iniciado 3.. Abrir el Administrador de lls (inetmar) y verificar que el servidor esté activo. 4. Ejecuta lisreset / status desde la console. AI=False ManualOverride=True Final=True Puntaje=1 SumaHastaAhora=8
+  P4-b: RespCorrecta= RespDada=cls Estudiante obj = new cls Estudiante(); var obj = new cls Estudiante (); AI=False ManualOverride=True Final=True Puntaje=3 SumaHastaAhora=11
+  === NOTA FINAL CALCULADA: 11 ===

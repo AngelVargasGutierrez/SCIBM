@@ -23,7 +23,7 @@
     
     .panel-divider {
         height: 1px;
-        background: rgba(255, 255, 255, 0.05);
+        background: var(--glass-border);
         margin: 10px 0;
     }
 
@@ -58,15 +58,15 @@
         font-size: 13px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 2px solid var(--glass-border);
     }
     td {
         padding: 14px 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid var(--glass-border);
         font-size: 14px;
     }
     tr:hover td {
-        background: rgba(255, 255, 255, 0.01);
+        background: rgba(128, 128, 128, 0.05);
     }
     
     .grade-badge {
@@ -105,7 +105,7 @@
         padding: 20px 10px;
         border: 2px dashed rgba(100, 223, 223, 0.3);
         border-radius: 12px;
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(128, 128, 128, 0.05);
         cursor: pointer;
         transition: all 0.2s ease-in-out;
         color: var(--text-muted);
@@ -115,7 +115,7 @@
     .file-upload-custom:hover {
         background: rgba(100, 223, 223, 0.08);
         border-color: var(--primary-glow);
-        color: white;
+        color: var(--text-color);
     }
     .file-upload-custom i {
         font-size: 28px;
@@ -151,6 +151,43 @@
     }
     .breadcrumb-current {
         color: var(--primary-glow);
+    }
+
+    /* ICON BUTTONS */
+    .btn-action-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid var(--glass-border);
+        background: rgba(128, 128, 128, 0.08);
+        color: var(--text-muted);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        padding: 0;
+    }
+    .btn-action-icon:hover {
+        transform: translateY(-2px) scale(1.05);
+    }
+    .btn-action-eye:hover {
+        background: rgba(38, 208, 206, 0.2);
+        border-color: #26D0CE;
+        color: #26D0CE;
+        box-shadow: 0 4px 12px rgba(38, 208, 206, 0.3);
+    }
+    .btn-action-add:hover {
+        background: rgba(46, 196, 182, 0.2);
+        border-color: #2ec4b6;
+        color: #2ec4b6;
+        box-shadow: 0 4px 12px rgba(46, 196, 182, 0.3);
+    }
+    .btn-action-trash:hover {
+        background: rgba(255, 82, 82, 0.2);
+        border-color: #ff5252;
+        color: #ff5252;
+        box-shadow: 0 4px 12px rgba(255, 82, 82, 0.3);
     }
 </style>
 
@@ -194,14 +231,14 @@
         <!-- MODAL DE MATRICULACION -->
         <div class="modal-overlay" id="modal-matricular">
             <div class="modal-box" style="max-width: 450px;">
-                <div class="modal-header" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                <div class="modal-header" style="border-bottom: 1px solid var(--glass-border); padding-bottom: 15px;">
                     <h3 style="color: #2ec4b6;"><i class="fa-solid fa-user-plus"></i> Matricular Alumno</h3>
                     <button type="button" class="modal-close" onclick="cerrarModalMatricular()"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div style="padding: 20px 0;">
                     <p style="color: var(--text-muted); font-size: 15px; margin-bottom: 15px;">¿Deseas agregar a este alumno a la lista oficial de la sección?</p>
-                    <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
-                        <strong style="color: #fff; font-size: 16px;" id="lbl-nombre-matricular">---</strong>
+                    <div style="background: rgba(128,128,128,0.05); padding: 15px; border-radius: 8px; border: 1px solid var(--glass-border);">
+                        <strong style="color: var(--text-color); font-size: 16px;" id="lbl-nombre-matricular">---</strong>
                     </div>
                 </div>
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
@@ -231,8 +268,9 @@
 
         <!-- TABLA DE CALIFICACIONES DE ALUMNOS -->
         <div class="glass-card">
-            <div class="panel-header">
-                <h2>Calificaciones <span>@(calificaciones != null ? calificaciones.Count() : 0)</span></h2>
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 style="font-size: 21px; font-weight: 600; margin: 0;">Calificaciones</h2>
+                <span class="badge" style="background: rgba(255, 255, 255, 0.1); color: white; font-size: 13px;">Cantd. @(calificaciones != null ? calificaciones.Count() : 0)</span>
             </div>
 
             @if (calificaciones == null || !calificaciones.Any())
@@ -255,7 +293,7 @@
                                 <th>Observación</th>
                                 <th>Nota</th>
                                 <th>Rendimiento</th>
-                                <th style="width: 50px;"></th>
+                                <th style="text-align: right;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -311,17 +349,17 @@
                                             @c.EstadoRendimiento
                                         </span>
                                     </td>
-                                    <td>
-                                        <a href="@Url.Action("ViewPdf", "Examen", new { id = c.Id })" target="_blank" class="btn btn-outline-info" style="padding: 4px 8px; margin-right: 4px;" title="Ver PDF Corregido">
+                                    <td style="text-align: right; white-space: nowrap;">
+                                        <button type="button" onclick="openPdfPreview('@Url.Action("ViewPdf", "Examen", new { id = c.Id })', 'Examen de @(c.AlumnoMatriculadoId != null ? c.AlumnoMatriculado.NombreCompleto : c.NombreAlumno)')" class="btn-action-icon btn-action-eye" style="margin-right: 4px;" title="Ver PDF Corregido en Popup">
                                             <i class="fa-solid fa-eye"></i>
-                                        </a>
+                                        </button>
                                         @if (c.AlumnoMatriculadoId == null)
                                         {
-                                            <button class="btn btn-outline-success" style="padding: 4px 8px; margin-right: 4px;" onclick="abrirModalMatricular('@c.Id', '@c.NombreAlumno')" title="Matricular y Vincular a este alumno">
+                                            <button type="button" class="btn-action-icon btn-action-add" style="margin-right: 4px;" onclick="abrirModalMatricular('@c.Id', '@c.NombreAlumno')" title="Matricular y Vincular a este alumno">
                                                 <i class="fa-solid fa-user-plus"></i>
                                             </button>
                                         }
-                                        <button class="btn btn-outline-danger" style="padding: 4px 8px;" onclick="abrirModalEliminar('@c.Id', '@(c.AlumnoMatriculadoId != null ? c.AlumnoMatriculado.NombreCompleto : c.NombreAlumno)')" title="Eliminar este registro">
+                                        <button type="button" class="btn-action-icon btn-action-trash" onclick="abrirModalEliminar('@c.Id', '@(c.AlumnoMatriculadoId != null ? c.AlumnoMatriculado.NombreCompleto : c.NombreAlumno)')" title="Eliminar este registro">
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
                                     </td>
@@ -380,13 +418,13 @@
 
                 <!-- BOTONES DE GESTION -->
                 <div style="display: flex; flex-direction: column; gap: 10px;">
-                    <button type="button" class="btn btn-secondary" onclick="openUploadModal()" style="width: 100%; padding: 10px; font-size: 13px; background: rgba(255,255,255,0.05);">
+                    <button type="button" class="btn btn-secondary" onclick="openUploadModal()" style="width: 100%; padding: 10px; font-size: 13px; background: rgba(128,128,128,0.08);">
                         <i class="fa-solid fa-upload"></i> Subir PDF y Analizar
                     </button>
                     
                     @if (totalPreguntas > 0)
                     {
-                        <a href="@Url.Action("EditSolucionario", "Examen", new { id = Model.Id })" class="btn btn-secondary" style="width: 100%; padding: 10px; font-size: 13px; background: rgba(255,255,255,0.05);">
+                        <a href="@Url.Action("EditSolucionario", "Examen", new { id = Model.Id })" class="btn btn-secondary" style="width: 100%; padding: 10px; font-size: 13px; background: rgba(128,128,128,0.08);">
                             <i class="fa-solid fa-pen"></i> Editar Solucionario Manual
                         </a>
                     }
@@ -443,11 +481,11 @@
             <div class="form-group" style="margin-top: 10px;">
                 <label>Tipo de Documento</label>
                 <div style="display: flex; gap: 15px; margin-top: 8px; margin-bottom: 20px;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: white;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-color);">
                         <input type="radio" name="tipoDocumento" value="vacio" checked onchange="updateFormAction()" style="accent-color: var(--primary-glow);" />
                         Examen Vacío (Plantilla)
                     </label>
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: white;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-color);">
                         <input type="radio" name="tipoDocumento" value="lleno" onchange="updateFormAction()" style="accent-color: var(--primary-glow);" />
                         Examen Lleno (Solucionario)
                     </label>
@@ -485,11 +523,11 @@
 <div class="modal-overlay" id="delete-file-confirm-modal">
     <div class="modal-box" style="max-width: 400px; text-align: center; padding: 30px;">
         <i class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff5252; margin-bottom: 15px;"></i>
-        <h3 style="margin-bottom: 10px; color: white;">Quitar Archivo</h3>
+        <h3 style="margin-bottom: 10px; color: var(--text-color);">Quitar Archivo</h3>
         <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">¿Estás seguro de quitar este archivo de la lista para calificar?</p>
         <div style="display: flex; gap: 10px; justify-content: center;">
             <button type="button" class="btn btn-secondary" onclick="closeConfirmRemoveFile()">Cancelar</button>
-            <button type="button" class="btn btn-primary" onclick="proceedRemoveFile()" style="background: #ff5252; border-color: #ff5252; color: white;">Quitar Archivo</button>
+            <button type="button" class="btn btn-primary" onclick="proceedRemoveFile()" style="background: #ff5252; border-color: #ff5252; color: var(--text-color);">Quitar Archivo</button>
         </div>
     </div>
 </div>
@@ -497,9 +535,9 @@
 <!-- MODAL VISOR PDF PREVIEW -->
 <div class="modal-overlay" id="pdf-preview-modal">
     <div class="modal-box" style="width: 90vw; height: 90vh; max-width: 1200px; padding: 0; display: flex; flex-direction: column; overflow: hidden; background: #222;">
-        <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); background: #1a1a1a;">
-            <h3 id="pdf-preview-title" style="font-size: 16px; margin: 0;">Vista Previa del Archivo</h3>
-            <button type="button" class="modal-close" onclick="closePdfPreview()" style="color: white; font-size: 20px;"><i class="fa-solid fa-xmark"></i></button>
+        <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid var(--glass-border); background: #1a1a1a;">
+            <h3 id="pdf-preview-title" style="font-size: 16px; margin: 0; color: #ffffff;">Vista Previa del Archivo</h3>
+            <button type="button" class="modal-close" onclick="closePdfPreview()" style="color: #ffffff; font-size: 20px;"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div style="flex: 1; position: relative;">
             <iframe id="pdf-preview-frame" style="width: 100%; height: 100%; border: none;"></iframe>
@@ -679,10 +717,10 @@
                     pdfObjectUrls.push(objUrl);
 
                     const card = document.createElement("div");
-                    card.style.cssText = "display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);";
+                    card.style.cssText = "display: flex; align-items: center; justify-content: space-between; background: rgba(128,128,128,0.08); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--glass-border);";
                     
                     const nameSpan = document.createElement("span");
-                    nameSpan.style.cssText = "font-size: 13px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;";
+                    nameSpan.style.cssText = "font-size: 13px; color: var(--text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;";
                     nameSpan.innerText = file.name;
                     nameSpan.title = file.name;
 

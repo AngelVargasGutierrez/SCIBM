@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data.Entity;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
@@ -18,6 +20,35 @@ namespace SCIBM.Controllers
 {
     public class ExamenController : Controller
     {
+        // Normalizar texto igual que el frontend JS: mayúsculas, sin tildes, solo alfanumérico
+        private static string NormalizarTexto(string texto)
+        {
+            if (string.IsNullOrEmpty(texto)) return "";
+            // Pasar a mayúsculas
+            string result = texto.ToUpperInvariant();
+            // Quitar tildes/acentos (NFD + remover combining marks)
+            result = new string(result.Normalize(NormalizationForm.FormD)
+                .Where(c => CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                .ToArray());
+            // Dejar solo letras y dígitos (quitar espacios, puntos, comas, guiones, etc.)
+            result = Regex.Replace(result, @"[^A-Z0-9]", "");
+            return result.Trim();
+        }
+
+        // Comparación flexible: exacta normalizada + substring si ambos >= 4 chars
+        private static bool CompararRespuestaFlexible(string respuestaCorrecta, string respuestaDada)
+        {
+            string corrNorm = NormalizarTexto(respuestaCorrecta);
+            string dadaNorm = NormalizarTexto(respuestaDada);
+            if (corrNorm == dadaNorm) return true;
+            // Flexibilidad: si ambas son >= 4 chars, permitir que una contenga a la otra
+            if (corrNorm.Length >= 4 && dadaNorm.Length >= 4)
+            {
+                if (corrNorm.Contains(dadaNorm) || dadaNorm.Contains(corrNorm)) return true;
+            }
+            return false;
+        }
+
         // Soporte para Google OAuth Access Token
         private async Task<string> GetValidAccessTokenAsync(ScibmContext db, string email)
         {
@@ -968,6 +999,10 @@ Reglas del JSON:
                             {
                                 string jsonResponse = await gemini.AnalyzePdfAsync(physicalPath, prompt);
 
+                                // DEBUG: Guardar raw output de la IA para ver por qué ignora la segunda sección en lote
+                                string debugPath = Server.MapPath("~/App_Data/debug_gemini_upload.txt");
+                                System.IO.File.AppendAllText(debugPath, $"\n\n=== EXAMEN: {file.FileName} ({DateTime.Now}) ===\n{jsonResponse}\n");
+
                                 // Limpiar posibles bloques de markdown que devuelve Gemini
                                 jsonResponse = jsonResponse.Replace("```json", "").Replace("```", "").Trim();
 
@@ -990,11 +1025,55 @@ Reglas del JSON:
 
                                 // Adaptar al formato que espera GradeOverview.cshtml
                                 var respuestasFormatoJS = new List<object>();
+                                
                                 foreach (var r in resultadoAlumno.Respuestas)
                                 {
+                                    string finalInciso = r.Inciso;
+
+                                    if (!string.IsNullOrEmpty(r.Inciso))
+                                    {
+                                        // Buscar los incisos válidos para esta pregunta en la Base de Datos
+                                        var hijosDb = examen.Preguntas
+                                            .Where(h => h.PreguntaPadreId != null && h.PreguntaPadre.NumeroPregunta == r.NumeroPregunta)
+                                            .OrderBy(h => h.Inciso)
+                                            .ToList();
+
+                                        if (hijosDb.Any())
+                                        {
+                                            // 1. Intentar match exacto (ignorar mayúsculas)
+                                            var matchDb = hijosDb.FirstOrDefault(h => string.Equals(h.Inciso, r.Inciso, StringComparison.OrdinalIgnoreCase));
+                                            
+                                            if (matchDb == null)
+                                            {
+                                                // 2. Si Gemini mandó un número (ej: "1", "2") pero la BD esperaba letras ("a", "b")
+                                                if (int.TryParse(r.Inciso, out int idxNumero) && idxNumero > 0 && idxNumero <= hijosDb.Count)
+                                                {
+                                                    finalInciso = hijosDb[idxNumero - 1].Inciso; // Map "1" -> "a"
+                                                }
+                                                else
+                                                {
+                                                    // 3. Si Gemini mandó letras ("a", "b") pero la BD esperaba números ("1", "2")
+                                                    char c = char.ToLowerInvariant(r.Inciso.Trim()[0]);
+                                                    if (c >= 'a' && c <= 'z')
+                                                    {
+                                                        int idxLetra = c - 'a'; // 'a' -> 0, 'b' -> 1
+                                                        if (idxLetra >= 0 && idxLetra < hijosDb.Count)
+                                                        {
+                                                            finalInciso = hijosDb[idxLetra].Inciso; // Map "a" -> "1"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            else
+                                            {
+                                                finalInciso = matchDb.Inciso; // Forzar capitalización exacta de la BD
+                                            }
+                                        }
+                                    }
+
                                     respuestasFormatoJS.Add(new {
                                         numeroPregunta = r.NumeroPregunta,
-                                        inciso = r.Inciso,
+                                        inciso = finalInciso,
                                         respuestaDada = r.RespuestaDada ?? ""
                                     });
                                 }
@@ -1093,6 +1172,32 @@ Reglas del JSON:
                 try
                 {
                     var resultados = JsonConvert.DeserializeObject<List<ResultadoAlumnoTemp>>(resultadosJson);
+
+                    // DEBUG: Escribir log temporal para verificar que llega EsCorrectoManual
+                    string debugPath = Server.MapPath("~/App_Data/debug_guardarnotas.txt");
+                    var debugLines = new List<string>();
+                    debugLines.Add("=== GuardarNotas llamado: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " ===");
+                    debugLines.Add("JSON recibido (primeros 2000 chars): " + (resultadosJson?.Length > 2000 ? resultadosJson.Substring(0, 2000) : resultadosJson));
+                    if (resultados != null)
+                    {
+                        foreach (var dbgRes in resultados)
+                        {
+                            debugLines.Add("--- Alumno: " + dbgRes.NombreAlumnoRaw + " ---");
+                            if (dbgRes.Respuestas != null)
+                            {
+                                foreach (var dbgResp in dbgRes.Respuestas)
+                                {
+                                    debugLines.Add($"  Pregunta {dbgResp.NumeroPregunta} Inciso={dbgResp.Inciso} RespDada={dbgResp.RespuestaDada} EsCorrectoManual={dbgResp.EsCorrectoManual}");
+                                }
+                            }
+                            else
+                            {
+                                debugLines.Add("  Respuestas es NULL!");
+                            }
+                        }
+                    }
+                    System.IO.File.WriteAllLines(debugPath, debugLines);
+                    // FIN DEBUG
                     string finalFolder = Server.MapPath("~/App_Data/Examenes/Calificados");
                     if (!Directory.Exists(finalFolder))
                     {
@@ -1114,6 +1219,7 @@ Reglas del JSON:
                         // 2. Calcular la nota final en base a aciertos
                         double notaFinal = 0;
                         var respuestasDb = new List<RespuestaAlumno>();
+                        var debugCalc = new List<string>(); // DEBUG
 
                         foreach (var resp in res.Respuestas)
                         {
@@ -1131,16 +1237,23 @@ Reglas del JSON:
                             
                             if (pregunta != null)
                             {
-                                esCorrecta = string.Equals(pregunta.RespuestaCorrecta, resp.RespuestaDada, StringComparison.OrdinalIgnoreCase);
-                                if (resp.EsCorrectoManual.HasValue && resp.EsCorrectoManual.Value)
+                                esCorrecta = CompararRespuestaFlexible(pregunta.RespuestaCorrecta, resp.RespuestaDada);
+                                bool antesDeOverride = esCorrecta;
+                                if (resp.EsCorrectoManual.HasValue)
                                 {
-                                    esCorrecta = true; // Override manual del profesor
+                                    esCorrecta = resp.EsCorrectoManual.Value; // Override manual del profesor en ambas direcciones
                                 }
+                                
+                                debugCalc.Add($"  P{resp.NumeroPregunta}-{resp.Inciso}: RespCorrecta={pregunta.RespuestaCorrecta} RespDada={resp.RespuestaDada} AI={antesDeOverride} ManualOverride={resp.EsCorrectoManual} Final={esCorrecta} Puntaje={pregunta.Puntaje} SumaHastaAhora={notaFinal + (esCorrecta ? pregunta.Puntaje : 0)}");
                                 
                                 if (esCorrecta)
                                 {
                                     notaFinal += pregunta.Puntaje;
                                 }
+                            }
+                            else
+                            {
+                                debugCalc.Add($"  P{resp.NumeroPregunta}-{resp.Inciso}: PREGUNTA NO ENCONTRADA EN BD!");
                             }
 
                             string safeRespuesta = resp.RespuestaDada;
@@ -1168,8 +1281,8 @@ Reglas del JSON:
 
                             if (pregunta != null)
                             {
-                                bool isCorrect = string.Equals(pregunta.RespuestaCorrecta, resp.RespuestaDada, StringComparison.OrdinalIgnoreCase);
-                                if (resp.EsCorrectoManual.HasValue && resp.EsCorrectoManual.Value) isCorrect = true;
+                                bool isCorrect = CompararRespuestaFlexible(pregunta.RespuestaCorrecta, resp.RespuestaDada);
+                                if (resp.EsCorrectoManual.HasValue) isCorrect = resp.EsCorrectoManual.Value;
 
                                 double cx = pregunta.PosX;
                                 double cy = pregunta.PosY;
@@ -1195,6 +1308,12 @@ Reglas del JSON:
                             h = examen.StampHeight 
                         };
                         PdfStamperHelper.StampGradeAndCorrections(tempPhysicalPath, finalPhysicalPath, notaTexto, masterStamp, correctionData);
+
+                        // DEBUG: Escribir cálculo detallado
+                        debugCalc.Insert(0, $"--- CALCULO para {res.NombreAlumnoRaw} ---");
+                        debugCalc.Add($"  === NOTA FINAL CALCULADA: {notaFinal} ===");
+                        System.IO.File.AppendAllLines(Server.MapPath("~/App_Data/debug_guardarnotas.txt"), debugCalc);
+                        // FIN DEBUG
 
                         // 4. Guardar registros en base de datos (Evitar duplicados)
                         ExamenAlumno examenAlumno = null;
@@ -1564,7 +1683,7 @@ Reglas del JSON:
                     TempData["Error"] = "Ocurrió un error al sincronizar con Google Drive: " + ex.Message;
                 }
 
-                return RedirectToAction("Detail", "Unidad", new { id = examen.UnidadId });
+                return RedirectToAction("Detail", "Examen", new { id = examenId });
             }
         }
 
@@ -1761,71 +1880,87 @@ Reglas del JSON:
 
             return File(path, "application/pdf");
         }
+        public class RegistroRapidoDto {
+            public Guid examenId { get; set; }
+            public string nombreCompleto { get; set; }
+        }
+
         [HttpPost]
-        public async Task<ActionResult> RegistrarAlumnoRapido(Guid examenId, string nombreCompleto)
+        public async Task<ActionResult> RegistrarAlumnoRapido(RegistroRapidoDto request)
         {
-            if (Session["UserEmail"] == null)
+            try
             {
-                return Json(new { success = false, message = "Sesión vencida." });
-            }
-
-            if (string.IsNullOrWhiteSpace(nombreCompleto))
-            {
-                return Json(new { success = false, message = "El nombre no puede estar vacío." });
-            }
-
-            using (var db = new ScibmContext())
-            {
-                var examen = await db.Examenes
-                    .Include(e => e.Unidad.Seccion)
-                    .FirstOrDefaultAsync(e => e.Id == examenId);
-
-                if (examen == null)
-                    return Json(new { success = false, message = "Examen no encontrado." });
-
-                var seccionId = examen.Unidad.SeccionId;
-
-                string apellidos = "-";
-                string nombres = "-";
-                string nombreLimpio = nombreCompleto.Trim();
-
-                if (nombreLimpio.Contains(","))
+                if (Session["UserEmail"] == null)
                 {
-                    var parts = nombreLimpio.Split(new[] { ',' }, 2);
-                    apellidos = parts[0].Trim();
-                    nombres = parts[1].Trim();
-                }
-                else
-                {
-                    var parts = nombreLimpio.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length == 1)
-                    {
-                        apellidos = parts[0];
-                    }
-                    else if (parts.Length > 1)
-                    {
-                        nombres = parts[parts.Length - 1];
-                        apellidos = string.Join(" ", parts.Take(parts.Length - 1));
-                    }
+                    return Json(new { success = false, message = "Sesión vencida." });
                 }
 
-                // Crear el nuevo alumno
-                var nuevoAlumno = new AlumnoMatriculado
+                if (request == null || string.IsNullOrWhiteSpace(request.nombreCompleto))
                 {
-                    SeccionId = seccionId,
-                    NombreCompleto = nombreLimpio,
-                    Apellidos = apellidos,
-                    Nombres = nombres
-                };
+                    return Json(new { success = false, message = "El nombre no puede estar vacío." });
+                }
 
-                db.AlumnosMatriculados.Add(nuevoAlumno);
-                await db.SaveChangesAsync();
+                using (var db = new ScibmContext())
+                {
+                    var examen = await db.Examenes
+                        .Include(e => e.Unidad.Seccion)
+                        .FirstOrDefaultAsync(e => e.Id == request.examenId);
 
-                return Json(new { 
-                    success = true, 
-                    alumnoId = nuevoAlumno.Id,
-                    nombreCompleto = nuevoAlumno.NombreCompleto
-                });
+                    if (examen == null)
+                        return Json(new { success = false, message = "Examen no encontrado." });
+
+                    var seccionId = examen.Unidad.SeccionId;
+
+                    string apellidos = "-";
+                    string nombres = "-";
+                    string nombreLimpio = request.nombreCompleto.Trim();
+
+                    if (nombreLimpio.Contains(","))
+                    {
+                        var parts = nombreLimpio.Split(new[] { ',' }, 2);
+                        apellidos = parts[0].Trim();
+                        nombres = parts[1].Trim();
+                    }
+                    else
+                    {
+                        var parts = nombreLimpio.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length == 1)
+                        {
+                            apellidos = parts[0];
+                        }
+                        else if (parts.Length > 1)
+                        {
+                            nombres = parts[parts.Length - 1];
+                            apellidos = string.Join(" ", parts.Take(parts.Length - 1));
+                        }
+                    }
+
+                    if (apellidos.Length > 120) apellidos = apellidos.Substring(0, 120);
+                    if (nombres.Length > 120) nombres = nombres.Substring(0, 120);
+                    if (nombreLimpio.Length > 250) nombreLimpio = nombreLimpio.Substring(0, 250);
+
+                    // Crear el nuevo alumno
+                    var nuevoAlumno = new AlumnoMatriculado
+                    {
+                        SeccionId = seccionId,
+                        NombreCompleto = nombreLimpio,
+                        Apellidos = apellidos,
+                        Nombres = nombres
+                    };
+
+                    db.AlumnosMatriculados.Add(nuevoAlumno);
+                    await db.SaveChangesAsync();
+
+                    return Json(new { 
+                        success = true, 
+                        alumnoId = nuevoAlumno.Id,
+                        nombreCompleto = nuevoAlumno.NombreCompleto
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error interno: " + ex.Message });
             }
         }
 
@@ -1947,9 +2082,16 @@ Reglas del JSON:
 
     public class RespuestaAlumnoTemp
     {
+        [JsonProperty("numeroPregunta")]
         public int NumeroPregunta { get; set; }
+
+        [JsonProperty("inciso")]
         public string Inciso { get; set; }
+
+        [JsonProperty("respuestaDada")]
         public string RespuestaDada { get; set; }
+
+        [JsonProperty("esCorrectoManual")]
         public bool? EsCorrectoManual { get; set; }
     }
 

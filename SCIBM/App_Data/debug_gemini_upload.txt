@@ -1,0 +1,384 @@
+
+
+=== EXAMEN: Image_00007 (1).pdf (24/06/2026 03:22:57) ===
+{
+  "NombreAlumno": "Alanoca Miranda Emily",
+  "Respuestas": [
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "a",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "b",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "c",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "d",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "e",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "a",
+      "RespuestaDada": "D"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "b",
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "c",
+      "RespuestaDada": "C"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "d",
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "e",
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "f",
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "g",
+      "RespuestaDada": "A"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "a",
+      "RespuestaDada": "View State"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "b",
+      "RespuestaDada": "Git merge"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "c",
+      "RespuestaDada": "Git"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "d",
+      "RespuestaDada": "puerto dinamico"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "e",
+      "RespuestaDada": "aspx"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "f",
+      "RespuestaDada": "Windows Authentication"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "g",
+      "RespuestaDada": "Viow"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "h",
+      "RespuestaDada": "Publish Profile"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "i",
+      "RespuestaDada": "Layout. cshtml"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "j",
+      "RespuestaDada": "Index. Cshtml"
+    },
+    {
+      "NumeroPregunta": 4,
+      "Inciso": "a",
+      "RespuestaDada": "iis reset / status netstat \\7 / find"
+    },
+    {
+      "NumeroPregunta": 4,
+      "Inciso": "b",
+      "RespuestaDada": "- public ActionResult Listar - cis estudiante obj = new cls Estudiante (return view) - var obj = newals estudiante return View (obj)"
+    }
+  ]
+}
+
+
+=== EXAMEN: Image_00007 (2).pdf (24/06/2026 03:23:12) ===
+{
+  "NombreAlumno": "Huellpa Corpoch, Edo Alomo",
+  "Respuestas": [
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "a",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "b",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "c",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "d",
+      "RespuestaDada": "F"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "e",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "1",
+      "RespuestaDada": "C"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "2",
+      "RespuestaDada": "C"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "3",
+      "RespuestaDada": "C"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "4",
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "5",
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "6",
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "7",
+      "RespuestaDada": "A"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "a",
+      "RespuestaDada": "Steto Pangat"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "b",
+      "RespuestaDada": "git nege"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "c",
+      "RespuestaDada": "git"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "d",
+      "RespuestaDada": "localhost"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "e",
+      "RespuestaDada": "Sspx."
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "f",
+      "RespuestaDada": "basic Authaticato"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "g",
+      "RespuestaDada": "View()"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "h",
+      "RespuestaDada": ""
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "i",
+      "RespuestaDada": ""
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "j",
+      "RespuestaDada": ""
+    },
+    {
+      "NumeroPregunta": 4,
+      "Inciso": "a",
+      "RespuestaDada": ""
+    },
+    {
+      "NumeroPregunta": 4,
+      "Inciso": "b",
+      "RespuestaDada": ""
+    }
+  ]
+}
+
+
+=== EXAMEN: Image_00007 (3).pdf (24/06/2026 03:23:30) ===
+{
+  "NombreAlumno": "Ramos Garcia Ana Paula",
+  "Respuestas": [
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "a",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "b",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "c",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "d",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "e",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "1",
+      "RespuestaDada": "C"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "2",
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "3",
+      "RespuestaDada": "C"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "4",
+      "RespuestaDada": "E"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "5",
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "6",
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "7",
+      "RespuestaDada": "A"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "a",
+      "RespuestaDada": "View state"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "b",
+      "RespuestaDada": "git merte"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "c",
+      "RespuestaDada": "git"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "d",
+      "RespuestaDada": "generalmente 44300 o superior"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "e",
+      "RespuestaDada": ".ASPx"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "f",
+      "RespuestaDada": "anónima, Básica windows"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "g",
+      "RespuestaDada": "view ()"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "h",
+      "RespuestaDada": "C.publishsettings."
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "i",
+      "RespuestaDada": "_Layout.cshtml"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "j",
+      "RespuestaDada": "Index.cshtml"
+    },
+    {
+      "NumeroPregunta": 4,
+      "Inciso": "a",
+      "RespuestaDada": "1.- Abrir el navegador y acceder al a http://localhost\\n2.. Revisor que el Servicio world wide web publishing service (w3src) iniciado\\n3.. Abrir el Administrador de lls (inetmar) y verificar que el servidor até activo.\\n4. Ejecuta lisreset / status desde la console."
+    },
+    {
+      "NumeroPregunta": 4,
+      "Inciso": "b",
+      "RespuestaDada": "cls Estudiante obj = new cls estudiante ();\\nvar obj = new cls Estudiante ();"
+    }
+  ]
+}

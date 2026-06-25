@@ -22,7 +22,7 @@
 }
 
 <!-- TABS NAVIGATION & HEADER -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">
     <div class="tabs-container" style="display: flex; gap: 10px;">
         <button class="btn @(activeTab == "editor" ? "btn-primary" : "btn-secondary") tab-btn" onclick="switchTab('editor')">
             <i class="fa-solid fa-table-list"></i> Pestaña 1: Editor de Puntajes
@@ -49,7 +49,7 @@
             <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
                 @foreach (var padre in Model.Preguntas.Where(p => p.PreguntaPadreId == null).OrderBy(p => p.NumeroPregunta))
                 {
-                    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px;">
+                    <div style="background: rgba(128,128,128,0.05); border: 1px solid var(--glass-border); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px;">
                         
                         @if (padre.SubPreguntas != null && padre.SubPreguntas.Any())
                         {
@@ -60,7 +60,7 @@
                             
                             foreach (var hijo in padre.SubPreguntas.OrderBy(h => h.Inciso))
                             {
-                                <div id="row-@hijo.Id" style="display: flex; gap: 10px; margin-bottom: 5px; padding-left: 15px; border-left: 2px solid rgba(255,255,255,0.1); align-items: flex-start;">
+                                <div id="row-@hijo.Id" style="display: flex; gap: 10px; margin-bottom: 5px; padding-left: 15px; border-left: 2px solid var(--glass-border); align-items: flex-start;">
                                     <input type="hidden" name="preguntasEditadas.Index" value="@hijo.Id" />
                                     <input type="hidden" name="preguntasEditadas[@hijo.Id].Id" value="@hijo.Id" />
                                     
@@ -135,7 +135,7 @@
                     <span style="font-weight: bold;">Página <span id="pageNum">1</span> / <span id="pageCount">?</span></span>
                     <button class="btn btn-secondary" onclick="changePage(1)"><i class="fa-solid fa-caret-right"></i></button>
                     
-                    <div style="border-left: 1px solid rgba(255,255,255,0.2); height: 20px; margin: 0 10px;"></div>
+                    <div style="border-left: 1px solid var(--glass-border); height: 20px; margin: 0 10px;"></div>
                     
                     <button class="btn btn-secondary" onclick="zoomOut()" title="Alejar"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
                     <span style="font-weight: bold; font-size: 13px;" id="zoom-label">150%</span>
@@ -182,7 +182,7 @@
                             
                             <div class="q-chip" id="chip-@p.Id" onclick="activateQuestion('@p.Id', '@label', '@snippet')"
                                  data-id="@p.Id" data-x="@p.PosX" data-y="@p.PosY" data-page="@(p.Pagina > 0 ? p.Pagina : 1)"
-                                 style="padding: 8px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
+                                 style="padding: 8px 10px; background: rgba(128,128,128,0.08); border: 1px solid var(--glass-border); border-radius: 6px; margin-bottom: 8px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s;">
                                 <div>
                                     <strong style="color: var(--primary-glow);">@label</strong> <span style="font-size: 11px; color: var(--text-muted);">@snippet</span>
                                 </div>
@@ -210,7 +210,7 @@
 <style>
     .tab-btn { opacity: 0.7; transition: 0.3s; }
     .tab-btn.btn-primary { opacity: 1; border: 1px solid var(--primary-glow); }
-    .q-chip:hover { background: rgba(255,255,255,0.1) !important; }
+    .q-chip:hover { background: rgba(128,128,128,0.12) !important; }
     .q-chip.active { background: rgba(38,208,206,0.2) !important; border-color: var(--primary-glow) !important; box-shadow: inset 4px 0 0 var(--primary-glow); }
     #custom-cursor { position: absolute; pointer-events: none; z-index: 9999; display: none; align-items: center; gap: 8px; transform: translate(-10px, -10px); }
     #custom-cursor .dot { width: 20px; height: 20px; border: 2px solid #E74C3C; border-radius: 50%; position: relative; }
@@ -239,9 +239,9 @@
         transition: all 0.3s ease;
     }
     .btn-cancel-glass {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(128, 128, 128, 0.1);
         color: #ff8fa3;
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(128, 128, 128, 0.2);
         padding: 10px 20px;
         border-radius: 25px;
         font-weight: 600;

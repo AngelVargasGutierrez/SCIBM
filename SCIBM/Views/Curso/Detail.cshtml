@@ -12,7 +12,7 @@
     }
 
     .unit-card {
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(128, 128, 128, 0.05);
         border: 1px solid var(--glass-border);
         border-radius: 12px;
         padding: 20px;
@@ -24,7 +24,7 @@
     }
     .unit-card:hover {
         border-color: rgba(100, 223, 223, 0.25);
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(128, 128, 128, 0.08);
     }
     .unit-info {
         display: flex;
@@ -47,7 +47,7 @@
         align-items: center;
         margin-bottom: 20px;
         padding-bottom: 12px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid var(--glass-border);
     }
     .panel-header h2 {
         font-size: 18px;
@@ -55,7 +55,7 @@
     }
 
     .edit-btn {
-        color: white;
+        color: var(--text-color);
         background: none;
         border: none;
         font-size: 14px;
@@ -70,7 +70,7 @@
         transform: scale(1.1);
     }
     .delete-btn {
-        color: white;
+        color: var(--text-color);
         background: none;
         border: none;
         font-size: 14px;
@@ -242,7 +242,7 @@
             <button class="modal-close" onclick="closeDeleteModal()"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <p style="margin-bottom: 20px; font-size: 15px; color: var(--text-muted);">
-            ¿Estás seguro que deseas eliminar la sección <strong id="delete-seccion-nombre" style="color: white;"></strong>? <br><br>
+            ¿Estás seguro que deseas eliminar la sección <strong id="delete-seccion-nombre" style="color: var(--text-color);"></strong>? <br><br>
             <span style="color: #ff5252;"><i class="fa-solid fa-triangle-exclamation"></i> Advertencia:</span> Esto eliminará permanentemente todos los alumnos matriculados, unidades y exámenes asociados a esta sección.
         </p>
         <form id="delete-seccion-form" onsubmit="submitDeleteForm(event)">

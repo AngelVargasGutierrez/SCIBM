@@ -1,0 +1,292 @@
+# Plan de Implementación: 4 Mejoras del Sistema SCIBM
+
+## Resumen General
+
+El cliente solicita 4 cambios significativos:
+1. **Toggle Tema Oscuro/Claro** en toda la app
+2. **Gráficos estadísticos y tendencias** en Reportes + lógica de nombrado para Secciones/Unidades
+3. **Mejora del Google Sheets export** + identificación de Nota Media en sistema/Drive
+4. **Eliminar carpetas EXAMENES/REPORTES** al crear curso
+
+---
+
+## Orden de Ejecución Propuesto
+
+> [!IMPORTANT]
+> Propongo ejecutar en este orden por dependencias y riesgo:
+> **Fase 4 → Fase 1 → Fase 3 → Fase 2**
+> 
+> - **Fase 4** es la más simple y no tiene dependencias.
+> - **Fase 1** (tema claro) afecta a todas las vistas, incluyendo el Login.
+> - **Fase 3** mejora datos existentes (nota media) y afecta Google Sheets + Drive.
+> - **Fase 2** es la más compleja (gráficos + autonombrado). Para las recuperaciones, usaremos Unidades separadas (U1R) para tener un eje X claro en los gráficos.
+
+---
+
+## Fase 4: Eliminar Carpetas EXAMENES/REPORTES al Crear Curso
+
+### Contexto
+Actualmente en [CursoController.cs](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Controllers/CursoController.cs#L158-L163), al crear un curso se crean automáticamente dos subcarpetas en Drive:
+```csharp
+await GoogleDriveHelper.GetOrCreateFolderAsync("EXAMENES", courseFolderId, accessToken);
+await GoogleDriveHelper.GetOrCreateFolderAsync("REPORTES", courseFolderId, accessToken);
+```
+El cliente ya no las necesita porque la exportación de reportes y la subida de notas ya manejan sus propias carpetas dinámicamente.
+
+### Cambios
+
+#### [MODIFY] [CursoController.cs](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Controllers/CursoController.cs)
+- **Eliminar líneas 158-163** (bloque completo de creación de subcarpetas EXAMENES y REPORTES).
+- Solo se conserva `courseFolderId` para asignarlo al modelo `Curso`.
+
+### Riesgo: ⚡ Muy Bajo
+No hay ningún otro código que dependa de estas carpetas vacías. Las subidas reales ya crean carpetas dinámicamente.
+
+---
+
+## Fase 1: Toggle Tema Oscuro / Claro
+
+### Contexto
+El sistema tiene un **tema oscuro único** definido mediante CSS variables en [_Layout.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Shared/_Layout.cshtml#L15-L26). Todas las vistas hijas (12 archivos `.cshtml`) usan estas variables + algunos colores hardcodeados.
+
+### Estrategia
+- Definir **dos conjuntos de CSS variables**: `:root` (oscuro por defecto) y `[data-theme="light"]` (claro).
+- El toggle cambia el atributo `data-theme` del `<html>` y persiste la elección en `localStorage`.
+- El toggle se ubica al lado de "SCIBM" en el sidebar (`.brand`).
+
+### Cambios
+
+#### [MODIFY] [_Layout.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Shared/_Layout.cshtml)
+1. **CSS**: Añadir bloque `[data-theme="light"]` con la paleta clara (colores pastel suaves, fondos claros, texto oscuro, glassmorphism adaptado).
+2. **CSS**: Añadir estilos del toggle (`.theme-toggle`) con animación sol/luna.
+3. **HTML** (línea 490-493, zona `.brand`): Insertar el botón toggle junto a "SCIBM":
+   ```html
+   <div class="brand">
+       <img src="~/Content/images/logo_upt.png" ... />
+       <span>SCIBM</span>
+       <button class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">
+           <i class="fa-solid fa-moon" id="theme-icon"></i>
+       </button>
+   </div>
+   ```
+4. **JS** (sección scripts): Añadir `toggleTheme()` que:
+   - Lee/escribe `localStorage.getItem('scibm-theme')`
+   - Cambia `document.documentElement.setAttribute('data-theme', ...)`
+   - Anima el icono (luna ↔ sol) con una micro-rotación
+5. **JS**: Ejecutar al cargar la página para aplicar el tema guardado **antes** del render (evitar flash blanco).
+6. **Meta tag**: Cambiar `<meta name="color-scheme" content="dark">` a dinámico según el tema.
+
+#### [MODIFY] Todas las vistas hijas (11 archivos) y Login
+Auditar y reemplazar colores hardcodeados por variables CSS. Archivos afectados:
+
+| Archivo | Colores hardcodeados a cambiar |
+|---------|-------------------------------|
+| [Ciclo/Index.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Ciclo/Index.cshtml) | `color: white`, `background: rgba(0,0,0,...)` |
+| [Curso/Index.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Curso/Index.cshtml) | `color: white`, fondos oscuros directos |
+| [Curso/Detail.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Curso/Detail.cshtml) | `color: white` en modales |
+| [Seccion/Detail.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Seccion/Detail.cshtml) | `color: white`, tablas con colores fijos |
+| [Examen/Detail.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Examen/Detail.cshtml) | Badges, tablas, botones con fondos fijos |
+| [Examen/EditSolucionario.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Examen/EditSolucionario.cshtml) | Editor con fondo oscuro hardcodeado |
+| [Examen/GradeOverview.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Examen/GradeOverview.cshtml) | Panel de revisión con colores fijos |
+| [Examen/ScanTemplate.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Examen/ScanTemplate.cshtml) | Canvas y controles con fondo oscuro |
+| [Reporte/Index.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Reporte/Index.cshtml) | Tabla, filtros, stats cards |
+| [Auth/Login.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Auth/Login.cshtml) | Añadir toggle en la esquina superior derecha y adaptar variables para no ser un blanco puro que queme la vista. |
+
+### Paleta Propuesta para Tema Claro
+
+```css
+[data-theme="light"] {
+    --bg-color: #f0f4f8;
+    --sidebar-bg: #ffffff;
+    --primary-glow: #1a73e8;
+    --accent-color: #1a73e8;
+    --accent-hover: #1557b0;
+    --text-color: #1f2937;
+    --text-muted: #6b7280;
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+}
+```
+
+> [!WARNING]
+> Este cambio es extenso (11+ archivos). Revisaré cada vista para garantizar que no queden elementos ilegibles en tema claro. Las vistas más complejas (`GradeOverview`, `ScanTemplate`, `EditSolucionario`) requerirán atención especial por tener muchos estilos inline.
+
+### Riesgo: 🟡 Medio
+No afecta la lógica de negocio ni la base de datos, pero una mala auditoría de colores puede dejar texto invisible en ciertas vistas.
+
+---
+
+## Fase 3: Mejora del Export a Google Sheets + Nota Media
+
+### Contexto
+Actualmente el export ([ReporteController.cs](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Controllers/ReporteController.cs#L324-L351)) genera un Google Sheet básico con:
+- Encabezados institucionales (texto plano)
+- Estadísticas simples (Nota Max, Nota Min)
+- Tabla de datos sin colores
+
+El [GoogleSheetsHelper.cs](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Helpers/GoogleSheetsHelper.cs) solo aplica negritas y autoresize. **No hay nota media ni colores.**
+
+### Cambios
+
+#### [MODIFY] [ReporteController.cs](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Controllers/ReporteController.cs)
+
+**En `GetReporteDinamico`** (línea 150-236):
+- Calcular **Nota Media** (promedio) e identificar al alumno más cercano a ella:
+  ```csharp
+  // Alumno(s) con nota más cercana al promedio
+  var alumnosMedia = resultados
+      .OrderBy(r => Math.Abs(r.Nota - notaPromedio))
+      .TakeWhile((r, i) => i == 0 || Math.Abs(r.Nota - notaPromedio) == Math.Abs(resultados.OrderBy(...).First().Nota - notaPromedio))
+      .Select(r => r.AlumnoMatriculado?.NombreCompleto ?? r.NombreAlumno)
+      .Distinct().ToList();
+  ```
+- Añadir al JSON de respuesta: `alumnosMedia`, `notaMedia` (nota del alumno más cercano al promedio).
+
+**En `ExportarAGoogleSheets`** (línea 272-400):
+- Agregar fila de **Nota Media/Promedio** con nombre(s) de alumno(s):
+  ```
+  Nota Media:  |  12.5  |  Alumnos:  |  García López, Juan
+  ```
+- Mejorar la estructura de datos del sheet: separadores visuales, mejor organización.
+
+#### [MODIFY] [GoogleSheetsHelper.cs](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Helpers/GoogleSheetsHelper.cs)
+
+Refactorizar `PopulateAndFormatReportAsync` para incluir formato rico:
+- **Colores de fondo** en el encabezado institucional (azul UPT `#1A4B8D` con texto blanco).
+- **Colores condicionales en la columna Rendimiento**: verde para Aprobado, naranja para Regular, rojo para Desaprobado.
+- **Bordes** en la tabla de datos.
+- **Merge de celdas** para los encabezados institucionales (columnas A-G).
+- **Fila de títulos de tabla** con fondo gris claro y negrita.
+- **Resaltado** para filas de Nota Mayor, Media y Menor.
+
+#### [MODIFY] [Reporte/Index.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Reporte/Index.cshtml)
+
+- Añadir **4ta card de estadísticas** para "Nota Media / Promedio" mostrando el alumno(s) con nota más cercana al promedio.
+- Actualizar el JS `loadReportData()` para consumir y mostrar los nuevos datos.
+
+#### [MODIFY] [ExamenController.cs](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Controllers/ExamenController.cs)
+
+**En `SincronizarExamenConDrive`** (línea 1634-1676):
+- Calcular **nota media** y agregar etiqueta `[NOTA MEDIA]` al PDF del alumno más cercano al promedio:
+  ```csharp
+  double notaPromedio = alumnosCalificados.Average(a => a.Nota);
+  double distanciaMinima = alumnosCalificados.Min(a => Math.Abs(a.Nota - notaPromedio));
+  // ... asignar prefix "[NOTA MEDIA] " a los que tengan esa distancia mínima
+  ```
+
+### Riesgo: 🟡 Medio
+El formato del Google Sheet usa la API Sheets v4 BatchUpdate, que es verbosa pero estable. El cálculo de nota media es puramente matemático.
+
+---
+
+## Fase 2: Gráficos Estadísticos + Auto-nombrado de Secciones/Unidades
+
+### Contexto
+Esta fase tiene dos sub-componentes:
+
+**A) Gráficos de Tendencia:** El docente quiere ver cómo evoluciona la nota de los alumnos entre unidades (U1 → U2 → U3 → U4) usando gráficos de líneas. Esto requiere un endpoint nuevo que consolide datos cross-unidad.
+
+**B) Auto-nombrado inteligente:** Las secciones deben autogenerarse como "Sección A", "Sección B", etc. Las unidades como "U1", "U1R", "U1RR", "U2", etc.
+
+### Cambios
+
+#### Sub-Fase 2A: Gráficos de Tendencia
+
+##### [MODIFY] [ReporteController.cs](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Controllers/ReporteController.cs)
+
+Nuevo endpoint AJAX:
+```csharp
+[HttpGet]
+public async Task<ActionResult> GetTendenciaAlumnos(Guid cursoId, Guid? seccionId = null)
+```
+- Consulta **todas las unidades** de un curso (o sección), ordenadas por nombre (U1 < U1R < U2 < U3...).
+- Para cada alumno, devuelve un array de notas por unidad (promediando si hay múltiples versiones).
+- Formato de respuesta:
+```json
+{
+  "labels": ["U1", "U1R", "U2", "U3"],
+  "datasets": [
+    { "alumno": "García López", "notas": [12.5, 14.0, 13.5, 15.0] },
+    { "alumno": "Pérez Soto", "notas": [8.5, 10.0, 11.5, 12.0] }
+  ],
+  "promedioGeneral": [10.5, 12.0, 12.5, 13.5]
+}
+```
+
+##### [MODIFY] [Reporte/Index.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Reporte/Index.cshtml)
+
+- Añadir contenedor de gráficos **debajo de las stats cards y encima de la tabla**:
+  - **Gráfico de Líneas (Tendencia General)**: Promedio del curso por unidad.
+  - **Gráfico de Líneas (Tendencia por Alumno)**: Un toggle para seleccionar alumnos individuales.
+  - **Gráfico de Barras (Distribución)**: Cuántos Aprobados/Regulares/Desaprobados hay por unidad.
+- Usar **Chart.js** (CDN, sin instalación npm). Es la librería de gráficos más ligera y compatible con el stack actual.
+- Los gráficos se actualizan dinámicamente al cambiar filtros.
+- Los gráficos aparecen solo cuando hay más de una unidad disponible (sino no tiene sentido mostrar "tendencia").
+
+> [!IMPORTANT]
+> **Librería de gráficos:** ¿Estás de acuerdo con usar **Chart.js** vía CDN? Es gratuita, ligera (~60KB), y no requiere cambios en el `.csproj`. Alternativa: Google Charts (también CDN pero más pesada).
+
+##### Filtro extra en la barra de filtros
+- Añadir un **combo "Alumno"** (opcional) que se carga al seleccionar un Curso. Si se selecciona un alumno específico, el gráfico de líneas solo muestra ese alumno resaltado.
+
+#### Sub-Fase 2B: Auto-nombrado de Secciones y Unidades
+
+##### [MODIFY] [Curso/Detail.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Curso/Detail.cshtml)
+
+- **Quitar el campo de texto libre** del modal "Nueva Sección" (línea 194-196).
+- Reemplazarlo por un **mensaje de confirmación**:
+  ```
+  ¿Estás seguro de crear la "Sección C"?
+  ```
+- El JS calcula el siguiente nombre disponible (A, B, C...) y lo manda al backend. Luego, el usuario puede editarlo libremente con el botón de "Renombrar".
+
+##### [MODIFY] [SeccionController.cs](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Controllers/SeccionController.cs)
+
+- En `Create` (línea 52-94): Validar que el nombre siga el patrón esperado.
+- Nuevo endpoint AJAX `GetNextSeccionName(Guid cursoId)` que devuelve el próximo nombre disponible:
+  ```csharp
+  [HttpGet]
+  public async Task<ActionResult> GetNextSeccionName(Guid cursoId)
+  {
+      // Buscar secciones existentes, detectar huecos (A, C -> siguiente = B)
+      // Si no hay huecos: siguiente letra
+  }
+  ```
+
+##### [MODIFY] [Seccion/Detail.cshtml](file:///C:/Users/ASUS/Desktop/SCIBM2/SCIBM/SCIBM/Views/Seccion/Detail.cshtml)
+
+- El modal "Nueva Unidad" (línea 424-450) actualmente tiene campo libre. Cambiarlo a:
+  - **Combo/Select con opciones predefinidas**: U1, U2, U3, U4 (unidades base) más opciones de recuperación (U1R, U2R, etc.) y doble recuperación (U1RR, U2RR, etc.).
+  - Las opciones ya creadas se deshabilitan automáticamente.
+
+> [!NOTE]
+> **Respuesta sobre Recuperaciones (Versión vs Unidad):**  
+> Si usáramos "Versiones" (Ej: Versión "Recuperación") dentro de la "Unidad 1", mezclaríamos exámenes en la misma unidad. Al hacer el gráfico de línea para ver la tendencia de notas en el tiempo, necesitamos un eje X ordenado cronológicamente. Si la recuperación es una "Unidad" separada (U1R), el gráfico mostrará la línea de tiempo perfecta: `U1 -> U1R -> U2 -> U2R`. Además, crea carpetas separadas y limpias en Drive. Por eso, es mejor **crear Unidades separadas para las recuperaciones** (como U1R) en lugar de solo versiones dentro de la unidad original.
+
+### Riesgo: 🟠 Medio-Alto
+- El gráfico de tendencia requiere un query cross-unidad que puede ser lento si hay muchos datos.
+- El auto-nombrado cambia la UX actual (de texto libre a auto-generado), lo cual podría confundir si el docente quiere un nombre personalizado.
+
+---
+
+## Archivos NO modificados (sin impacto)
+
+- `Models/Entities.cs` → No se necesitan nuevas entidades ni migraciones.
+- `Models/Context.cs` → Sin cambios en el DbContext.
+- `.csproj` → No se crean vistas ni controladores nuevos.
+- `Services/GeminiApiService.cs` → Sin cambios.
+- `Helpers/GoogleDriveHelper.cs` → Sin cambios.
+
+---
+
+## Verification Plan
+
+### Pruebas Manuales
+1. **Tema:** Toggle entre oscuro/claro en cada vista (Ciclo, Curso, Sección, Examen, Reportes). Verificar que no haya texto invisible ni elementos con fondo ilegible.
+2. **Drive:** Crear un curso nuevo y verificar que NO se creen carpetas EXAMENES/REPORTES en Drive.
+3. **Google Sheets:** Exportar un reporte y verificar colores, bordes, merge de celdas, y que aparezca la Nota Media con el alumno correcto.
+4. **Nota Media en Drive:** Subir PDFs a Drive y verificar que el PDF del alumno con nota media tenga la etiqueta `[NOTA MEDIA]`.
+5. **Gráficos:** Seleccionar un curso con múltiples unidades y verificar que el gráfico de tendencia muestre correctamente las líneas.
+6. **Auto-nombrado Secciones:** Crear secciones y verificar que se nombren automáticamente (A, B, C...) y que al borrar una, el hueco se rellene.
+7. **Auto-nombrado Unidades:** Crear unidades y verificar el patrón U1, U1R, U1RR, U2...

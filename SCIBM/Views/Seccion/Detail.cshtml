@@ -21,7 +21,7 @@
         align-items: center;
         margin-bottom: 20px;
         padding-bottom: 12px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid var(--glass-border);
     }
     .panel-header h2 {
         font-size: 18px;
@@ -54,7 +54,7 @@
         min-width: max-content;
     }
     .student-item:hover {
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(128, 128, 128, 0.08);
     }
     .student-avatar {
         width: 32px;
@@ -83,7 +83,7 @@
     }
 
     .unit-card {
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(128, 128, 128, 0.05);
         border: 1px solid var(--glass-border);
         border-radius: 12px;
         padding: 20px;
@@ -95,7 +95,7 @@
     }
     .unit-card:hover {
         border-color: rgba(100, 223, 223, 0.25);
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(128, 128, 128, 0.08);
     }
     .unit-info {
         display: flex;
@@ -157,7 +157,7 @@
         padding: 25px;
         border: 2px dashed rgba(100, 223, 223, 0.3);
         border-radius: 12px;
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(128, 128, 128, 0.05);
         cursor: pointer;
         transition: all 0.2s ease-in-out;
         color: var(--text-muted);
@@ -167,7 +167,7 @@
     .file-upload-custom:hover {
         background: rgba(100, 223, 223, 0.08);
         border-color: var(--primary-glow);
-        color: white;
+        color: var(--text-color);
     }
     .file-upload-custom i {
         font-size: 32px;
@@ -175,7 +175,7 @@
     }
 
     .edit-btn {
-        color: white;
+        color: var(--text-color);
         background: none;
         border: none;
         font-size: 14px;
@@ -192,7 +192,7 @@
     }
 
     .delete-btn {
-        color: white;
+        color: var(--text-color);
         background: none;
         border: none;
         font-size: 14px;
@@ -457,7 +457,7 @@
             <button class="modal-close" onclick="closeDeleteModal()"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <p style="margin-bottom: 20px; font-size: 15px; color: var(--text-muted);">
-            ¿Estás seguro que deseas eliminar la unidad <strong id="delete-unit-nombre" style="color: white;"></strong>? <br><br>
+            ¿Estás seguro que deseas eliminar la unidad <strong id="delete-unit-nombre" style="color: var(--text-color);"></strong>? <br><br>
             <span style="color: #ff5252;"><i class="fa-solid fa-triangle-exclamation"></i> Advertencia:</span> Esto eliminará permanentemente todas las versiones de examen y calificaciones de los alumnos asociadas a esta unidad.
         </p>
         <form id="delete-unit-form" onsubmit="submitDeleteForm(event)">

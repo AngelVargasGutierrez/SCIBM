@@ -155,12 +155,7 @@ namespace SCIBM.Controllers
 
                         courseFolderId = await GoogleDriveHelper.GetOrCreatePathAsync(path, rootFolderId, accessToken);
 
-                        // Crear subcarpetas EXAMENES y REPORTES dentro del curso
-                        if (!string.IsNullOrEmpty(courseFolderId))
-                        {
-                            await GoogleDriveHelper.GetOrCreateFolderAsync("EXAMENES", courseFolderId, accessToken);
-                            await GoogleDriveHelper.GetOrCreateFolderAsync("REPORTES", courseFolderId, accessToken);
-                        }
+                        // Las carpetas específicas se crearán bajo demanda.
                     }
 
                     var curso = new Curso
@@ -173,8 +168,6 @@ namespace SCIBM.Controllers
                         DriveFolderId = courseFolderId
                     };
                     db.Cursos.Add(curso);
-
-                    // ATENCIÓN: Se eliminó la creación automática de "Sección Única".
 
                     await db.SaveChangesAsync();
 

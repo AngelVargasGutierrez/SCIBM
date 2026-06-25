@@ -5,7 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewBag.Title - SCIBM</title>
     <!-- Evitar parpadeo blanco nativo del navegador -->
-    <meta name="color-scheme" content="dark">
+    <meta name="color-scheme" content="dark light">
+    <script>
+        // Aplicar tema antes del render para evitar parpadeos
+        const savedTheme = localStorage.getItem('scibm-theme') || 'dark';
+        if (savedTheme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    </script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome para iconos -->
@@ -25,8 +32,21 @@
             --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
 
+        [data-theme="light"] {
+            --bg-color: #f0f4f8;
+            --sidebar-bg: #ffffff;
+            --primary-glow: #1a73e8;
+            --accent-color: #1a73e8;
+            --accent-hover: #1557b0;
+            --text-color: #1f2937;
+            --text-muted: #6b7280;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(0, 0, 0, 0.08);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+        }
+
         html {
-            background-color: #0b132b; /* Fondo oscuro base instantáneo */
+            background-color: var(--bg-color); /* Fondo base dinámico */
         }
 
         * {
@@ -97,9 +117,34 @@
             font-size: 22px;
             font-weight: 700;
             letter-spacing: 1px;
-            background: linear-gradient(to right, #ffffff, var(--primary-glow));
+            background: linear-gradient(to right, var(--text-color), var(--primary-glow));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            flex-grow: 1;
+        }
+
+        .theme-toggle {
+            background: rgba(100, 223, 223, 0.1);
+            border: 1px solid var(--primary-glow);
+            color: var(--primary-glow);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(100, 223, 223, 0.2);
+        }
+        .theme-toggle:hover {
+            transform: scale(1.1) rotate(15deg);
+            background: rgba(100, 223, 223, 0.2);
+        }
+        [data-theme="light"] .theme-toggle {
+            background: rgba(26, 115, 232, 0.1);
+            border-color: var(--primary-glow);
+            box-shadow: 0 0 10px rgba(26, 115, 232, 0.2);
         }
 
         /* NAVIGATION MENU */
@@ -370,7 +415,7 @@
             transition: color 0.2s;
         }
         .modal-close:hover {
-            color: #ffffff;
+            color: var(--text-color);
         }
 
         /* BOTONES PREMIUM */
@@ -418,7 +463,7 @@
         }
         .btn-danger {
             background: #ff5252;
-            color: white;
+            color: #ffffff;
         }
         .btn-danger:hover {
             background: #ff7676;
@@ -447,10 +492,10 @@
         .form-input {
             width: 100%;
             padding: 12px 14px;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(128, 128, 128, 0.05);
             border: 1px solid var(--glass-border);
             border-radius: 8px;
-            color: white;
+            color: var(--text-color);
             font-size: 15px;
             outline: none;
             transition: border-color 0.2s, box-shadow 0.2s;
@@ -490,6 +535,9 @@
             <div class="brand">
                 <img src="~/Content/images/logo_upt.png" alt="Logo UPT" style="height: 60px; object-fit: contain; margin: -10px 15px -10px -5px;" />
                 <span>SCIBM</span>
+                <button class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">
+                    <i class="fa-solid fa-moon" id="theme-icon"></i>
+                </button>
             </div>
 
             <!-- USER INFO PROFILE -->
@@ -575,9 +623,38 @@
     </main>
 
     <script>
+        // Lógica para alternar el tema claro/oscuro
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            
+            if (html.getAttribute('data-theme') === 'light') {
+                html.removeAttribute('data-theme');
+                localStorage.setItem('scibm-theme', 'dark');
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            } else {
+                html.setAttribute('data-theme', 'light');
+                localStorage.setItem('scibm-theme', 'light');
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            }
+        }
+        
+        // Ajustar el icono al cargar según el tema
+        document.addEventListener('DOMContentLoaded', () => {
+            const icon = document.getElementById('theme-icon');
+            if (document.documentElement.getAttribute('data-theme') === 'light') {
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            }
+        });
+
         function toggleAccordion() {
             var accordion = document.getElementById("reportes-accordion");
-            accordion.classList.toggle("open");
+            if(accordion) {
+                accordion.classList.toggle("open");
+            }
         }
 
         // Auto-dismiss alerts smoothly after 4 seconds

@@ -30,7 +30,7 @@
             justify-content: space-between;
             align-items: center;
             padding-bottom: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--glass-border);
             margin-bottom: 12px;
         }
 
@@ -180,7 +180,7 @@
         }
 
         .question-card-item {
-            background: rgba(255, 255, 255, 0.02);
+            background: rgba(128, 128, 128, 0.05);
             border: 1px solid var(--glass-border);
             border-radius: 8px;
             padding: 14px;
@@ -214,16 +214,16 @@
         .form-select {
             width: 100%;
             padding: 8px 10px;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(128, 128, 128, 0.08);
             border: 1px solid var(--glass-border);
             border-radius: 6px;
-            color: white;
+            color: var(--text-color);
             font-size: 13px;
             outline: none;
         }
         .form-select option {
             background: var(--sidebar-bg);
-            color: white;
+            color: var(--text-color);
         }
 
         /* LOADING DIALOG */
@@ -244,7 +244,7 @@
         .progress-bar {
             width: 320px;
             height: 8px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(128, 128, 128, 0.15);
             border-radius: 4px;
             overflow: hidden;
             border: 1px solid var(--glass-border);
@@ -275,19 +275,19 @@
             width: 400px;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            color: white;
+            color: var(--text-color);
         }
         .confirm-box i {
             font-size: 40px;
             color: #fca311;
             margin-bottom: 15px;
         }
-        .confirm-box h3 { margin-top: 0; color: white; }
+        .confirm-box h3 { margin-top: 0; color: var(--text-color); }
         .confirm-box p { color: var(--text-muted); font-size: 14px; margin-bottom: 25px; }
         .confirm-btns { display: flex; gap: 15px; justify-content: center; }
         .btn-cancelar { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); padding: 8px 20px; border-radius: 6px; cursor: pointer; font-size:13px; }
-        .btn-cancelar:hover { background: rgba(255,255,255,0.1); }
-        .btn-continuar { background: var(--accent-color); border: none; color: white; padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size:13px; }
+        .btn-cancelar:hover { background: rgba(128,128,128,0.15); }
+        .btn-continuar { background: var(--accent-color); border: none; color: var(--text-color); padding: 8px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size:13px; }
         .btn-continuar:hover { opacity: 0.9; }
 
         /* CURSOR BORRADOR SVG BASE64 */
@@ -309,9 +309,9 @@
             justify-content: center;
         }
         .tool-btn {
-            background: rgba(255,255,255,0.05);
+            background: rgba(128,128,128,0.08);
             border: 1px solid transparent;
-            color: white;
+            color: var(--text-color);
             padding: 8px 12px;
             border-radius: 6px;
             cursor: pointer;
@@ -322,7 +322,7 @@
             gap: 6px;
         }
         .tool-btn:hover {
-            background: rgba(255,255,255,0.1);
+            background: rgba(128,128,128,0.15);
         }
         .tool-btn.active {
             background: rgba(72, 202, 228, 0.2);
@@ -439,7 +439,7 @@
 
     <!-- RIGHT COLUMN: FORM & CONFIGURATION -->
     <div class="glass-card panel-card">
-        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">
             <h2 style="margin: 0; font-size: 16px;">Plantilla Examen</h2>
             <div style="font-size: 13px; color: var(--text-muted);">
                 Total: <strong id="total-score-indicator" style="color: var(--primary-glow);">0.0 ptos</strong>
@@ -452,7 +452,7 @@
         </div>
 
         <!-- FOOTER ACTIONS -->
-        <div style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 15px; display: flex; gap: 12px; justify-content: flex-end;">
+        <div style="border-top: 1px solid var(--glass-border); padding-top: 15px; display: flex; gap: 12px; justify-content: flex-end;">
             <a href="@Url.Action("Detail", "Examen", new { id = Model.Id })" class="btn btn-secondary">Cancelar</a>
             <button class="btn btn-primary" onclick="saveExamen()">Guardar Plantilla</button>
         </div>
@@ -474,7 +474,7 @@
 <div class="progress-overlay" id="glass-alert-modal" style="display: none; z-index: 3000;">
     <div class="glass-card" style="max-width: 400px; text-align: center; padding: 30px; animation: slideUp 0.3s ease-out;">
         <i id="alert-icon" class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff5252; margin-bottom: 15px;"></i>
-        <h3 id="alert-title" style="margin-bottom: 10px; color: white;">Atención</h3>
+        <h3 id="alert-title" style="margin-bottom: 10px; color: var(--text-color);">Atención</h3>
         <p id="alert-message" style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">Mensaje de error.</p>
         <button class="btn btn-primary" onclick="closeAlertModal()" style="width: 100%;">Entendido</button>
     </div>
@@ -484,7 +484,7 @@
     <div class="progress-overlay" id="confirm-modal" style="display: none; z-index: 3000;">
         <div class="glass-card confirm-box" style="max-width: 400px; text-align: center; padding: 30px;">
             <i class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff5252; margin-bottom: 15px;"></i>
-            <h3 style="margin-bottom: 10px; color: white;">¿Cambiar configuración?</h3>
+            <h3 style="margin-bottom: 10px; color: var(--text-color);">¿Cambiar configuración?</h3>
             <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">¿Seguro que desea quitar las subpreguntas? Se quedará solo con la primera opción registrada y lo demás se limpiará.</p>
             <div style="display: flex; gap: 10px; justify-content: center;">
                 <button class="btn btn-secondary" onclick="cancelConfirmToggle()">Cancelar</button>
@@ -1769,7 +1769,7 @@
                     
                     var subHtml = "<strong style='color:var(--accent-color);'>Incisos Creados:</strong><ul style='margin:5px 0 0 20px; padding:0;'>";
                     opcionesArr.forEach(l => {
-                        subHtml += `<li>Inciso <b>${l.label}</b>: Correcta es <b style='color:#fff'>${l.val}</b></li>`;
+                        subHtml += `<li>Inciso <b>${l.label}</b>: Correcta es <b style='color:var(--text-color)'>${l.val}</b></li>`;
                     });
                     if(opcionesArr.length === 0) subHtml += "<li>(Usa las herramientas V o F para crear incisos)</li>";
                     subHtml += "</ul>";
@@ -1802,7 +1802,7 @@
                     
                     var subHtml = "<strong style='color:var(--accent-color);'>Espacios Creados:</strong><ul style='margin:5px 0 0 20px; padding:0;'>";
                     opcionesArr.forEach(l => {
-                        subHtml += `<li>Espacio <b>${l.label}</b>: Texto esperado es <b style='color:#fff'>${l.val}</b></li>`;
+                        subHtml += `<li>Espacio <b>${l.label}</b>: Texto esperado es <b style='color:var(--text-color)'>${l.val}</b></li>`;
                     });
                     if(opcionesArr.length === 0) subHtml += "<li>(Usa la herramienta Espacio en Blanco para crear recuadros)</li>";
                     subHtml += "</ul><div style='margin-top:5px; color:#aaa; font-size:10px;'>Doble clic en el espacio sobre el PDF para editar su texto.</div>";

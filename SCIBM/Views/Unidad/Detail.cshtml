@@ -51,7 +51,7 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        color: #ffffff;
+        color: var(--text-color);
     }
 
     .course-stats {
@@ -59,8 +59,8 @@
         align-items: center;
         gap: 20px;
         padding: 12px 0;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        border-top: 1px solid var(--glass-border);
+        border-bottom: 1px solid var(--glass-border);
     }
     .stat-item {
         display: flex;
@@ -104,7 +104,7 @@
         color: var(--primary-glow);
     }
     .breadcrumb-separator {
-        color: rgba(255, 255, 255, 0.2);
+        color: var(--text-muted);
         font-size: 11px;
     }
     .breadcrumb-current {
@@ -154,7 +154,7 @@
     }
 
     .edit-btn {
-        color: white;
+        color: var(--text-color);
         background: none;
         border: none;
         font-size: 16px;
@@ -170,7 +170,7 @@
     }
 
     .delete-btn {
-        color: white;
+        color: var(--text-color);
         background: none;
         border: none;
         font-size: 16px;
@@ -194,7 +194,7 @@
         padding: 25px;
         border: 2px dashed rgba(100, 223, 223, 0.3);
         border-radius: 12px;
-        background: rgba(255, 255, 255, 0.02);
+        background: rgba(128, 128, 128, 0.05);
         cursor: pointer;
         transition: all 0.2s ease-in-out;
         color: var(--text-muted);
@@ -204,7 +204,7 @@
     .file-upload-custom:hover {
         background: rgba(100, 223, 223, 0.08);
         border-color: var(--primary-glow);
-        color: white;
+        color: var(--text-color);
     }
     .file-upload-custom i {
         font-size: 32px;
@@ -329,18 +329,18 @@ else
 
             <div class="form-group" style="margin-top: 20px;">
                 <label style="display:block; margin-bottom: 8px;">Tipo de Archivo PDF</label>
-                <div style="display: flex; gap: 20px; background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                <div style="display: flex; gap: 20px; background: rgba(128, 128, 128, 0.05); padding: 15px; border-radius: 8px; border: 1px solid rgba(128, 128, 128, 0.1);">
                     <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; color: var(--text-color); flex: 1;">
                         <input type="radio" name="tipoExamen" value="vacio" required onchange="updateSubmitButtonState()" style="margin-top: 4px;" />
                         <div>
-                            <span style="font-weight: 600; display: block; color: white;">Examen Vacío</span>
+                            <span style="font-weight: 600; display: block; color: var(--text-color);">Examen Vacío</span>
                             <small style="color: var(--text-muted); font-size: 12px;">La IA detectará las preguntas. Las respuestas las rellenarás tú luego.</small>
                         </div>
                     </label>
                     <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; color: var(--text-color); flex: 1;">
                         <input type="radio" name="tipoExamen" value="resuelto" required onchange="updateSubmitButtonState()" style="margin-top: 4px;" />
                         <div>
-                            <span style="font-weight: 600; display: block; color: white;">Examen Resuelto</span>
+                            <span style="font-weight: 600; display: block; color: var(--text-color);">Examen Resuelto</span>
                             <small style="color: var(--text-muted); font-size: 12px;">La IA extraerá las preguntas Y las respuestas marcadas.</small>
                         </div>
                     </label>
@@ -394,7 +394,7 @@ else
             <button class="modal-close" onclick="closeDeleteModal()"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <p style="margin-bottom: 20px; font-size: 15px; color: var(--text-muted);">
-            ¿Estás seguro que deseas eliminar la versión <strong id="delete-version-nombre" style="color: white;"></strong>? <br><br>
+            ¿Estás seguro que deseas eliminar la versión <strong id="delete-version-nombre" style="color: var(--text-color);"></strong>? <br><br>
             <span style="color: #ff5252;"><i class="fa-solid fa-triangle-exclamation"></i> Advertencia:</span> Esto eliminará permanentemente la plantilla del examen, sus preguntas y todas las calificaciones de los alumnos para esta versión.
         </p>
         <form id="delete-version-form" onsubmit="submitDeleteForm(event)">
@@ -457,8 +457,8 @@ else
                             {
                                 bool isPadre = !p.PreguntaPadreId.HasValue;
                                 string indent = isPadre ? "0" : "30px";
-                                string bgRow = isPadre ? "rgba(255,255,255,0.03)" : "var(--glass-bg)";
-                                string boldStr = isPadre ? "font-weight: bold; color: white;" : "";
+                                string bgRow = isPadre ? "rgba(128, 128, 128, 0.03)" : "var(--glass-bg)";
+                                string boldStr = isPadre ? "font-weight: bold; color: var(--text-color);" : "";
                                 string numPrefix = isPadre ? $"{p.NumeroPregunta}." : $"{p.Inciso})";
 
                                 <tr style="background: @bgRow; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">

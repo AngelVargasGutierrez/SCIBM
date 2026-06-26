@@ -285,5 +285,23 @@ INSERT INTO Facultad (Id, Nombre, Siglas) VALUES (@FacId, 'Facultad de Arquitect
   INSERT INTO Carrera (Id, EscuelaProfesionalId, Nombre, CiclosTotales) VALUES (NEWID(), @EscId, 'Arquitectura', 10);
   INSERT INTO Carrera (Id, EscuelaProfesionalId, Nombre, CiclosTotales) VALUES (NEWID(), @EscId, 'Urbanismo', 10);
 
-PRINT 'Tablas recreadas con exito';
+PRINT 'Base de datos, tablas e inserciones de facultades/carreras creadas exitosamente.';
+
+-- =========================================================
+-- INSERCIONES DE DOCENTE Y CICLOS ACADÉMICOS POR DEFECTO
+-- =========================================================
+DECLARE @DocenteEmail NVARCHAR(150) = N'tu_correo_gmail@gmail.com'; -- REEMPLAZA CON TU CORREO REAL DE GOOGLE
+
+IF NOT EXISTS (SELECT 1 FROM Docente WHERE Email = @DocenteEmail)
+BEGIN
+    INSERT INTO Docente (Email, Nombre, Apellido, UltimoAcceso) 
+    VALUES (@DocenteEmail, N'Profesor', N'Prueba', GETDATE());
+    PRINT 'Docente por defecto creado.';
+END
+
+INSERT INTO CicloAcademico (Id, Nombre, DocenteEmail) VALUES (NEWID(), N'2024-I', @DocenteEmail);
+INSERT INTO CicloAcademico (Id, Nombre, DocenteEmail) VALUES (NEWID(), N'2024-II', @DocenteEmail);
+INSERT INTO CicloAcademico (Id, Nombre, DocenteEmail) VALUES (NEWID(), N'2025-I', @DocenteEmail);
+PRINT 'Ciclos Académicos (2024-I, 2024-II, 2025-I) creados exitosamente para el docente.';
+
 GO

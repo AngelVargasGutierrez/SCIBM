@@ -32,7 +32,7 @@
         </button>
     </div>
     <div>
-        <span id="total-score-badge" class="badge" style="background: var(--primary-glow); color: black; font-size: 15px; padding: 6px 15px; border-radius: 20px; font-weight: bold; box-shadow: 0 0 10px rgba(38,208,206,0.3);">
+        <span id="total-score-badge" class="badge" style="background: var(--primary-glow); color: #ffffff; font-size: 15px; padding: 6px 15px; border-radius: 20px; font-weight: bold; box-shadow: 0 0 10px rgba(38,208,206,0.3);">
             Total: 0.0 pts
         </span>
     </div>
@@ -130,7 +130,7 @@
             <div style="flex: 1; background: #1E1E1E; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;">
                 
                 <!-- CONTROLES PAGINACION Y ZOOM -->
-                <div style="padding: 10px; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; gap: 15px;">
+                <div class="pdf-toolbar" style="padding: 10px; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; gap: 15px;">
                     <button class="btn btn-secondary" onclick="changePage(-1)"><i class="fa-solid fa-caret-left"></i></button>
                     <span style="font-weight: bold;">Página <span id="pageNum">1</span> / <span id="pageCount">?</span></span>
                     <button class="btn btn-secondary" onclick="changePage(1)"><i class="fa-solid fa-caret-right"></i></button>
@@ -208,8 +208,18 @@
 </div>
 
 <style>
-    .tab-btn { opacity: 0.7; transition: 0.3s; }
-    .tab-btn.btn-primary { opacity: 1; border: 1px solid var(--primary-glow); }
+    .dark-input {
+        background-color: rgba(128, 128, 128, 0.05) !important;
+        color: var(--primary-glow) !important;
+        border: 1px solid var(--glass-border) !important;
+        font-weight: 500;
+    }
+    .dark-input:focus {
+        border-color: var(--primary-glow) !important;
+        box-shadow: 0 0 5px var(--primary-glow) !important;
+    }
+    .tab-btn { opacity: 0.7; transition: 0.3s; color: var(--text-color); }
+    .tab-btn.btn-primary { opacity: 1; border: 1px solid var(--primary-glow); color: #ffffff !important; }
     .q-chip:hover { background: rgba(128,128,128,0.12) !important; }
     .q-chip.active { background: rgba(38,208,206,0.2) !important; border-color: var(--primary-glow) !important; box-shadow: inset 4px 0 0 var(--primary-glow); }
     #custom-cursor { position: absolute; pointer-events: none; z-index: 9999; display: none; align-items: center; gap: 8px; transform: translate(-10px, -10px); }
@@ -225,7 +235,7 @@
         bottom: 30px;
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(11, 19, 43, 0.85);
+        background: var(--glass-bg);
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         border: 1px solid var(--glass-border);
@@ -266,6 +276,30 @@
         background: var(--accent-hover);
         box-shadow: 0 0 25px rgba(38,208,206,0.8);
         transform: translateY(-2px);
+    }
+    
+    /* LIGHT THEME OVERRIDES */
+    [data-theme="light"] .dark-input {
+        color: #1a73e8 !important;
+    }
+    [data-theme="light"] .pdf-toolbar {
+        background: rgba(255, 255, 255, 0.9) !important;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    [data-theme="light"] .pdf-toolbar .btn-secondary {
+        background: #f1f3f4 !important;
+        color: #1a73e8 !important;
+        border: 1px solid #dadce0 !important;
+    }
+    [data-theme="light"] .pdf-toolbar span {
+        color: #111827 !important;
+    }
+    [data-theme="light"] .btn-cancel-glass {
+        color: #e63946 !important;
+        border-color: #e63946 !important;
+    }
+    [data-theme="light"] .btn-save-glow {
+        color: #ffffff !important;
     }
 
     /* LOADING DIALOG & MODALS */

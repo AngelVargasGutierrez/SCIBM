@@ -103,13 +103,14 @@
         align-items: flex-start;
     }
     .unit-badge {
-        font-size: 12px;
-        font-weight: 700;
         background: var(--accent-color);
-        color: #0b132b;
-        padding: 4px 10px;
-        border-radius: 6px;
-        text-transform: uppercase;
+        color: #ffffff;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 10px rgba(0, 180, 216, 0.3);
     }
     
     .exam-status {
@@ -274,7 +275,7 @@
     <div class="glass-card">
         <div class="panel-header">
             <h2>Estudiantes <span>@Model.AlumnosMatriculados.Count</span></h2>
-            <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="openImportModal()" title="Importar lista desde un archivo Excel .xlsx">
+            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; color: #ffffff;" onclick="openImportModal()" title="Importar lista desde un archivo Excel .xlsx">
                 <i class="fa-solid fa-file-import"></i> Importar
             </button>
         </div>
@@ -433,8 +434,34 @@
             <input type="hidden" id="unitSeccionId" name="seccionId" value="@Model.Id" />
             
             <div class="form-group">
-                <label for="nombreUnidad">Nombre de la Unidad (ej: U1, U1R, U2)</label>
-                <input type="text" id="nombreUnidad" name="nombreUnidad" class="form-input" placeholder="Ej: U1" required />
+                <label for="nombreUnidad">Seleccionar Unidad</label>
+                <select id="nombreUnidad" name="nombreUnidad" class="form-input" required style="padding: 10px; background: rgba(128,128,128,0.08); color: var(--text-color); border: 1px solid var(--glass-border); border-radius: 6px;">
+                    <option value="" disabled selected>-- Elige una opción --</option>
+                    <optgroup label="Unidad 1">
+                        <option value="U1">U1 (Examen Regular)</option>
+                        <option value="U1R">U1R (Recuperación)</option>
+                        <option value="U1RR">U1RR (2da Recuperación)</option>
+                    </optgroup>
+                    <optgroup label="Unidad 2">
+                        <option value="U2">U2 (Examen Regular)</option>
+                        <option value="U2R">U2R (Recuperación)</option>
+                        <option value="U2RR">U2RR (2da Recuperación)</option>
+                    </optgroup>
+                    <optgroup label="Unidad 3">
+                        <option value="U3">U3 (Examen Regular)</option>
+                        <option value="U3R">U3R (Recuperación)</option>
+                        <option value="U3RR">U3RR (2da Recuperación)</option>
+                    </optgroup>
+                    <optgroup label="Unidad 4">
+                        <option value="U4">U4 (Examen Regular)</option>
+                        <option value="U4R">U4R (Recuperación)</option>
+                        <option value="U4RR">U4RR (2da Recuperación)</option>
+                    </optgroup>
+                    <optgroup label="Otros">
+                        <option value="Sustitutorio">Sustitutorio</option>
+                        <option value="Aplazados">Aplazados</option>
+                    </optgroup>
+                </select>
             </div>
 
             <div id="unit-modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>

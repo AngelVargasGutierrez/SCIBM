@@ -1,0 +1,21 @@
+# Tareas de Implementación SCIBM
+
+- `[x]` Fase 4: Eliminar creación de carpetas EXAMENES/REPORTES en CursoController
+  - `[x]` Eliminar GoogleDriveHelper.GetOrCreateFolderAsync en CursoController.cs
+- `[/]` Fase 1: Toggle Tema Oscuro / Claro
+  - `[x]` Añadir variables CSS en _Layout.cshtml y lógica JS de toggle
+  - `[x]` Añadir botón de toggle en _Layout.cshtml (sidebar brand)
+  - `[x]` Añadir botón de toggle y tema claro a Login.cshtml
+  - `[ ]` Auditar y actualizar colores fijos en todas las vistas (Ciclo, Curso, Seccion, Examen, Reporte)
+- `[ ]` Fase 3: Mejora Google Sheets y Nota Media
+  - `[ ]` Calcular y devolver alumnos con nota media en ReporteController (GetReporteDinamico)
+  - `[ ]` Agregar formato rico en GoogleSheetsHelper (Merge celdas, bordes, colores condicionales)
+  - `[ ]` Insertar fila de "Nota Media" en el Sheet (ExportarAGoogleSheets)
+  - `[ ]` Calcular y etiquetar archivo PDF con "[NOTA MEDIA]" en ExamenController (SincronizarExamenConDrive)
+  - `[ ]` Agregar 4ta tarjeta en Reporte/Index.cshtml para Nota Media
+- `[ ]` Fase 2: Gráficos Estadísticos + Auto-nombrado
+  - `[ ]` Añadir endpoint GetTendenciaAlumnos en ReporteController
+  - `[ ]` Añadir UI de Chart.js y gráficos a Reporte/Index.cshtml
+  - `[ ]` Cambiar form "Nueva Sección" a confirmación y auto-nombrar en Curso/Detail.cshtml
+  - `[ ]` Añadir endpoint GetNextSeccionName en SeccionController
+  - `[ ]` Cambiar form "Nueva Unidad" a combo selectivo en Seccion/Detail.cshtml

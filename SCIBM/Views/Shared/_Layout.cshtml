@@ -71,12 +71,12 @@
         }
 
         @@keyframes pageFadeIn {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         body {
-            background: linear-gradient(135deg, var(--bg-color) 0%, #1d2d44 100%);
+            background: var(--bg-color);
             color: var(--text-color);
             min-height: 100vh;
             display: flex;
@@ -114,7 +114,7 @@
             text-shadow: 0 0 10px var(--primary-glow);
         }
         .brand span {
-            font-size: 22px;
+            font-size: 24px;
             font-weight: 700;
             letter-spacing: 1px;
             background: linear-gradient(to right, var(--text-color), var(--primary-glow));
@@ -123,28 +123,60 @@
             flex-grow: 1;
         }
 
-        .theme-toggle {
-            background: rgba(100, 223, 223, 0.1);
+        /* THEME TOGGLE */
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 56px;
+            height: 30px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+        .theme-switch .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #1c2541;
+            transition: background-color .4s;
+            border-radius: 30px;
             border: 1px solid var(--primary-glow);
-            color: var(--primary-glow);
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
             display: flex;
             align-items: center;
+        }
+        .theme-switch .slider .ball {
+            position: absolute;
+            height: 24px;
+            width: 24px;
+            left: 2px;
+            background-color: #64dfdf;
+            transition: transform .4s, background-color .4s;
+            border-radius: 50%;
+            display: flex;
             justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 10px rgba(100, 223, 223, 0.2);
+            align-items: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3);
         }
-        .theme-toggle:hover {
-            transform: scale(1.1) rotate(15deg);
-            background: rgba(100, 223, 223, 0.2);
+        .theme-switch input:checked + .slider {
+            background-color: #dce8f7;
+            border-color: #1a73e8;
         }
-        [data-theme="light"] .theme-toggle {
-            background: rgba(26, 115, 232, 0.1);
-            border-color: var(--primary-glow);
-            box-shadow: 0 0 10px rgba(26, 115, 232, 0.2);
+        .theme-switch input:checked + .slider .ball {
+            transform: translateX(26px);
+            background-color: #1a73e8;
+        }
+        .theme-switch .slider .ball i {
+            font-size: 13px;
+            color: #0b132b;
+            transition: color .4s;
+        }
+        .theme-switch input:checked + .slider .ball i {
+            color: #ffffff;
         }
 
         /* NAVIGATION MENU */
@@ -154,7 +186,7 @@
             overflow-y: auto;
         }
         .menu-title {
-            font-size: 11px;
+            font-size: 12px;
             text-transform: uppercase;
             letter-spacing: 1.5px;
             color: var(--text-muted);
@@ -174,7 +206,7 @@
             color: var(--text-color);
             text-decoration: none;
             border-radius: 8px;
-            font-size: 15px;
+            font-size: 18px;
             font-weight: 500;
             transition: all 0.2s ease;
             cursor: pointer;
@@ -190,7 +222,7 @@
             font-size: 16px;
         }
         .menu-link:hover, .menu-link.active {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(128, 128, 128, 0.15);
             color: var(--primary-glow);
         }
         .menu-link.active i.icon-left {
@@ -214,7 +246,7 @@
             padding: 8px 12px;
             color: var(--text-muted);
             text-decoration: none;
-            font-size: 14px;
+            font-size: 15px;
             border-radius: 6px;
             transition: all 0.2s ease;
             white-space: nowrap;
@@ -224,7 +256,7 @@
         .submenu-link:hover, .submenu-link.active {
             color: var(--primary-glow);
             padding-left: 16px;
-            background: rgba(255, 255, 255, 0.02);
+            background: rgba(128, 128, 128, 0.08);
         }
 
         .menu-item.open .submenu {
@@ -241,7 +273,7 @@
         /* USER PROFILE (TOP) */
         .user-profile {
             padding: 20px;
-            background: rgba(0, 0, 0, 0.15);
+            background: rgba(26, 115, 232, 0.08); /* Azulito pastel adaptable */
             border-bottom: 1px solid var(--glass-border);
             display: flex;
             align-items: center;
@@ -260,14 +292,14 @@
             overflow: hidden;
         }
         .user-name {
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 600;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .user-role {
-            font-size: 11px;
+            font-size: 13px;
             color: var(--text-muted);
             white-space: nowrap;
             overflow: hidden;
@@ -286,7 +318,7 @@
             align-items: center;
             gap: 10px;
             color: var(--text-muted);
-            font-size: 15px;
+            font-size: 18px;
             font-weight: 500;
             transition: color 0.2s ease, background 0.2s ease;
             text-decoration: none;
@@ -295,7 +327,7 @@
             border-radius: 8px;
         }
         .logout-btn i {
-            font-size: 18px;
+            font-size: 20px;
         }
         .logout-btn:hover {
             color: #ff6b6b;
@@ -328,7 +360,12 @@
         }
         .header-title h1 {
             font-size: 19px;
-            font-weight: 600;
+            font-weight: 700;
+            color: var(--text-color); /* Blanco en oscuro */
+            transition: color 0.3s ease;
+        }
+        [data-theme="light"] .header-title h1 {
+            color: #1a73e8; /* Azul en claro */
         }
         .header-title span {
             font-size: 13px;
@@ -349,6 +386,45 @@
         }
         .header-folder i {
             font-size: 16px;
+        }
+
+        /* BREADCRUMB GLOBAL STYLES */
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .breadcrumb a, .breadcrumb span:not(.breadcrumb-separator) {
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            padding: 8px 14px !important;
+            border-radius: 8px !important;
+            background: rgba(128,128,128,0.1) !important;
+            color: var(--text-color) !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            text-decoration: none !important;
+            transition: all 0.2s !important;
+        }
+        .breadcrumb a:hover {
+            background: rgba(128,128,128,0.2) !important;
+        }
+        .breadcrumb span.breadcrumb-current {
+            background: rgba(100, 223, 223, 0.15) !important;
+            color: var(--primary-glow) !important; /* Celeste/Cian en oscuro */
+            font-weight: 600 !important;
+        }
+        [data-theme="light"] .breadcrumb span.breadcrumb-current {
+            background: rgba(26, 115, 232, 0.15) !important;
+            color: #1a73e8 !important; /* Azul en claro */
+        }
+        .breadcrumb i.breadcrumb-separator {
+            color: var(--text-color) !important;
+            font-size: 12px !important;
+            opacity: 0.6 !important;
+            padding: 0 !important;
+            background: transparent !important;
         }
 
         /* GLASS CARD COMMON STYLE */
@@ -435,7 +511,7 @@
         }
         .btn-primary {
             background: var(--accent-color);
-            color: #0b132b;
+            color: #ffffff;
         }
         .btn-primary:hover {
             background: var(--accent-hover);
@@ -445,11 +521,12 @@
         .btn:disabled {
             cursor: not-allowed;
             pointer-events: none;
+            opacity: 0.6;
         }
         .btn-primary:disabled {
-            background: rgba(255, 255, 255, 0.05);
-            color: rgba(255, 255, 255, 0.3);
-            border: 1px dashed rgba(255, 255, 255, 0.15);
+            background: var(--glass-border);
+            color: var(--text-muted);
+            border: 1px dashed var(--text-muted);
             box-shadow: none;
             transform: none;
         }
@@ -533,11 +610,16 @@
         <div>
             <!-- LOGO/BRAND -->
             <div class="brand">
-                <img src="~/Content/images/logo_upt.png" alt="Logo UPT" style="height: 60px; object-fit: contain; margin: -10px 15px -10px -5px;" />
+                <img id="brand-logo" src="~/Content/images/logo_upt.png" alt="Logo UPT" style="width: 50px; height: 60px; object-fit: contain; margin: -10px 15px -10px -5px;" />
                 <span>SCIBM</span>
-                <button class="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">
-                    <i class="fa-solid fa-moon" id="theme-icon"></i>
-                </button>
+                <label class="theme-switch" title="Cambiar tema">
+                    <input type="checkbox" id="theme-checkbox" onchange="toggleTheme()">
+                    <span class="slider">
+                        <span class="ball">
+                            <i class="fa-solid fa-moon" id="theme-ball-icon"></i>
+                        </span>
+                    </span>
+                </label>
             </div>
 
             <!-- USER INFO PROFILE -->
@@ -626,27 +708,36 @@
         // Lógica para alternar el tema claro/oscuro
         function toggleTheme() {
             const html = document.documentElement;
-            const icon = document.getElementById('theme-icon');
+            const logo = document.getElementById('brand-logo');
+            const ballIcon = document.getElementById('theme-ball-icon');
             
             if (html.getAttribute('data-theme') === 'light') {
                 html.removeAttribute('data-theme');
                 localStorage.setItem('scibm-theme', 'dark');
-                icon.classList.remove('fa-sun');
-                icon.classList.add('fa-moon');
+                if (logo) logo.src = '/Content/images/logo_upt.png';
+                if (ballIcon) { ballIcon.classList.remove('fa-sun'); ballIcon.classList.add('fa-moon'); }
             } else {
                 html.setAttribute('data-theme', 'light');
                 localStorage.setItem('scibm-theme', 'light');
-                icon.classList.remove('fa-moon');
-                icon.classList.add('fa-sun');
+                if (logo) logo.src = '/Content/images/logo_claro.png';
+                if (ballIcon) { ballIcon.classList.remove('fa-moon'); ballIcon.classList.add('fa-sun'); }
             }
+            // Emitir evento para que los gráficos (Chart.js) y otros componentes se re-dibujen
+            document.dispatchEvent(new Event('themeChanged'));
         }
         
-        // Ajustar el icono al cargar según el tema
+        // Ajustar logo, checkbox e icono al cargar según el tema
         document.addEventListener('DOMContentLoaded', () => {
-            const icon = document.getElementById('theme-icon');
+            const checkbox = document.getElementById('theme-checkbox');
+            const logo = document.getElementById('brand-logo');
+            const ballIcon = document.getElementById('theme-ball-icon');
+            
             if (document.documentElement.getAttribute('data-theme') === 'light') {
-                icon.classList.remove('fa-moon');
-                icon.classList.add('fa-sun');
+                if (checkbox) checkbox.checked = true;
+                if (logo) logo.src = '/Content/images/logo_claro.png';
+                if (ballIcon) { ballIcon.classList.remove('fa-moon'); ballIcon.classList.add('fa-sun'); }
+            } else {
+                if (logo) logo.src = '/Content/images/logo_upt.png';
             }
         });
 

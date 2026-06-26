@@ -454,7 +454,7 @@
                 
                 <div id="file-preview-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;"></div>
 
-                <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; background: linear-gradient(135deg, #1A2980, #26D0CE); border: none;">
+                <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 8px 12px; font-size: 13px; background: linear-gradient(135deg, #1A2980, #26D0CE); border: none; color: #ffffff;">
                     <i class="fa-solid fa-robot"></i> Calificar Estudiantes con IA
                 </button>
             </form>
@@ -532,6 +532,21 @@
     </div>
 </div>
 
+<!-- MODAL DE CONFIRMACIÓN SOBRESCRIBIR ARCHIVO -->
+<div class="modal-overlay" id="overwrite-confirm-modal">
+    <div class="modal-box" style="max-width: 400px; text-align: center; padding: 30px;">
+        <i class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: #ff9800; margin-bottom: 15px;"></i>
+        <h3 style="margin-bottom: 10px; color: var(--text-color);">¡Cuidado!</h3>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;">
+            Ya existe un documento cargado y calibrado para esta versión. Si subes uno nuevo, <strong>SOBRESCRIBIRÁS</strong> los datos de la versión y perderás la calibración actual.<br><br>¿Estás completamente seguro de que deseas subir un nuevo documento?
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button type="button" class="btn btn-secondary" onclick="closeOverwriteConfirm()">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="proceedOverwrite()" style="background: #ff9800; border-color: #ff9800; color: #111;">Aceptar</button>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL VISOR PDF PREVIEW -->
 <div class="modal-overlay" id="pdf-preview-modal">
     <div class="modal-box" style="width: 90vw; height: 90vh; max-width: 1200px; padding: 0; display: flex; flex-direction: column; overflow: hidden; background: #222;">
@@ -552,9 +567,18 @@
 
         function openUploadModal() {
             if (hasExistingPdf) {
-                var isConfirmed = confirm("¡Cuidado! Ya existe un documento cargado y calibrado para esta versión. Si subes uno nuevo, SOBRESCRIBIRÁS los datos de la versión y perderás la calibración actual.\n\n¿Estás completamente seguro de que deseas subir un nuevo documento?");
-                if (!isConfirmed) return;
+                document.getElementById('overwrite-confirm-modal').classList.add('active');
+            } else {
+                proceedOverwrite();
             }
+        }
+
+        function closeOverwriteConfirm() {
+            document.getElementById('overwrite-confirm-modal').classList.remove('active');
+        }
+
+        function proceedOverwrite() {
+            closeOverwriteConfirm();
             document.getElementById('upload-pdf-modal').classList.add('active');
             updateFormAction();
         }

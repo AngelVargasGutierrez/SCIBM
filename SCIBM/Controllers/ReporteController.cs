@@ -35,8 +35,11 @@ namespace SCIBM.Controllers
                     Text = c.Nombre
                 }).ToList();
 
-                // Cargar todas las facultades disponibles
+                // Cargar solo las facultades donde el docente tiene cursos
                 var facultades = await db.Facultades
+                    .Where(f => db.Cursos.Any(cu =>
+                        cu.CicloAcademico.DocenteEmail == email &&
+                        cu.Carrera.EscuelaProfesional.FacultadId == f.Id))
                     .OrderBy(f => f.Nombre)
                     .Select(f => new { f.Id, f.Nombre })
                     .ToListAsync();
@@ -57,8 +60,12 @@ namespace SCIBM.Controllers
         {
             using (var db = new ScibmContext())
             {
+                string email = Session["UserEmail"]?.ToString();
                 var escuelas = await db.EscuelasProfesionales
-                    .Where(e => e.FacultadId == facultadId)
+                    .Where(e => e.FacultadId == facultadId &&
+                        db.Cursos.Any(cu =>
+                            cu.CicloAcademico.DocenteEmail == email &&
+                            cu.Carrera.EscuelaProfesionalId == e.Id))
                     .OrderBy(e => e.Nombre)
                     .Select(e => new { e.Id, Nombre = e.Nombre })
                     .ToListAsync();
@@ -73,8 +80,12 @@ namespace SCIBM.Controllers
         {
             using (var db = new ScibmContext())
             {
+                string email = Session["UserEmail"]?.ToString();
                 var carreras = await db.Carreras
-                    .Where(c => c.EscuelaProfesionalId == escuelaId)
+                    .Where(c => c.EscuelaProfesionalId == escuelaId &&
+                        db.Cursos.Any(cu =>
+                            cu.CicloAcademico.DocenteEmail == email &&
+                            cu.CarreraId == c.Id))
                     .OrderBy(c => c.Nombre)
                     .Select(c => new { c.Id, c.Nombre })
                     .ToListAsync();
@@ -83,14 +94,60 @@ namespace SCIBM.Controllers
             }
         }
 
-        // AJAX: Obtener Cursos por Carrera y Ciclo Académico
+        // AJAX: Obtener Ciclos Romano (I, II, III...) por Carrera del docente
         [HttpGet]
-        public async Task<ActionResult> GetCursos(Guid carreraId, Guid cicloId)
+        public async Task<ActionResult> GetCiclosCarrera(Guid carreraId, Guid? cicloAcademicoId = null)
         {
             using (var db = new ScibmContext())
             {
-                var cursos = await db.Cursos
-                    .Where(c => c.CarreraId == carreraId && c.CicloAcademicoId == cicloId)
+                string email = Session["UserEmail"]?.ToString();
+                var query = db.Cursos
+                    .Where(c => c.CarreraId == carreraId &&
+                        c.CicloAcademico.DocenteEmail == email);
+
+                if (cicloAcademicoId.HasValue)
+                    query = query.Where(c => c.CicloAcademicoId == cicloAcademicoId.Value);
+
+                var ciclos = await query
+                    .Select(c => c.CicloRomano)
+                    .Distinct()
+                    .ToListAsync();
+
+                // Ordenar romano correctamente, limpiando la palabra 'CICLO' si existe en la BD
+                var ordenRomano = new[] { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII" };
+                
+                var resultado = ciclos
+                    .Select(c => new 
+                    { 
+                        id = c, 
+                        clean = c != null ? c.ToUpper().Replace("CICLO", "").Trim() : ""
+                    })
+                    .OrderBy(x => Array.IndexOf(ordenRomano, x.clean) >= 0 ? Array.IndexOf(ordenRomano, x.clean) : 99)
+                    .Select(x => new { id = x.id, nombre = "Ciclo " + x.clean })
+                    .ToList();
+
+                return Json(resultado, JsonRequestBehavior.AllowGet);
+            }
+        }
+
+        // AJAX: Obtener Cursos por Carrera (cicloAcademicoId y cicloRomano opcionales)
+        [HttpGet]
+        public async Task<ActionResult> GetCursos(Guid carreraId, Guid? cicloId = null, string cicloRomano = null)
+        {
+            using (var db = new ScibmContext())
+            {
+                string email = Session["UserEmail"]?.ToString();
+                var query = db.Cursos
+                    .Where(c => c.CarreraId == carreraId &&
+                        c.CicloAcademico.DocenteEmail == email);
+
+                if (cicloId.HasValue)
+                    query = query.Where(c => c.CicloAcademicoId == cicloId.Value);
+
+                if (!string.IsNullOrEmpty(cicloRomano))
+                    query = query.Where(c => c.CicloRomano == cicloRomano);
+
+                var cursos = await query
                     .OrderBy(c => c.Nombre)
                     .Select(c => new { c.Id, c.Nombre, c.CicloRomano })
                     .ToListAsync();
@@ -174,63 +231,73 @@ namespace SCIBM.Controllers
 
                 var resultados = await query.ToListAsync();
 
+                // Obtener TODAS las unidades correspondientes al filtro actual
+                List<string> unidadesPresentes = new List<string>();
+                if (unidadId.HasValue) unidadesPresentes = db.Unidades.Where(u => u.Id == unidadId.Value).Select(u => u.NombreUnidad).ToList();
+                else if (seccionId.HasValue) unidadesPresentes = db.Unidades.Where(u => u.SeccionId == seccionId.Value).Select(u => u.NombreUnidad).Distinct().OrderBy(u => u).ToList();
+                else unidadesPresentes = db.Unidades.Where(u => u.Seccion.CursoId == cursoId).Select(u => u.NombreUnidad).Distinct().OrderBy(u => u).ToList();
+
                 if (!resultados.Any())
                 {
                     return Json(new
                     {
                         success = true,
+                        unidades = unidadesPresentes,
                         data = new object[0],
                         stats = new { notaMax = 0.0, notaMin = 0.0, notaPromedio = 0.0, alumnosMax = "", alumnosMin = "", total = 0 }
                     }, JsonRequestBehavior.AllowGet);
                 }
 
-                // Calcular estadísticas con soporte a empates
-                double notaMax = resultados.Max(r => r.Nota);
-                double notaMin = resultados.Min(r => r.Nota);
-                double notaPromedio = Math.Round(resultados.Average(r => r.Nota), 2);
+                var alumnosAgrupados = resultados.GroupBy(r => r.AlumnoMatriculado != null ? r.AlumnoMatriculado.NombreCompleto : r.NombreAlumno)
+                    .Select(g => {
+                        var notasUnidad = new Dictionary<string, double?>();
+                        foreach(var u in unidadesPresentes) {
+                            var ea = g.FirstOrDefault(x => x.Examen.Unidad.NombreUnidad == u);
+                            notasUnidad[u] = ea?.Nota;
+                        }
+                        var promedio = g.Average(x => x.Nota);
+                        var estado = promedio < 10.5 ? "Desaprobado" : promedio < 14.0 ? "Regular" : "Aprobado";
+                        var color = promedio < 10.5 ? "#ff5252" : promedio < 14.0 ? "#ff9f1c" : "#2ec4b6";
 
-                var alumnosMax = resultados
-                    .Where(r => r.Nota == notaMax)
-                    .Select(r => r.AlumnoMatriculado != null ? r.AlumnoMatriculado.NombreCompleto : r.NombreAlumno)
-                    .Distinct()
+                        return new {
+                            nombre = g.Key,
+                            notasUnidad = notasUnidad,
+                            promedio = Math.Round(promedio, 2),
+                            estado = estado,
+                            color = color
+                        };
+                    })
+                    .OrderByDescending(x => x.promedio)
                     .ToList();
 
-                var alumnosMin = resultados
-                    .Where(r => r.Nota == notaMin)
-                    .Select(r => r.AlumnoMatriculado != null ? r.AlumnoMatriculado.NombreCompleto : r.NombreAlumno)
-                    .Distinct()
-                    .ToList();
+                // Calcular estadísticas sobre los promedios
+                double notaMax = alumnosAgrupados.Max(r => r.promedio);
+                double notaMin = alumnosAgrupados.Min(r => r.promedio);
+                double notaPromedioGeneral = Math.Round(alumnosAgrupados.Average(r => r.promedio), 2);
 
-                // Determinar color del semáforo del promedio
-                string colorPromedio = notaPromedio < 10.5 ? "#ff5252" : notaPromedio < 14.0 ? "#ff9f1c" : "#2ec4b6";
+                var alumnosMax = alumnosAgrupados.Where(r => r.promedio == notaMax).Select(r => r.nombre).ToList();
+                var alumnosMin = alumnosAgrupados.Where(r => r.promedio == notaMin).Select(r => r.nombre).ToList();
 
-                // Construir la data de la tabla
-                var data = resultados.Select(r => new
-                {
-                    nombre = r.AlumnoMatriculado != null ? r.AlumnoMatriculado.NombreCompleto : r.NombreAlumno,
-                    nota = r.Nota,
-                    estado = r.EstadoRendimiento,
-                    color = r.ColorRendimiento,
-                    seccion = r.Examen.Unidad.Seccion.Nombre,
-                    version = r.Examen.NombreVersion,
-                    unidad = r.Examen.Unidad.NombreUnidad
-                })
-                .OrderByDescending(r => r.nota)
-                .ToList();
+                double minDiff = alumnosAgrupados.Min(r => Math.Abs(r.promedio - notaPromedioGeneral));
+                var alumnosMedia = alumnosAgrupados.Where(r => Math.Abs(r.promedio - notaPromedioGeneral) == minDiff).Select(r => r.nombre).ToList();
+
+                string colorPromedio = notaPromedioGeneral < 10.5 ? "#ff5252" : notaPromedioGeneral < 14.0 ? "#ff9f1c" : "#2ec4b6";
 
                 return Json(new
                 {
                     success = true,
-                    data,
+                    unidades = unidadesPresentes,
+                    data = alumnosAgrupados,
                     stats = new
                     {
                         notaMax,
                         notaMin,
-                        notaPromedio,
+                        notaPromedio = notaPromedioGeneral,
                         colorPromedio,
                         alumnosMax = string.Join(", ", alumnosMax),
                         alumnosMin = string.Join(", ", alumnosMin),
-                        total = resultados.Count
+                        alumnosMedia = string.Join(", ", alumnosMedia),
+                        total = alumnosAgrupados.Count
                     }
                 }, JsonRequestBehavior.AllowGet);
             }
@@ -267,6 +334,102 @@ namespace SCIBM.Controllers
                 return null;
             }
             return accessToken;
+        }
+
+        // AJAX: Obtener Datos de Tendencia para Gráficos
+        [HttpGet]
+        public async Task<ActionResult> GetTendenciaAlumnos(Guid cursoId, Guid? seccionId = null)
+        {
+            if (Session["UserEmail"] == null)
+                return Json(new { success = false, message = "Sesión expirada." }, JsonRequestBehavior.AllowGet);
+
+            using (var db = new ScibmContext())
+            {
+                // Consultar todas las calificaciones relacionadas al curso (y opcionalmente sección)
+                var query = db.ExamenesAlumnos
+                    .Include(ea => ea.AlumnoMatriculado)
+                    .Include(ea => ea.Examen.Unidad)
+                    .Include(ea => ea.Examen.Unidad.Seccion)
+                    .Where(ea => ea.Examen.Unidad.Seccion.CursoId == cursoId);
+
+                if (seccionId.HasValue)
+                {
+                    query = query.Where(ea => ea.Examen.Unidad.SeccionId == seccionId.Value);
+                }
+
+                var resultados = await query.ToListAsync();
+
+                if (!resultados.Any())
+                {
+                    return Json(new { success = true, labels = new string[0], datasets = new object[0], promedioGeneral = new double[0] }, JsonRequestBehavior.AllowGet);
+                }
+
+                // Identificar y ordenar todas las unidades únicas por nombre
+                var unidades = resultados
+                    .Select(r => r.Examen.Unidad)
+                    .GroupBy(u => u.Id)
+                    .Select(g => g.First())
+                    .OrderBy(u => u.NombreUnidad) // U1, U1R, U2...
+                    .ToList();
+
+                var labels = unidades.Select(u => u.NombreUnidad).ToList();
+
+                // Agrupar por alumno
+                var alumnosGroup = resultados.GroupBy(r => r.AlumnoMatriculadoId.HasValue 
+                    ? r.AlumnoMatriculado.NombreCompleto 
+                    : r.NombreAlumno);
+
+                var datasets = new List<object>();
+
+                foreach (var ag in alumnosGroup)
+                {
+                    var notasPorUnidad = new List<double?>();
+                    foreach (var u in unidades)
+                    {
+                        // Buscar si el alumno tiene nota en esta unidad
+                        var examenesEnUnidad = ag.Where(r => r.Examen.UnidadId == u.Id).ToList();
+                        
+                        if (examenesEnUnidad.Any())
+                        {
+                            // Si tiene varias versiones en la misma unidad, promediamos
+                            notasPorUnidad.Add(Math.Round(examenesEnUnidad.Average(e => e.Nota), 2));
+                        }
+                        else
+                        {
+                            notasPorUnidad.Add(null); // No rindió en esta unidad
+                        }
+                    }
+
+                    datasets.Add(new
+                    {
+                        alumno = ag.Key,
+                        notas = notasPorUnidad
+                    });
+                }
+
+                // Calcular promedio general por unidad
+                var promedioGeneral = new List<double?>();
+                foreach (var u in unidades)
+                {
+                    var todasNotasEnUnidad = resultados.Where(r => r.Examen.UnidadId == u.Id).ToList();
+                    if (todasNotasEnUnidad.Any())
+                    {
+                        promedioGeneral.Add(Math.Round(todasNotasEnUnidad.Average(e => e.Nota), 2));
+                    }
+                    else
+                    {
+                        promedioGeneral.Add(null);
+                    }
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    labels = labels,
+                    datasets = datasets,
+                    promedioGeneral = promedioGeneral
+                }, JsonRequestBehavior.AllowGet);
+            }
         }
 
         // POST: Exportar a Google Sheets
@@ -310,7 +473,8 @@ namespace SCIBM.Controllers
                     var primerR = resultados.First();
                     var curso = primerR.Examen.Unidad.Seccion.Curso;
                     var facultad = curso.Carrera.EscuelaProfesional.Facultad.Nombre;
-                    var escuela = curso.Carrera.EscuelaProfesional.Nombre;
+                    var escuelaSiglas = curso.Carrera.EscuelaProfesional.Siglas ?? curso.Carrera.EscuelaProfesional.Nombre;
+                    var carreraNombre = curso.Carrera.Nombre;
 
                     double notaMax = resultados.Max(r => r.Nota);
                     double notaMin = resultados.Min(r => r.Nota);
@@ -320,35 +484,85 @@ namespace SCIBM.Controllers
                         .Select(r => r.AlumnoMatriculado != null ? r.AlumnoMatriculado.NombreCompleto : r.NombreAlumno).Distinct().ToList();
                     var alumnosMin = resultados.Where(r => r.Nota == notaMin)
                         .Select(r => r.AlumnoMatriculado != null ? r.AlumnoMatriculado.NombreCompleto : r.NombreAlumno).Distinct().ToList();
+                    
+                    double minDiff = resultados.Min(r => Math.Abs(r.Nota - notaPromedio));
+                    var alumnosMedia = resultados.Where(r => Math.Abs(r.Nota - notaPromedio) == minDiff)
+                        .Select(r => r.AlumnoMatriculado != null ? r.AlumnoMatriculado.NombreCompleto : r.NombreAlumno).Distinct().ToList();
 
                     // 2. Construir la estructura del Google Sheet
                     var sheetData = new List<IList<object>>();
 
                     // Fila 1 y 2: Encabezados Institucionales
-                    sheetData.Add(new List<object> { $"UNIVERSIDAD NACIONAL DE SAN ANTONIO ABAD DEL CUSCO" });
-                    sheetData.Add(new List<object> { $"FACULTAD DE {facultad.ToUpper()} - {escuela.ToUpper()}" });
-                    sheetData.Add(new List<object> { $"CURSO: {curso.Nombre.ToUpper()} ({curso.Codigo})" });
+                    sheetData.Add(new List<object> { $"UNIVERSIDAD PRIVADA DE TACNA" });
+                    sheetData.Add(new List<object> { $"FACULTAD DE {facultad.ToUpper()} - {escuelaSiglas.ToUpper()} - {carreraNombre.ToUpper()}" });
+                    string headerContext = $"CURSO: {curso.Nombre.ToUpper()} ({curso.Codigo})";
+                    if (seccionId.HasValue) headerContext += $" - SECCIÓN: {primerR.Examen.Unidad.Seccion.Nombre.ToUpper()}";
+                    if (unidadId.HasValue) headerContext += $" - UNIDAD: {primerR.Examen.Unidad.NombreUnidad.ToUpper()}";
+                    if (examenId.HasValue) headerContext += $" - VERSIÓN: {primerR.Examen.NombreVersion.ToUpper()}";
+
+                    sheetData.Add(new List<object> { headerContext });
                     sheetData.Add(new List<object> { $"FECHA DE EXPORTACIÓN: {DateTime.Now.ToString("dd/MM/yyyy HH:mm")}" });
                     sheetData.Add(new List<object> { "" });
 
                     // Filas 6-8: Estadísticas (Empates)
                     sheetData.Add(new List<object> { "--- ESTADÍSTICAS ---" });
-                    sheetData.Add(new List<object> { "Nota Promedio:", notaPromedio });
+                    sheetData.Add(new List<object> { "Nota Promedio:", notaPromedio, "Alumnos:", string.Join(", ", alumnosMedia) });
                     sheetData.Add(new List<object> { "Nota Más Alta:", notaMax, "Alumnos:", string.Join(", ", alumnosMax) });
                     sheetData.Add(new List<object> { "Nota Más Baja:", notaMin, "Alumnos:", string.Join(", ", alumnosMin) });
                     sheetData.Add(new List<object> { "" });
 
-                    // Fila 10: Títulos de Tabla
-                    sheetData.Add(new List<object> { "N°", "Nombre del Alumno", "Nota", "Rendimiento", "Sección", "Versión de Examen", "Unidad" });
+                    // Agrupar la data y pivotar por unidad (misma lógica que GetReporteDinamico)
+                    List<string> unidadesPresentes = new List<string>();
+                    if (unidadId.HasValue) unidadesPresentes = db.Unidades.Where(u => u.Id == unidadId.Value).Select(u => u.NombreUnidad).ToList();
+                    else if (seccionId.HasValue) unidadesPresentes = db.Unidades.Where(u => u.SeccionId == seccionId.Value).Select(u => u.NombreUnidad).Distinct().OrderBy(u => u).ToList();
+                    else unidadesPresentes = db.Unidades.Where(u => u.Seccion.CursoId == cursoId).Select(u => u.NombreUnidad).Distinct().OrderBy(u => u).ToList();
+
+                    var alumnosAgrupados = resultados.GroupBy(r => r.AlumnoMatriculado != null ? r.AlumnoMatriculado.NombreCompleto : r.NombreAlumno)
+                        .Select(g => {
+                            var notasUnidad = new Dictionary<string, double?>();
+                            foreach(var u in unidadesPresentes) {
+                                var ea = g.FirstOrDefault(x => x.Examen.Unidad.NombreUnidad == u);
+                                notasUnidad[u] = ea?.Nota;
+                            }
+                            var promedio = g.Average(x => x.Nota);
+                            var estado = promedio < 10.5 ? "Desaprobado" : promedio < 14.0 ? "Regular" : "Aprobado";
+                            return new {
+                                nombre = g.Key,
+                                notasUnidad = notasUnidad,
+                                promedio = Math.Round(promedio, 2),
+                                estado = estado
+                            };
+                        })
+                        .OrderByDescending(x => x.promedio)
+                        .ToList();
+
+                    // Fila 11: Títulos de Tabla (Dinámico)
+                    var titulosTabla = new List<object> { "N°", "Nombre del Alumno" };
+                    foreach (var u in unidadesPresentes) titulosTabla.Add(u);
+                    titulosTabla.Add("Promedio Final");
+                    titulosTabla.Add("Rendimiento");
+                    sheetData.Add(titulosTabla);
 
                     // Fila 11+: Datos
-                    var dataRows = resultados.OrderByDescending(r => r.Nota).ToList();
-                    for (int i = 0; i < dataRows.Count; i++)
+                    for (int i = 0; i < alumnosAgrupados.Count; i++)
                     {
-                        var r = dataRows[i];
-                        string nombre = r.AlumnoMatriculado != null ? r.AlumnoMatriculado.NombreCompleto : r.NombreAlumno;
-                        sheetData.Add(new List<object> { i + 1, nombre, r.Nota, r.EstadoRendimiento, r.Examen.Unidad.Seccion.Nombre, r.Examen.NombreVersion, r.Examen.Unidad.NombreUnidad });
+                        var r = alumnosAgrupados[i];
+                        var row = new List<object> { i + 1, r.nombre };
+                        foreach(var u in unidadesPresentes) {
+                            if (r.notasUnidad[u].HasValue) row.Add(r.notasUnidad[u].Value);
+                            else row.Add("-");
+                        }
+                        row.Add(r.promedio);
+                        row.Add(r.estado);
+                        sheetData.Add(row);
                     }
+                    
+                    // Fila Final: Promedio General de la clase
+                    var filaPromedioFinal = new List<object> { "", "PROMEDIO DEL CURSO:" };
+                    for(int j=0; j<unidadesPresentes.Count; j++) filaPromedioFinal.Add("");
+                    filaPromedioFinal.Add(notaPromedio);
+                    filaPromedioFinal.Add("");
+                    sheetData.Add(filaPromedioFinal);
 
                     // 3. Crear el Google Sheet nativo
                     string contextName = seccionId.HasValue ? resultados.First().Examen.Unidad.Seccion.Nombre : "General";

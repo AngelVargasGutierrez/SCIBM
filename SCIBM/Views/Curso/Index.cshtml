@@ -147,14 +147,24 @@
         background: rgba(128, 128, 128, 0.05);
         border: 1px solid var(--glass-border);
         color: var(--text-color);
-        padding: 8px 12px;
-        border-radius: 6px;
+        padding: 10px 12px;
+        border-radius: 8px;
         width: 100%;
         max-width: 250px;
+        transition: all 0.3s ease;
     }
     .filter-input option {
         background-color: var(--sidebar-bg);
         color: var(--text-color);
+    }
+    .filter-input:hover:not(:disabled) {
+        background: rgba(128,128,128,0.1);
+        border-color: rgba(26, 115, 232, 0.5); /* Azul sutil en hover */
+    }
+    .filter-input:focus {
+        outline: none;
+        border-color: var(--primary-glow);
+        box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
     }
     
     /* NO DATA EMPTY STATE */

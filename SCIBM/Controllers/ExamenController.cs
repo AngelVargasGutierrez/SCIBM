@@ -196,6 +196,8 @@ Reglas estrictas de jerarquía:
   'opciones': Si el Tipo es 'OpcionMultiple', extrae un arreglo con 'label' (A, B, C) y 'text' (el texto de la opción). Para otros tipos, vacío [].
   'pagina': donde se encuentra.
 
+ESTRICTO: NUNCA utilices comillas dobles dentro de los textos de 'enunciado', 'respuestaCorrecta' u 'opciones'. Si necesitas citar, usa comillas simples (''). 
+
 Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
 {
   ""preguntas"": [
@@ -1631,12 +1633,14 @@ Reglas del JSON:
                         .Where(ea => ea.ExamenId == examenId && !ea.SincronizadoDrive)
                         .ToListAsync();
 
-                    // Calcular nota máxima y mínima para etiquetas
-                    double notaMaxima = 0, notaMinima = 20;
+                    // Calcular nota máxima, mínima y media para etiquetas
+                    double notaMaxima = 0, notaMinima = 20, notaPromedio = 0, minDiff = 0;
                     if (alumnosCalificados.Any())
                     {
                         notaMaxima = alumnosCalificados.Max(a => a.Nota);
                         notaMinima = alumnosCalificados.Min(a => a.Nota);
+                        notaPromedio = Math.Round(alumnosCalificados.Average(a => a.Nota), 2);
+                        minDiff = alumnosCalificados.Min(a => Math.Abs(a.Nota - notaPromedio));
                     }
 
                     int syncedCount = 0;
@@ -1655,10 +1659,12 @@ Reglas del JSON:
                             // Sanitizar nombre
                             nameInDrive = nameInDrive.Replace(",", "").Replace("/", "-").Replace("\\", "-");
 
-                            // Agregar etiqueta de MAYOR/MENOR NOTA (soportando empates)
+                            // Agregar etiqueta de MAYOR/MENOR/MEDIA NOTA (soportando empates)
                             string prefix = "";
                             if (al.Nota == notaMaxima) prefix = "[MAYOR NOTA] ";
-                            if (al.Nota == notaMinima) prefix = "[MENOR NOTA] ";
+                            else if (al.Nota == notaMinima) prefix = "[MENOR NOTA] ";
+                            else if (Math.Abs(al.Nota - notaPromedio) == minDiff) prefix = "[NOTA MEDIA] ";
+                            
                             // Si la nota más alta y más baja son iguales (todos sacaron lo mismo), solo marcar como MAYOR
                             if (notaMaxima == notaMinima && al.Nota == notaMaxima) prefix = "[MAYOR NOTA] ";
 

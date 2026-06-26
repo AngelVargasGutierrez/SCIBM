@@ -7,15 +7,39 @@
 }
 
 <style>
+    /* ZONE CONTAINERS */
+    .zone-container {
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 30px;
+        box-shadow: var(--glass-shadow);
+        transition: all 0.3s ease;
+    }
+    .zone-title {
+        font-size: 17px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--text-color);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .zone-desc {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-bottom: 20px;
+    }
+
     /* STATS CARDS */
     .stats-row {
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
         gap: 20px;
-        margin-bottom: 24px;
     }
     .stat-card {
-        background: rgba(128,128,128,0.05);
+        background: rgba(128,128,128,0.05); /* Usará un fondo sutil sobre el glass-bg */
         border: 1px solid var(--glass-border);
         border-radius: 12px;
         padding: 20px 24px;
@@ -24,13 +48,27 @@
         position: relative;
         overflow: hidden;
     }
+    .stat-card.max { border-bottom: 4px solid #2ec4b6; background: linear-gradient(180deg, rgba(46,196,182,0.05) 0%, transparent 100%); }
+    .stat-card.avg { border-bottom: 4px solid #ff9f1c; background: linear-gradient(180deg, rgba(255,159,28,0.05) 0%, transparent 100%); }
+    .stat-card.min { border-bottom: 4px solid #ff5252; background: linear-gradient(180deg, rgba(255,82,82,0.05) 0%, transparent 100%); }
+
+    .stat-card.max .stat-value { color: #2ec4b6; }
+    .stat-card.avg .stat-value { color: #ff9f1c; }
+    .stat-card.min .stat-value { color: #ff5252; }
+
     .stat-card.disabled {
         opacity: 0.35;
         pointer-events: none;
     }
     .stat-card .stat-icon {
-        font-size: 28px;
-        margin-bottom: 8px;
+        font-size: 24px;
+        margin-bottom: 12px;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
     .stat-card .stat-value {
         font-size: 32px;
@@ -43,6 +81,7 @@
         letter-spacing: 0.8px;
         color: var(--text-muted);
         margin-bottom: 6px;
+        font-weight: 700;
     }
     .stat-card .stat-names {
         font-size: 12px;
@@ -58,11 +97,12 @@
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         gap: 16px;
-        margin-bottom: 24px;
-        padding: 20px 24px;
-        background: rgba(128,128,128,0.05);
-        border: 1px solid var(--glass-border);
-        border-radius: 12px;
+    }
+    .filters-bar-row2 {
+        display: grid;
+        grid-template-columns: 0.6fr 1fr 1fr 1fr 1fr;
+        gap: 16px;
+        margin-top: 16px;
     }
     .filter-group {
         display: flex;
@@ -78,21 +118,26 @@
     }
     .filter-group select {
         font-size: 13px;
-        padding: 9px 12px;
-        border-radius: 6px;
+        padding: 10px 12px;
+        border-radius: 8px;
         border: 1px solid var(--glass-border);
-        background: rgba(128,128,128,0.08);
+        background: rgba(128,128,128,0.05);
         color: var(--text-color);
         cursor: pointer;
-        transition: border-color 0.2s;
+        transition: all 0.3s ease;
     }
     .filter-group select option {
-        background-color: var(--sidebar-bg); /* Fondo gris oscuro para las opciones */
+        background-color: var(--sidebar-bg);
         color: var(--text-color);
+    }
+    .filter-group select:hover:not(:disabled) {
+        background: rgba(128,128,128,0.1);
+        border-color: rgba(26, 115, 232, 0.5); /* Azul sutil en hover */
     }
     .filter-group select:focus {
         outline: none;
-        border-color: var(--accent-color);
+        border-color: var(--primary-glow);
+        box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
     }
     .filter-group select:disabled {
         opacity: 0.4;
@@ -118,28 +163,31 @@
         padding: 20px 24px;
         overflow-x: auto;
     }
-    table.report-tbl {
+    .report-tbl {
         width: 100%;
         border-collapse: collapse;
-        color: var(--text-color);
     }
-    table.report-tbl th {
-        padding: 12px 15px;
-        border-bottom: 1px solid var(--glass-border);
+    .report-tbl th, .report-tbl td {
+        padding: 14px 20px;
         text-align: left;
-        font-size: 11px;
+    }
+    .report-tbl th {
+        background: rgba(128,128,128,0.1);
+        color: var(--text-color);
+        font-weight: 600;
+        font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        color: var(--text-muted);
-        font-weight: 700;
-    }
-    table.report-tbl td {
-        padding: 10px 15px;
         border-bottom: 1px solid var(--glass-border);
-        font-size: 13.5px;
     }
-    table.report-tbl tbody tr:hover {
-        background: rgba(128,128,128,0.1);
+    .report-tbl td {
+        border-bottom: 1px solid var(--glass-border);
+        font-size: 14px;
+        color: var(--text-color);
+        transition: background 0.2s ease;
+    }
+    .report-tbl tbody tr:hover td {
+        background: rgba(128,128,128,0.05);
     }
     .empty-state {
         text-align: center;
@@ -158,27 +206,36 @@
         position: fixed;
         bottom: 32px;
         right: 32px;
-        width: 56px;
+        width: auto;
+        padding: 0 24px;
         height: 56px;
-        border-radius: 50%;
+        border-radius: 28px;
         background: rgba(128,128,128,0.15);
         color: var(--text-muted);
         border: 1px solid var(--glass-border);
-        font-size: 22px;
+        font-size: 16px;
+        font-weight: 600;
         display: flex;
         align-items: center;
         justify-content: center;
+        gap: 10px;
         cursor: not-allowed;
-        transition: all 0.3s ease;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         z-index: 100;
+        opacity: 0;
+        transform: scale(0.5) translateY(20px);
+        pointer-events: none;
     }
     .fab-export.enabled {
         background: linear-gradient(135deg, #2ec4b6, #1db99f);
-        color: white; /* Keep white for gradient background */
+        color: white; 
         cursor: pointer;
         border-color: transparent;
         box-shadow: 0 4px 25px rgba(46, 196, 182, 0.4);
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        pointer-events: auto;
     }
     .fab-export.enabled:hover {
         transform: scale(1.1);
@@ -193,147 +250,314 @@
         font-size: 11px;
         font-weight: 600;
     }
+
+    /* CHARTS CONTAINER */
+    .results-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        align-items: start;
+        margin-bottom: 24px;
+    }
+    
+    .charts-wrapper {
+        display: none;
+    }
+    .charts-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    .chart-card {
+        background: rgba(128,128,128,0.05);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 20px 24px;
+        position: relative;
+    }
+    .chart-box {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    .chart-title {
+        font-size: 13px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+        margin: 0;
+    }
+    .chart-filter select {
+        font-size: 11px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--glass-border);
+        background: rgba(128,128,128,0.05);
+        color: var(--text-color);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    /* ANIMATIONS */
+    .animate-in {
+        animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        opacity: 0;
+    }
+    @@keyframes fadeInUp {
+        0% { opacity: 0; transform: translateY(20px); }
+        10% { opacity: 0; }
+        100% { opacity: 1; transform: translateY(0); }
+    }
 </style>
 
-<!-- CONTEXT TITLE (Dinámico) -->
-<div class="context-title" id="context-title-el">Seleccione los filtros para ver estadísticas</div>
-
-<!-- STATS ROW (3 Tarjetas) -->
-<div class="stats-row">
-    <div class="stat-card disabled" id="stat-max">
-        <div class="stat-icon" style="color:#2ec4b6;">🏆</div>
-        <div class="stat-label">Nota Más Alta</div>
-        <div class="stat-value" id="stat-max-val">--</div>
-        <div class="stat-names" id="stat-max-names">Seleccione un Curso</div>
+<div class="zone-container">
+    <div class="zone-title"><i class="fa-solid fa-filter"></i> Filtros de Búsqueda</div>
+    <div class="zone-desc">Seleccione los parámetros deseados para filtrar la información.</div>
+    <div class="filters-bar">
+        <div class="filter-group">
+            <label>Ciclo Académico</label>
+            <select id="f-ciclo" onchange="onFilterChange('ciclo')">
+                <option value="">-- Todos --</option>
+                @if (ciclos != null) { foreach (var c in ciclos) { <option value="@c.Value">@c.Text</option> } }
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Facultad</label>
+            <select id="f-facultad" onchange="onFilterChange('facultad')">
+                <option value="">-- Todas --</option>
+                @if (facultades != null) { foreach (var f in facultades) { <option value="@f.Value">@f.Text</option> } }
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Escuela</label>
+            <select id="f-escuela" disabled onchange="onFilterChange('escuela')">
+                <option value="">-- Todas --</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Carrera</label>
+            <select id="f-carrera" disabled onchange="onFilterChange('carrera')">
+                <option value="">-- Todas --</option>
+            </select>
+        </div>
     </div>
-    <div class="stat-card disabled" id="stat-avg">
-        <div class="stat-icon" style="color:#ff9f1c;">📊</div>
-        <div class="stat-label">Nota Promedio</div>
-        <div class="stat-value" id="stat-avg-val">--</div>
-        <div class="stat-names" id="stat-avg-names"><span id="stat-total-el">0</span> alumnos evaluados</div>
-    </div>
-    <div class="stat-card disabled" id="stat-min">
-        <div class="stat-icon" style="color:#ff5252;">⚠️</div>
-        <div class="stat-label">Nota Más Baja</div>
-        <div class="stat-value" id="stat-min-val">--</div>
-        <div class="stat-names" id="stat-min-names">Seleccione un Curso</div>
-    </div>
-</div>
-
-<!-- FILTERS BAR -->
-<div class="filters-bar">
-    <div class="filter-group">
-        <label>Semestre Académico</label>
-        <select id="f-ciclo" onchange="onFilterChange('ciclo')">
-            <option value="">-- Seleccione --</option>
-            @foreach (var c in ciclos)
-            {
-                <option value="@c.Value">@c.Text</option>
-            }
-        </select>
-    </div>
-    <div class="filter-group">
-        <label>Facultad</label>
-        <select id="f-facultad" onchange="onFilterChange('facultad')">
-            <option value="">-- Seleccione --</option>
-            @foreach (var f in facultades)
-            {
-                <option value="@f.Value">@f.Text</option>
-            }
-        </select>
-    </div>
-    <div class="filter-group">
-        <label>Escuela Profesional</label>
-        <select id="f-escuela" disabled onchange="onFilterChange('escuela')">
-            <option value="">-- Seleccione --</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <label>Carrera</label>
-        <select id="f-carrera" disabled onchange="onFilterChange('carrera')">
-            <option value="">-- Seleccione --</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <label>Curso</label>
-        <select id="f-curso" disabled onchange="onFilterChange('curso')">
-            <option value="">-- Seleccione --</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <label>Sección</label>
-        <select id="f-seccion" disabled onchange="onFilterChange('seccion')">
-            <option value="">-- Todos --</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <label>Unidad</label>
-        <select id="f-unidad" disabled onchange="onFilterChange('unidad')">
-            <option value="">-- Todos --</option>
-        </select>
-    </div>
-    <div class="filter-group">
-        <label>Versión</label>
-        <select id="f-version" disabled onchange="onFilterChange('version')">
-            <option value="">-- Todos --</option>
-        </select>
+    <div class="filters-bar-row2">
+        <div class="filter-group">
+            <label>Ciclo</label>
+            <select id="f-ciclo-romano" disabled onchange="onFilterChange('cicloRomano')">
+                <option value="">-- Todos --</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Curso</label>
+            <select id="f-curso" disabled onchange="onFilterChange('curso')">
+                <option value="">-- Todos --</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Sección</label>
+            <select id="f-seccion" disabled onchange="onFilterChange('seccion')">
+                <option value="">-- Todos --</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Unidad</label>
+            <select id="f-unidad" disabled onchange="onFilterChange('unidad')">
+                <option value="">-- Todos --</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Versión</label>
+            <select id="f-version" disabled onchange="onFilterChange('version')">
+                <option value="">-- Todos --</option>
+            </select>
+        </div>
     </div>
 </div>
 
-<!-- TABLE -->
-<div class="report-table-container">
-    <table class="report-tbl" id="report-table">
-        <thead>
-            <tr>
-                <th style="width: 50px;">#</th>
-                <th>Nombre Completo</th>
-                <th style="width: 80px;">Nota</th>
-                <th style="width: 140px;">Rendimiento</th>
-            </tr>
-        </thead>
-        <tbody id="report-tbody">
-            <tr>
-                <td colspan="4">
-                    <div class="empty-state">
-                        <i class="fa-solid fa-filter"></i>
-                        <h3>Aplique los filtros</h3>
-                        <p style="font-size: 13px; margin-top: 6px;">Los resultados aparecerán aquí cuando seleccione al menos un Curso.</p>
+<div class="zone-container">
+    <div class="zone-title" id="context-title-el"><i class="fa-solid fa-chart-pie"></i> Estadísticas Globales</div>
+    <div class="zone-desc">Indicadores generales de rendimiento para la selección actual.</div>
+    <div class="stats-row">
+        <div class="stat-card max disabled" id="stat-max">
+            <div class="stat-icon" style="color:#2ec4b6; background: rgba(46, 196, 182, 0.15);"><i class="fa-solid fa-trophy"></i></div>
+            <div class="stat-label" style="color:#2ec4b6;">Nota Más Alta</div>
+            <div class="stat-value" id="stat-max-val">--</div>
+            <div class="stat-names" id="stat-max-names">Seleccione un Curso</div>
+        </div>
+        <div class="stat-card avg disabled" id="stat-avg">
+            <div class="stat-icon" style="color:#ff9f1c; background: rgba(255, 159, 28, 0.15);"><i class="fa-solid fa-chart-simple"></i></div>
+            <div class="stat-label" style="color:#ff9f1c;">Nota Media</div>
+            <div class="stat-value" id="stat-avg-val">--</div>
+            <div class="stat-names" id="stat-avg-names">Seleccione un Curso</div>
+            <div class="stat-names" id="stat-avg-context" style="margin-top: 6px; font-style: normal; font-size: 11px; opacity: 0.8;"></div>
+        </div>
+        <div class="stat-card min disabled" id="stat-min">
+            <div class="stat-icon" style="color:#ff5252; background: rgba(255, 82, 82, 0.15);"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="stat-label" style="color:#ff5252;">Nota Más Baja</div>
+            <div class="stat-value" id="stat-min-val">--</div>
+            <div class="stat-names" id="stat-min-names">Seleccione un Curso</div>
+        </div>
+    </div>
+</div>
+
+<div class="zone-container">
+    <div class="zone-title"><i class="fa-solid fa-table-list"></i> Resultados de Evaluación</div>
+    <div class="zone-desc">A continuación se detalla el listado de alumnos evaluados, sus promedios calculados y gráficos de tendencia.</div>
+    
+    <div class="results-layout">
+        <!-- LADO IZQUIERDO: TABLE -->
+        <div class="report-table-container animate-in" id="report-table-container" style="animation-delay: 0.2s;">
+            <table class="report-tbl" id="report-table">
+            <thead id="report-thead">
+                <tr>
+                    <th style="width: 50px;">#</th>
+                    <th>Nombre Completo</th>
+                    <th style="width: 80px;">Nota</th>
+                    <th style="width: 140px;">Rendimiento</th>
+                </tr>
+            </thead>
+            <tbody id="report-tbody">
+                <tr>
+                    <td colspan="4">
+                        <div class="empty-state">
+                            <i class="fa-solid fa-filter"></i>
+                            <h3>Aplique los filtros</h3>
+                            <p style="font-size: 13px; margin-top: 6px;">Los resultados aparecerán aquí cuando seleccione al menos un Curso.</p>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+            </table>
+        </div>
+
+        <!-- LADO DERECHO: CHARTS -->
+        <div class="charts-wrapper animate-in" id="charts-wrapper" style="animation-delay: 0.1s;">
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3 class="chart-title">Tendencia de Notas por Unidad</h3>
+                        <div class="chart-filter">
+                            <select id="f-alumno" disabled onchange="updateChartsVisibility()">
+                                <option value="">-- Promedio General --</option>
+                            </select>
+                        </div>
                     </div>
-                </td>
-            </tr>
-        </tbody>
-    </table>
+                    <div class="chart-box" style="height: 320px;">
+                        <canvas id="tendenciaChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header" style="justify-content: center;">
+                        <h3 class="chart-title">Distribución de Rendimiento</h3>
+                    </div>
+                    <div class="chart-box" style="height: 250px;">
+                        <canvas id="distribucionChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-card" id="comparativa-card" style="display: none;">
+                    <div class="chart-header" style="justify-content: center;">
+                        <h3 class="chart-title">Comparativa por Unidades</h3>
+                    </div>
+                    <div class="chart-box" style="height: 200px;">
+                        <canvas id="comparativaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- FAB EXPORT -->
 <button class="fab-export" id="fab-export" title="Exportar a Google Sheets (Seleccione un Curso primero)" onclick="exportarASheets()">
-    <i class="fa-solid fa-file-export"></i>
+    <i class="fa-solid fa-file-excel" style="font-size: 20px;"></i> Exportar a Sheets
 </button>
 
 @section scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        var tendenciaChart = null;
+        var distribucionChart = null;
+        var comparativaChart = null;
+        var globalTendenciaData = null;
+        var globalDistribucionData = null;
+
+        // Helper para leer variables CSS reales
+        function getCssVar(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#333';
+        }
+
+        // Re-dibujar gráficos al cambiar el tema
+        document.addEventListener('themeChanged', function() {
+            if (globalTendenciaData) {
+                updateChartsVisibility();
+            }
+            if (globalDistribucionData) {
+                updateDistribucionChart(globalDistribucionData);
+            }
+        });
+
         // ======== CASCADING FILTERS ========
         function onFilterChange(level) {
+            const cursoSelect = document.getElementById('f-curso');
+            const contextTitle = document.getElementById('context-title-el');
+            
+            // Si el curso cambia a válido, actualizamos el título global
+            if (cursoSelect.value) {
+                var selectedText = cursoSelect.options[cursoSelect.selectedIndex].text;
+                contextTitle.innerHTML = `<i class="fa-solid fa-chart-pie"></i> Estadísticas de Curso: ${selectedText}`;
+                
+                document.getElementById('stat-max').classList.remove('disabled');
+                document.getElementById('stat-avg').classList.remove('disabled');
+                document.getElementById('stat-min').classList.remove('disabled');
+            }
+
             var cicloId = document.getElementById("f-ciclo").value;
             var facultadId = document.getElementById("f-facultad").value;
             var escuelaId = document.getElementById("f-escuela").value;
             var carreraId = document.getElementById("f-carrera").value;
+            var cicloRomano = document.getElementById("f-ciclo-romano").value;
             var cursoId = document.getElementById("f-curso").value;
             var seccionId = document.getElementById("f-seccion").value;
             var unidadId = document.getElementById("f-unidad").value;
             var versionId = document.getElementById("f-version").value;
 
-            // Resetear niveles inferiores
-            if (level === 'ciclo' || level === 'facultad') {
-                resetSelect("f-escuela"); resetSelect("f-carrera"); resetSelect("f-curso");
+            // Resetear niveles inferiores según el nivel cambiado
+            if (level === 'ciclo') {
+                // Ciclo académico cambia → recarga cicloRomano si hay carrera, y resetea curso+abajo
+                resetSelect("f-ciclo-romano"); resetSelect("f-curso");
+                resetSelect("f-seccion"); resetSelect("f-unidad"); resetSelect("f-version");
+                if (carreraId) {
+                    var urlCR = '@Url.Action("GetCiclosCarrera", "Reporte")?carreraId=' + carreraId;
+                    if (cicloId) urlCR += '&cicloAcademicoId=' + cicloId;
+                    loadOptions(urlCR, 'f-ciclo-romano', 'nombre', true);
+                }
+            }
+            if (level === 'facultad') {
+                resetSelect("f-escuela"); resetSelect("f-carrera");
+                resetSelect("f-ciclo-romano"); resetSelect("f-curso");
                 resetSelect("f-seccion"); resetSelect("f-unidad"); resetSelect("f-version");
             }
             if (level === 'escuela') {
-                resetSelect("f-carrera"); resetSelect("f-curso");
+                resetSelect("f-carrera");
+                resetSelect("f-ciclo-romano"); resetSelect("f-curso");
                 resetSelect("f-seccion"); resetSelect("f-unidad"); resetSelect("f-version");
             }
             if (level === 'carrera') {
-                resetSelect("f-curso"); resetSelect("f-seccion"); resetSelect("f-unidad"); resetSelect("f-version");
+                resetSelect("f-ciclo-romano"); resetSelect("f-curso");
+                resetSelect("f-seccion"); resetSelect("f-unidad"); resetSelect("f-version");
+            }
+            if (level === 'cicloRomano') {
+                resetSelect("f-curso");
+                resetSelect("f-seccion"); resetSelect("f-unidad"); resetSelect("f-version");
             }
             if (level === 'curso') {
                 resetSelect("f-seccion"); resetSelect("f-unidad"); resetSelect("f-version");
@@ -352,8 +576,23 @@
             if (level === 'escuela' && escuelaId) {
                 loadOptions('@Url.Action("GetCarreras", "Reporte")?escuelaId=' + escuelaId, 'f-carrera');
             }
-            if (level === 'carrera' && carreraId && cicloId) {
-                loadOptions('@Url.Action("GetCursos", "Reporte")?carreraId=' + carreraId + '&cicloId=' + cicloId, 'f-curso', 'nombre');
+            if (level === 'carrera' && carreraId) {
+                // Al seleccionar carrera → cargar Ciclos Romano
+                var urlCR = '@Url.Action("GetCiclosCarrera", "Reporte")?carreraId=' + carreraId;
+                if (cicloId) urlCR += '&cicloAcademicoId=' + cicloId;
+                loadOptions(urlCR, 'f-ciclo-romano', 'nombre', true);
+            }
+            if (level === 'cicloRomano') {
+                // Al seleccionar ciclo romano → cargar Cursos
+                carreraId = document.getElementById("f-carrera").value;
+                cicloId = document.getElementById("f-ciclo").value;
+                cicloRomano = document.getElementById("f-ciclo-romano").value;
+                if (carreraId) {
+                    var urlCursos = '@Url.Action("GetCursos", "Reporte")?carreraId=' + carreraId;
+                    if (cicloId) urlCursos += '&cicloId=' + cicloId;
+                    if (cicloRomano) urlCursos += '&cicloRomano=' + encodeURIComponent(cicloRomano);
+                    loadOptions(urlCursos, 'f-curso', 'nombre', true);
+                }
             }
             if (level === 'curso' && cursoId) {
                 loadOptions('@Url.Action("GetSecciones", "Reporte")?cursoId=' + cursoId, 'f-seccion', 'nombre', true);
@@ -369,6 +608,8 @@
             cursoId = document.getElementById("f-curso").value;
             if (cursoId) {
                 loadReportData();
+                seccionId = document.getElementById("f-seccion").value;
+                loadTendenciaData(cursoId, seccionId);
             } else {
                 clearReport();
             }
@@ -376,7 +617,7 @@
 
         function resetSelect(id) {
             var sel = document.getElementById(id);
-            var isOptional = id === 'f-seccion' || id === 'f-unidad' || id === 'f-version';
+            var isOptional = id === 'f-ciclo-romano' || id === 'f-seccion' || id === 'f-unidad' || id === 'f-version' || id === 'f-curso';
             sel.innerHTML = '<option value="">' + (isOptional ? '-- Todos --' : '-- Seleccione --') + '</option>';
             sel.disabled = true;
         }
@@ -429,9 +670,16 @@
             var fab = document.getElementById("fab-export");
             fab.classList.add("enabled");
             fab.title = "Exportar a Google Sheets";
+            
+            // Disparar animación CSS re-aplicando la clase
+            var tableContainer = document.getElementById("report-table-container");
+            tableContainer.classList.remove("animate-in");
+            void tableContainer.offsetWidth; // trigger reflow
+            tableContainer.classList.add("animate-in");
 
             // Actualizar título contextual
             updateContextTitle();
+            if(comparativaChart) comparativaChart.destroy();
 
             fetch(url)
                 .then(r => r.json())
@@ -441,32 +689,64 @@
                     // Actualizar stats
                     document.getElementById("stat-max-val").textContent = res.stats.notaMax.toFixed(1);
                     document.getElementById("stat-max-names").textContent = res.stats.alumnosMax || "Sin datos";
-                    document.getElementById("stat-max").style.borderColor = "#2ec4b6";
 
-                    document.getElementById("stat-avg-val").textContent = res.stats.notaPromedio.toFixed(1);
+                    // Nota Media: mostrar la nota del alumno más cercano al promedio
+                    // Buscar la nota real del alumno media en los datos
+                    var notaMediaReal = res.stats.notaPromedio; // fallback
+                    if (res.stats.alumnosMedia) {
+                        var nombreMedia = res.stats.alumnosMedia.split(',')[0].trim();
+                        var alumnoMedia = res.data.find(d => d.nombre === nombreMedia);
+                        if (alumnoMedia) notaMediaReal = alumnoMedia.promedio;
+                    }
+                    document.getElementById("stat-avg-val").textContent = notaMediaReal.toFixed(1);
                     document.getElementById("stat-avg-val").style.color = res.stats.colorPromedio;
-                    document.getElementById("stat-total-el").textContent = res.stats.total;
-                    document.getElementById("stat-avg").style.borderColor = res.stats.colorPromedio;
+                    document.getElementById("stat-avg-names").textContent = res.stats.alumnosMedia || "Sin datos";
+                    
+                    // Descripción contextual del promedio real según filtro activo
+                    var ctxLabel = getActiveFilterLabel();
+                    document.getElementById("stat-avg-context").innerHTML = `Promedio de ${ctxLabel}: <strong>${res.stats.notaPromedio.toFixed(1)}</strong> (${res.stats.total} evaluados)`;
 
                     document.getElementById("stat-min-val").textContent = res.stats.notaMin.toFixed(1);
                     document.getElementById("stat-min-names").textContent = res.stats.alumnosMin || "Sin datos";
-                    document.getElementById("stat-min").style.borderColor = "#ff5252";
 
-                    // Actualizar tabla
+                    // Reconstruir THEAD dinámico
+                    var thead = document.querySelector("#report-thead tr");
+                    var theadHtml = '<th style="width: 50px;">#</th><th>Nombre Completo</th>';
+                    res.unidades.forEach(u => {
+                        theadHtml += `<th style="width: 80px;">${u}</th>`;
+                    });
+                    theadHtml += '<th style="width: 100px;">Promedio</th><th style="width: 140px;">Rendimiento</th>';
+                    thead.innerHTML = theadHtml;
+
+                    // Actualizar TBODY
                     var tbody = document.getElementById("report-tbody");
                     tbody.innerHTML = "";
 
                     if (res.data.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-inbox"></i><h3>Sin resultados</h3></div></td></tr>';
+                        tbody.innerHTML = `<tr><td colspan="${res.unidades.length + 4}"><div class="empty-state"><i class="fa-solid fa-inbox"></i><h3>Sin resultados</h3></div></td></tr>`;
                         return;
                     }
 
                     res.data.forEach((r, i) => {
                         var tr = document.createElement("tr");
-                        tr.innerHTML = `
+                        var rowHtml = `
                             <td style="color:var(--text-muted);">${i + 1}</td>
                             <td style="font-weight:500;">${r.nombre}</td>
-                            <td><span class="grade-badge" style="font-size:14px;">${r.nota.toFixed(1)}</span></td>
+                        `;
+                        
+                        // Celdas por unidad
+                        res.unidades.forEach(u => {
+                            var nota = r.notasUnidad[u];
+                            if (nota !== null && nota !== undefined) {
+                                rowHtml += `<td><span class="grade-badge" style="font-size:14px; background: rgba(128,128,128,0.1); color: var(--text-color);">${nota.toFixed(1)}</span></td>`;
+                            } else {
+                                rowHtml += `<td style="color:var(--text-muted);">-</td>`;
+                            }
+                        });
+
+                        // Celdas finales
+                        rowHtml += `
+                            <td><span class="grade-badge" style="font-size:14px; background:var(--primary-glow); color:#0b132b; box-shadow:0 0 10px rgba(100, 223, 223, 0.4);">${r.promedio.toFixed(1)}</span></td>
                             <td>
                                 <span class="rendimiento-pill" style="background:${r.color}22; color:${r.color}; border:1px solid ${r.color}55;">
                                     <i class="fa-solid ${r.estado === 'Aprobado' ? 'fa-circle-check' : r.estado === 'Regular' ? 'fa-triangle-exclamation' : 'fa-circle-xmark'}"></i>
@@ -474,8 +754,12 @@
                                 </span>
                             </td>
                         `;
+                        tr.innerHTML = rowHtml;
                         tbody.appendChild(tr);
                     });
+                    
+                    // Actualizar Gráfico de Distribución si hay datos
+                    updateDistribucionChart(res.data);
                 });
         }
 
@@ -485,8 +769,9 @@
             document.getElementById("stat-avg-val").textContent = "--";
             document.getElementById("stat-min-val").textContent = "--";
             document.getElementById("stat-max-names").textContent = "Seleccione un Curso";
+            document.getElementById("stat-avg-names").textContent = "Seleccione un Curso";
+            document.getElementById("stat-avg-context").innerHTML = "";
             document.getElementById("stat-min-names").textContent = "Seleccione un Curso";
-            document.getElementById("stat-total-el").textContent = "0";
             document.getElementById("context-title-el").textContent = "Seleccione los filtros para ver estadísticas";
 
             var fab = document.getElementById("fab-export");
@@ -495,6 +780,23 @@
 
             var tbody = document.getElementById("report-tbody");
             tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><i class="fa-solid fa-filter"></i><h3>Aplique los filtros</h3><p style="font-size:13px; margin-top:6px;">Los resultados aparecerán aquí cuando seleccione al menos un Curso.</p></div></td></tr>';
+            
+            document.getElementById("charts-wrapper").style.display = "none";
+            document.getElementById("f-alumno").innerHTML = '<option value="">-- Promedio General --</option>';
+            document.getElementById("f-alumno").disabled = true;
+        }
+
+        // Obtiene la etiqueta del filtro más específico activo
+        function getActiveFilterLabel() {
+            var verSel = document.getElementById("f-version");
+            if (verSel.value) return "Versión " + verSel.options[verSel.selectedIndex].text;
+            var uniSel = document.getElementById("f-unidad");
+            if (uniSel.value) return "Unidad " + uniSel.options[uniSel.selectedIndex].text;
+            var secSel = document.getElementById("f-seccion");
+            if (secSel.value) return "Sección " + secSel.options[secSel.selectedIndex].text;
+            var cursoSel = document.getElementById("f-curso");
+            if (cursoSel.value) return "Curso " + cursoSel.options[cursoSel.selectedIndex].text;
+            return "Selección";
         }
 
         function updateContextTitle() {
@@ -559,6 +861,169 @@
                 fab.innerHTML = originalHtml;
                 fab.classList.add("enabled");
                 fab.style.pointerEvents = "auto";
+            });
+        }
+        
+        // ======== CHARTS LOGIC ========
+        function loadTendenciaData(cursoId, seccionId) {
+            var url = '@Url.Action("GetTendenciaAlumnos", "Reporte")?cursoId=' + cursoId;
+            if (seccionId) url += '&seccionId=' + seccionId;
+            
+            fetch(url)
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success && res.labels && res.labels.length > 0) {
+                        globalTendenciaData = res;
+                        
+                        // Llenar el combo de alumnos
+                        var selAlumno = document.getElementById("f-alumno");
+                        selAlumno.innerHTML = '<option value="">-- Promedio General --</option>';
+                        res.datasets.forEach(ds => {
+                            var opt = document.createElement("option");
+                            opt.value = ds.alumno;
+                            opt.textContent = ds.alumno;
+                            selAlumno.appendChild(opt);
+                        });
+                        selAlumno.disabled = false;
+                        
+                        var chartsWrap = document.getElementById("charts-wrapper");
+                        chartsWrap.style.display = "block";
+                        
+                        // Restart animation
+                        chartsWrap.classList.remove("animate-in");
+                        void chartsWrap.offsetWidth;
+                        chartsWrap.classList.add("animate-in");
+                        
+                        updateChartsVisibility();
+                    } else {
+                        document.getElementById("charts-wrapper").style.display = "none";
+                        document.getElementById("f-alumno").disabled = true;
+                    }
+                });
+        }
+        
+        function updateChartsVisibility() {
+            if (!globalTendenciaData) return;
+            
+            var selAlumno = document.getElementById("f-alumno").value;
+            var ctxLine = document.getElementById('tendenciaChart').getContext('2d');
+            
+            var lineDatasets = [];
+            
+            // Siempre mostrar Promedio General
+            lineDatasets.push({
+                label: 'Promedio General',
+                data: globalTendenciaData.promedioGeneral,
+                borderColor: '#1a73e8',
+                backgroundColor: 'rgba(26, 115, 232, 0.1)',
+                borderWidth: 3,
+                tension: 0.3,
+                borderDash: selAlumno ? [5, 5] : [] // Si hay un alumno, hacer la línea punteada
+            });
+            
+            if (selAlumno) {
+                var dsAlumno = globalTendenciaData.datasets.find(d => d.alumno === selAlumno);
+                if (dsAlumno) {
+                    lineDatasets.push({
+                        label: selAlumno,
+                        data: dsAlumno.notas,
+                        borderColor: '#2ec4b6',
+                        backgroundColor: 'rgba(46, 196, 182, 0.2)',
+                        borderWidth: 3,
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#2ec4b6'
+                    });
+                }
+            }
+            
+            if (tendenciaChart) tendenciaChart.destroy();
+            
+            tendenciaChart = new Chart(ctxLine, {
+                type: 'line',
+                data: {
+                    labels: globalTendenciaData.labels,
+                    datasets: lineDatasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { color: getCssVar('--text-color') } }
+                    },
+                    scales: {
+                        y: { 
+                            min: 0, 
+                            max: 20, 
+                            ticks: { color: getCssVar('--text-color'), stepSize: 2 }, 
+                            grid: { color: getCssVar('--glass-border') } 
+                        },
+                        x: { 
+                            offset: true,
+                            ticks: { color: getCssVar('--text-color') }, 
+                            grid: { color: getCssVar('--glass-border') } 
+                        }
+                    }
+                }
+            });
+            
+            // Render Comparativa Chart (Bar Chart de Promedio por Unidad)
+            if (comparativaChart) comparativaChart.destroy();
+            var ctxComp = document.getElementById('comparativaChart').getContext('2d');
+            document.getElementById('comparativa-card').style.display = 'block';
+            comparativaChart = new Chart(ctxComp, {
+                type: 'bar',
+                data: {
+                    labels: globalTendenciaData.labels,
+                    datasets: [{
+                        label: 'Promedio de Aula',
+                        data: globalTendenciaData.promedioGeneral,
+                        backgroundColor: 'rgba(26, 115, 232, 0.6)',
+                        borderColor: '#1a73e8',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { min: 0, max: 20, ticks: { color: getCssVar('--text-color') }, grid: { color: getCssVar('--glass-border') } },
+                        x: { ticks: { color: getCssVar('--text-color') }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+        
+        function updateDistribucionChart(dataList) {
+            globalDistribucionData = dataList;
+            var ctxBar = document.getElementById('distribucionChart').getContext('2d');
+            
+            var aprobados = dataList.filter(d => d.estado === 'Aprobado').length;
+            var regulares = dataList.filter(d => d.estado === 'Regular').length;
+            var desaprobados = dataList.filter(d => d.estado === 'Desaprobado').length;
+            
+            if (distribucionChart) distribucionChart.destroy();
+            
+            distribucionChart = new Chart(ctxBar, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Aprobado', 'Regular', 'Desaprobado'],
+                    datasets: [{
+                        data: [aprobados, regulares, desaprobados],
+                        backgroundColor: ['#2ec4b6', '#ff9f1c', '#ff5252'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: getCssVar('--text-color') } }
+                    },
+                    cutout: '70%'
+                }
             });
         }
     </script>

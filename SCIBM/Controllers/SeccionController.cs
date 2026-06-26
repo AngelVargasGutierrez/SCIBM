@@ -93,6 +93,50 @@ namespace SCIBM.Controllers
             }
         }
 
+        // GET: Seccion/GetNextSeccionName
+        [HttpGet]
+        public async Task<ActionResult> GetNextSeccionName(Guid cursoId)
+        {
+            if (Session["UserEmail"] == null)
+                return Json(new { success = false, message = "Sesión expirada." }, JsonRequestBehavior.AllowGet);
+
+            using (var db = new ScibmContext())
+            {
+                var secciones = await db.Secciones
+                    .Where(s => s.CursoId == cursoId && s.Nombre.StartsWith("Sección "))
+                    .ToListAsync();
+
+                if (!secciones.Any())
+                {
+                    return Json(new { success = true, nextName = "Sección A" }, JsonRequestBehavior.AllowGet);
+                }
+
+                // Extraer la última letra usada (ej: "Sección A" -> 'A')
+                var letrasUsadas = secciones
+                    .Select(s => s.Nombre.Replace("Sección ", "").Trim())
+                    .Where(s => s.Length == 1 && char.IsLetter(s[0]))
+                    .Select(s => s.ToUpper()[0])
+                    .OrderBy(c => c)
+                    .ToList();
+
+                if (!letrasUsadas.Any())
+                {
+                    return Json(new { success = true, nextName = "Sección A" }, JsonRequestBehavior.AllowGet);
+                }
+
+                char ultimaLetra = letrasUsadas.Last();
+                char siguienteLetra = (char)(ultimaLetra + 1);
+
+                // Si pasamos la 'Z', simplemente usamos algo como AA (muy improbable pero posible)
+                if (siguienteLetra > 'Z')
+                {
+                    return Json(new { success = true, nextName = "Sección Extra" }, JsonRequestBehavior.AllowGet);
+                }
+
+                return Json(new { success = true, nextName = "Sección " + siguienteLetra }, JsonRequestBehavior.AllowGet);
+            }
+        }
+
         // POST: Seccion/Rename
         [HttpPost]
         public async Task<ActionResult> Rename(Guid id, string newName)

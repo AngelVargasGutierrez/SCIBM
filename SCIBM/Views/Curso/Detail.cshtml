@@ -32,13 +32,14 @@
         align-items: flex-start;
     }
     .unit-badge {
-        font-size: 14px;
-        font-weight: 700;
         background: var(--accent-color);
-        color: #0b132b;
+        color: #ffffff;
         padding: 6px 12px;
-        border-radius: 6px;
-        text-transform: uppercase;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 14px;
+        letter-spacing: 0.5px;
+        box-shadow: 0 4px 10px rgba(0, 180, 216, 0.3);
     }
 
     .panel-header {
@@ -190,17 +191,17 @@
         <form id="create-seccion-form" onsubmit="submitSeccionForm(event)">
             <input type="hidden" id="seccionCursoId" name="cursoId" value="@Model.Id" />
             
-            <div class="form-group">
-                <label for="nombreSeccion">Nombre de la Sección</label>
-                <input type="text" id="nombreSeccion" name="nombreSeccion" class="form-input" placeholder="Ej: Sección A, Turno Mañana" required />
-            </div>
+            <p style="margin-bottom: 20px; font-size: 15px; color: var(--text-muted);">
+                ¿Estás seguro de crear la <strong id="next-seccion-nombre" style="color: var(--text-color);">...</strong>?
+            </p>
+            <input type="hidden" id="nombreSeccion" name="nombreSeccion" />
 
             <div id="seccion-modal-error" style="color: #ff5252; font-size: 13px; margin-bottom: 15px; display: none;"></div>
 
             <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px;">
                 <button type="button" class="btn btn-secondary" onclick="closeSeccionModal()">Cancelar</button>
                 <button type="submit" class="btn btn-primary" id="seccion-submit-btn">
-                    <span>Guardar y Crear Carpeta en Drive</span>
+                    <span>Sí, Crear Sección</span>
                 </button>
             </div>
         </form>
@@ -261,8 +262,21 @@
 @section scripts {
     <script>
         function openSeccionModal() {
+            var cursoId = document.getElementById("seccionCursoId").value;
+            
             document.getElementById("add-seccion-modal").classList.add("active");
-            document.getElementById("nombreSeccion").focus();
+            document.getElementById("next-seccion-nombre").innerText = "Cargando...";
+            document.getElementById("seccion-submit-btn").disabled = true;
+            
+            fetch('@Url.Action("GetNextSeccionName", "Seccion")?cursoId=' + cursoId)
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        document.getElementById("next-seccion-nombre").innerText = '"' + res.nextName + '"';
+                        document.getElementById("nombreSeccion").value = res.nextName;
+                        document.getElementById("seccion-submit-btn").disabled = false;
+                    }
+                });
         }
         function closeSeccionModal() {
             document.getElementById("add-seccion-modal").classList.remove("active");

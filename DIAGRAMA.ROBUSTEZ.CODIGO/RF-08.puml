@@ -1,0 +1,68 @@
+@startuml Robustez Codigo - RF08 Calibrar Examen
+
+title "Diagrama de Robustez Codificación — RF08: Calibrar Examen\nNivel: Implementación MVC (SCIBM)"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente" as ACTOR
+
+package "Vista (UI JavaScript)" {
+  boundary "EditSolucionario.cshtml\n(Pestaña Calibración + Fetch)" as ViewAJAX
+}
+
+package "Controlador" {
+  control "ExamenController.\nSaveCalibracionVisual()" as Controller
+}
+
+package "Entity Framework (DB)" {
+  entity "ScibmContext" as DBContext
+  entity "DbSet<Examen>" as TblExamen
+  entity "DbSet<Pregunta>" as TblPregunta
+}
+
+ACTOR --> ViewAJAX : 1. Arrastra pines y hace\nclic en "Guardar Calibración"
+ViewAJAX --> Controller : 2. POST (Fetch JSON) con coordenadas\ndel Stamp y Lista de Preguntas
+Controller --> Controller : 3. Valida Session["UserEmail"]
+Controller --> DBContext : 4. Busca Examen e\nInclude(e => e.Preguntas)
+DBContext --> TblExamen : 5. FirstOrDefaultAsync(Id == examenId)
+TblExamen --> Controller : 6. Devuelve entidad Examen
+Controller --> Controller : 7. Actualiza examen.StampX, StampY, Width, Height
+Controller --> TblPregunta : 8. (Bucle) Actualiza PosX, PosY, Pagina\npara cada pregunta calibrada
+Controller --> DBContext : 9. SaveChangesAsync()
+Controller --> ViewAJAX : 10. Retorna JsonResult (success=true,\nredirectUrl=Detail)
+ViewAJAX --> ACTOR : 11. Ejecuta window.location.href\nredirigiendo a Details
+
+@enduml

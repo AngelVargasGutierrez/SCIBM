@@ -1,0 +1,69 @@
+@startuml Robustez - RF15 Exportar a Sheets
+
+title "Diagrama de Robustez — RF15: Exportar Reportes a Google Sheets\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente" as ACTOR
+
+package "Frontera — Interfaz Gráfica" {
+  boundary "Pantalla de Reportes\ny Estadísticas" as B1
+}
+
+package "Control — Procesos del Sistema" {
+  control "Analista de\nDatos" as C1
+  control "Constructor\ndel Formato" as C2
+  control "Conector con\nGoogle Workspace" as C3
+}
+
+package "Entidad — Repositorios de Información" {
+  entity "Base de Datos\ndel Sistema" as E1
+  entity "Nube de Google\n(Drive / Sheets)" as E2
+}
+
+ACTOR --> B1 : 1. Selecciona los filtros y hace\nclic en "Exportar a Google Sheets"
+B1 --> C1 : 2. Pide consolidar las notas
+C1 --> E1 : 3. Extrae todas las calificaciones,\ndatos del curso y la facultad
+C1 --> C1 : 4. Calcula el promedio, notas más altas\ny más bajas de la clase
+C1 --> C2 : 5. Entrega los datos estadísticos
+C2 --> C2 : 6. Arma una tabla virtual con el texto,\nlos títulos y los colores requeridos
+C2 --> C3 : 7. Solicita generar el documento
+C3 --> E2 : 8. Se conecta a Google, crea el\narchivo y pega todos los datos con diseño
+C3 --> E2 : 9. Mueve el archivo final a la carpeta\norganizativa del curso en Google Drive
+C3 --> B1 : 10. Devuelve el link directo al archivo
+B1 --> ACTOR : 11. Muestra un aviso de éxito en pantalla\njunto al botón para abrir el documento
+
+@enduml

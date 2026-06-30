@@ -382,3 +382,259 @@
     }
   ]
 }
+
+
+=== EXAMEN: Image_00007 (1).pdf (27/06/2026 17:44:56) ===
+{
+  "NombreAlumno": "Alanoca Miranda Emily",
+  "Respuestas": [
+    {
+      "NumeroPregunta": 1,
+      "Inciso": null,
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": null,
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": null,
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 4,
+      "Inciso": null,
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 5,
+      "Inciso": null,
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 6,
+      "Inciso": null,
+      "RespuestaDada": "D"
+    },
+    {
+      "NumeroPregunta": 7,
+      "Inciso": null,
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 8,
+      "Inciso": null,
+      "RespuestaDada": "C"
+    },
+    {
+      "NumeroPregunta": 9,
+      "Inciso": null,
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 10,
+      "Inciso": null,
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 11,
+      "Inciso": null,
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 12,
+      "Inciso": null,
+      "RespuestaDada": "A"
+    },
+    {
+      "NumeroPregunta": 13,
+      "Inciso": null,
+      "RespuestaDada": "View State"
+    },
+    {
+      "NumeroPregunta": 14,
+      "Inciso": null,
+      "RespuestaDada": "Git merge"
+    },
+    {
+      "NumeroPregunta": 15,
+      "Inciso": null,
+      "RespuestaDada": "Git"
+    },
+    {
+      "NumeroPregunta": 16,
+      "Inciso": null,
+      "RespuestaDada": "puerto dinamico"
+    },
+    {
+      "NumeroPregunta": 17,
+      "Inciso": null,
+      "RespuestaDada": "aspx"
+    },
+    {
+      "NumeroPregunta": 18,
+      "Inciso": null,
+      "RespuestaDada": "Windows Authentication"
+    },
+    {
+      "NumeroPregunta": 19,
+      "Inciso": null,
+      "RespuestaDada": "Viow"
+    },
+    {
+      "NumeroPregunta": 20,
+      "Inciso": null,
+      "RespuestaDada": "Publish Profile"
+    },
+    {
+      "NumeroPregunta": 21,
+      "Inciso": null,
+      "RespuestaDada": "Layout. cshtml"
+    },
+    {
+      "NumeroPregunta": 22,
+      "Inciso": null,
+      "RespuestaDada": "Index. Cshtml"
+    },
+    {
+      "NumeroPregunta": 23,
+      "Inciso": null,
+      "RespuestaDada": "iis reset / status netstat \\7 / find"
+    },
+    {
+      "NumeroPregunta": 24,
+      "Inciso": null,
+      "RespuestaDada": "- public ActionResult Listar - cis estudiante obj = new cls Estudiante (return view) - var obj = newals estudiante return View (obj)"
+    }
+  ]
+}
+
+
+=== EXAMEN: Image_00007 (2).pdf (27/06/2026 17:45:11) ===
+{
+  "NombreAlumno": "Huellpa Corpoch, Edo Alomo",
+  "Respuestas": [
+    {
+      "NumeroPregunta": 1,
+      "Inciso": "a",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 2,
+      "Inciso": "b",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 3,
+      "Inciso": "c",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 4,
+      "Inciso": "d",
+      "RespuestaDada": "F"
+    },
+    {
+      "NumeroPregunta": 5,
+      "Inciso": "e",
+      "RespuestaDada": "V"
+    },
+    {
+      "NumeroPregunta": 6,
+      "Inciso": null,
+      "RespuestaDada": "C"
+    },
+    {
+      "NumeroPregunta": 7,
+      "Inciso": null,
+      "RespuestaDada": "C"
+    },
+    {
+      "NumeroPregunta": 8,
+      "Inciso": null,
+      "RespuestaDada": "C"
+    },
+    {
+      "NumeroPregunta": 9,
+      "Inciso": null,
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 10,
+      "Inciso": null,
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 11,
+      "Inciso": null,
+      "RespuestaDada": "B"
+    },
+    {
+      "NumeroPregunta": 12,
+      "Inciso": null,
+      "RespuestaDada": "A"
+    },
+    {
+      "NumeroPregunta": 13,
+      "Inciso": null,
+      "RespuestaDada": "Steto Pangat"
+    },
+    {
+      "NumeroPregunta": 14,
+      "Inciso": null,
+      "RespuestaDada": "git nege"
+    },
+    {
+      "NumeroPregunta": 15,
+      "Inciso": null,
+      "RespuestaDada": "git"
+    },
+    {
+      "NumeroPregunta": 16,
+      "Inciso": null,
+      "RespuestaDada": "localhost"
+    },
+    {
+      "NumeroPregunta": 17,
+      "Inciso": null,
+      "RespuestaDada": "Sspx."
+    },
+    {
+      "NumeroPregunta": 18,
+      "Inciso": null,
+      "RespuestaDada": "basic Authaticato"
+    },
+    {
+      "NumeroPregunta": 19,
+      "Inciso": null,
+      "RespuestaDada": "View()"
+    },
+    {
+      "NumeroPregunta": 20,
+      "Inciso": null,
+      "RespuestaDada": ""
+    },
+    {
+      "NumeroPregunta": 21,
+      "Inciso": null,
+      "RespuestaDada": ""
+    },
+    {
+      "NumeroPregunta": 22,
+      "Inciso": null,
+      "RespuestaDada": ""
+    },
+    {
+      "NumeroPregunta": 23,
+      "Inciso": null,
+      "RespuestaDada": ""
+    },
+    {
+      "NumeroPregunta": 24,
+      "Inciso": null,
+      "RespuestaDada": ""
+    }
+  ]
+}

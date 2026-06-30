@@ -1,0 +1,67 @@
+@startuml Robustez Codigo - RF17 Clasificar Rendimiento
+
+title "Diagrama de Robustez Codificación — RF17: Clasificar Estado Académico\nNivel: Implementación MVC (SCIBM)"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente" as ACTOR
+
+package "Vista (UI JavaScript)" {
+  boundary "Reporte/Index.cshtml\n(Llamada AJAX o Fetch)" as ViewAJAX
+}
+
+package "Controlador" {
+  control "ReporteController.\nGetReporteDinamico() /\nExportarAGoogleSheets()" as Controller
+}
+
+package "Entity Framework (DB)" {
+  entity "ScibmContext" as DBContext
+  entity "DbSet<ExamenesAlumnos>" as TblResultados
+}
+
+ACTOR --> ViewAJAX : 1. Solicita visualizar\no exportar el reporte
+ViewAJAX --> Controller : 2. POST (Filtros de Búsqueda)
+Controller --> DBContext : 3. Where(filtros).ToListAsync()
+DBContext --> TblResultados : 4. Consulta Query DB
+TblResultados --> Controller : 5. Retorna List<ExamenAlumno>
+Controller --> Controller : 6. GroupBy(r => r.NombreAlumno)
+Controller --> Controller : 7. (Bucle LINQ)\npromedio = g.Average(x => x.Nota)
+Controller --> Controller : 8. Evalúa condición ternaria:\npromedio < 10.5 ? "Desaprobado"\npromedio < 14.0 ? "Regular"\nSino "Aprobado"
+Controller --> Controller : 9. Instancia Objeto Anónimo\n{ nombre, promedio, estado }
+Controller --> ViewAJAX : 10. Retorna JsonResult { data = agrupados }
+ViewAJAX --> ACTOR : 11. Renderiza DataTable aplicando\ncolores HTML (Rojo, Amarillo, Verde) según `estado`
+
+@enduml

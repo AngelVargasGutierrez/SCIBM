@@ -657,6 +657,36 @@
                 .trim();
         }
 
+        function compararRespuestaFlexibleJS(respuestaCorrecta, respuestaDada) {
+            if (!respuestaCorrecta) return false;
+            if (!respuestaDada) return false;
+
+            var corrLabel = respuestaCorrecta.trim();
+            var matchCorr = corrLabel.match(/^([a-zA-Z])[\)\.-]/);
+            if (matchCorr) {
+                var letraCorr = matchCorr[1];
+                if (respuestaDada.trim().toUpperCase() === letraCorr.toUpperCase()) return true;
+            }
+
+            var dadaLabel = respuestaDada.trim();
+            var matchDada = dadaLabel.match(/^([a-zA-Z])(?:[\)\.-]|$)/);
+            if (matchDada && matchCorr) {
+                if (matchDada[1].toUpperCase() === matchCorr[1].toUpperCase()) return true;
+            }
+
+            var corrNorm = normalizarTexto(respuestaCorrecta);
+            var dadaNorm = normalizarTexto(respuestaDada);
+            
+            if (corrNorm === dadaNorm) return true;
+            
+            if (corrNorm.length >= 4 && dadaNorm.length >= 4) {
+                if (corrNorm.includes(dadaNorm) || dadaNorm.includes(corrNorm)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // Calcular la nota sumando los puntajes de aciertos
         function calcularNotaPreliminar(res) {
             var total = 0;
@@ -666,17 +696,7 @@
                     (resp.inciso ? p.inciso === resp.inciso : !p.inciso)
                 );
                 if (q && q.puntaje > 0) {
-                    var corrNorm = normalizarTexto(q.respuestaCorrecta || "");
-                    var dadaNorm = normalizarTexto(resp.respuestaDada || "");
-                    
-                    var aiCorrecto = (corrNorm === dadaNorm);
-                    
-                    // Flexibilidad Humana: si la respuesta es larga, permitimos que una incluya a la otra
-                    if (!aiCorrecto && corrNorm.length >= 4 && dadaNorm.length >= 4) {
-                        if (corrNorm.includes(dadaNorm) || dadaNorm.includes(corrNorm)) {
-                            aiCorrecto = true;
-                        }
-                    }
+                    var aiCorrecto = compararRespuestaFlexibleJS(q.respuestaCorrecta, resp.respuestaDada);
 
                     var esCorrecto = resp.esCorrectoManual !== undefined && resp.esCorrectoManual !== null 
                                      ? resp.esCorrectoManual 
@@ -740,17 +760,7 @@
                 );
                 if (!q || q.puntaje === 0) return; // Saltar contenedores padre o no encontrados
 
-                var corrNorm = normalizarTexto(q.respuestaCorrecta || "");
-                var dadaNorm = normalizarTexto(resp.respuestaDada || "");
-                
-                var aiCorrecto = (corrNorm === dadaNorm);
-                
-                // Flexibilidad Humana: si la respuesta es larga, permitimos que una incluya a la otra
-                if (!aiCorrecto && corrNorm.length >= 4 && dadaNorm.length >= 4) {
-                    if (corrNorm.includes(dadaNorm) || dadaNorm.includes(corrNorm)) {
-                        aiCorrecto = true;
-                    }
-                }
+                var aiCorrecto = compararRespuestaFlexibleJS(q.respuestaCorrecta, resp.respuestaDada);
 
                 var esCorrecto = resp.esCorrectoManual !== undefined && resp.esCorrectoManual !== null 
                                  ? resp.esCorrectoManual 
@@ -767,7 +777,7 @@
                         var opcionesArr = JSON.parse(q.opcionesJson);
                         var options = `<option value="">--</option>`;
                         opcionesArr.forEach(o => {
-                            var sel = (resp.respuestaDada === o.label) ? "selected" : "";
+                            var sel = (resp.respuestaDada || "").toUpperCase() === (o.label || "").toUpperCase() ? "selected" : "";
                             options += `<option value="${o.label}" ${sel}>${o.label}</option>`;
                         });
 
@@ -1037,11 +1047,30 @@
                                     ? r.esCorrectoManual 
                                     : ((r.respuestaDada || "").toUpperCase() === (q.respuestaCorrecta || "").toUpperCase());
                     
+                    // Flexibilidad: si es larga, permitimos substring
+                    var corrNorm = normalizarTexto(q.respuestaCorrecta || "");
+                    var dadaNorm = normalizarTexto(r.respuestaDada || "");
+                    if (!(r.esCorrectoManual !== undefined && r.esCorrectoManual !== null) && !isCorrect && corrNorm.length >= 4 && dadaNorm.length >= 4) {
+                        if (corrNorm.includes(dadaNorm) || dadaNorm.includes(corrNorm)) {
+                            isCorrect = true;
+                        }
+                    }
+
                     var mark = document.createElement("div");
                     mark.style.position = "absolute";
-                    mark.style.left = (q.posX) + "%";
-                    mark.style.top = (q.posY) + "%";
-                    mark.style.fontSize = "12px";
+                    
+                    var targetX = q.posX;
+                    var targetY = q.posY;
+
+                    mark.style.left = targetX + "%";
+                    mark.style.top = targetY + "%";
+                    
+                    if (!res.correctionStamps) res.correctionStamps = {};
+                    if (!res.correctionStamps[idx]) {
+                        res.correctionStamps[idx] = { x: targetX, y: targetY };
+                    }
+
+                    mark.style.fontSize = "14px";
                     mark.style.fontWeight = "bold";
                     mark.style.cursor = "move";
                     mark.style.textShadow = "0px 0px 3px white";
@@ -1052,7 +1081,9 @@
                         mark.innerHTML = `<i class="fa-solid fa-check"></i>`;
                     } else {
                         mark.style.color = "#ff5252";
-                        mark.innerHTML = `<i class="fa-solid fa-xmark"></i> <span style="font-size:9px;">Cor: ${q.respuestaCorrecta}</span>`;
+                        var shortCor = q.respuestaCorrecta || "";
+                        if (shortCor.length > 20) shortCor = shortCor.substring(0, 20) + "...";
+                        mark.innerHTML = `<i class="fa-solid fa-xmark"></i> <span style="font-size:9px; background: rgba(0,0,0,0.5); padding: 1px 3px; border-radius: 3px; white-space: nowrap;">Cor: ${shortCor}</span>`;
                     }
                     
                     makeDraggable(mark, null, function(newX, newY) {

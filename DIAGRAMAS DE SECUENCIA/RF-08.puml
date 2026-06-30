@@ -1,0 +1,54 @@
+@startuml Secuencia - RF08 Calibrar Examen
+
+title "Diagrama de Secuencia — RF08: Calibrar Examen Maestro\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Interfaz Gráfica\nInteractiva" as View
+participant "Sistema Central" as System
+participant "Base de Datos" as DB
+
+ACTOR -> View : Ubica los pines en el PDF\ny hace clic en "Guardar Calibración"
+View -> System : Manda las coordenadas exactas\nde la nota y de cada pregunta
+activate System
+
+alt El usuario no ha iniciado sesión
+    System --> View : Rechaza por falta de permisos
+    View --> ACTOR : Muestra aviso de error en pantalla
+else Permisos correctos
+    System -> DB : Busca la configuración general del examen
+    activate DB
+    DB --> System : Entrega los datos del examen
+    deactivate DB
+    
+    alt No se encontró el examen
+        System --> View : Indica error (examen no existe o fue borrado)
+    else Examen localizado correctamente
+        System -> System : Guarda las posiciones (X, Y, ancho, alto)\ndel sello rojo de nota final
+        
+        loop Para cada pregunta ubicada
+            System -> System : Asigna la posición exacta donde\nse dibujará el check (✔) o la equis (✘)
+        end
+        
+        System -> DB : Aplica los cambios en la BD
+        activate DB
+        DB --> System : Confirma el guardado
+        deactivate DB
+        
+        System --> View : Responde con mensaje de éxito
+        View -> View : Cierra la pantalla de calibración
+        View --> ACTOR : Redirige al panel principal del examen
+    end
+end
+
+deactivate System
+
+@enduml

@@ -1,0 +1,70 @@
+@startuml Robustez Codigo - RF11 Emparejar Examenes
+
+title "Diagrama de Robustez Codificación — RF11: Emparejar Exámenes con Alumnos\nNivel: Implementación MVC (SCIBM)"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente" as ACTOR
+
+package "Vista (UI JavaScript)" {
+  boundary "GradeOverview.cshtml\n(Botón Matricular y Vincular)" as ViewAJAX
+}
+
+package "Controlador" {
+  control "ExamenController.\nMatricularYVincularAlumno()" as Controller
+}
+
+package "Entity Framework (DB)" {
+  entity "ScibmContext" as DBContext
+  entity "ExamenesAlumnos (Tabla)" as TblCalificacion
+  entity "AlumnosMatriculados (Tabla)" as TblAlumno
+}
+
+ACTOR --> ViewAJAX : 1. Clic en "Matricular y Vincular"
+ViewAJAX --> Controller : 2. POST (Fetch) con calificacionId
+Controller --> Controller : 3. Valida Session["UserEmail"]
+Controller --> DBContext : 4. Include(Examen.Unidad)
+DBContext --> TblCalificacion : 5. FirstOrDefaultAsync(Id)
+TblCalificacion --> Controller : 6. Devuelve entidad calificacion
+Controller --> Controller : 7. Valida AlumnoMatriculadoId == null\ny NombreAlumno != nulo
+Controller --> Controller : 8. Ejecuta algoritmo Split(' ')\npara separar Nombres y Apellidos
+Controller --> TblAlumno : 9. Add(nuevo AlumnoMatriculado)
+Controller --> Controller : 10. calificacion.AlumnoMatriculadoId\n= nuevoAlumno.Id
+Controller --> DBContext : 11. SaveChangesAsync()
+Controller --> ViewAJAX : 12. Retorna JsonResult { success = true }
+ViewAJAX --> ACTOR : 13. Muestra alerta de éxito\ny actualiza la tabla en tiempo real
+
+@enduml

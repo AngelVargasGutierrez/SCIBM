@@ -1,0 +1,68 @@
+@startuml Robustez - RF11 Emparejar Examenes
+
+title "Diagrama de Robustez — RF11: Emparejar Exámenes con Alumnos\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente" as ACTOR
+
+package "Frontera — Lo que ve el Docente" {
+  boundary "Tabla de Exámenes\nCalificados" as B1
+}
+
+package "Control — Procesos Automáticos" {
+  control "Verificador\nde Estado" as C1
+  control "Separador Inteligente\nde Nombres" as C2
+  control "Gestor de\nMatricula y Vinculación" as C3
+}
+
+package "Entidad — Información Guardada" {
+  entity "Registro del Examen\ndel Alumno" as E1
+  entity "Registro Oficial\nde Alumnos Matriculados" as E2
+}
+
+ACTOR --> B1 : 1. Hace clic en el botón\n"Matricular y Vincular"
+B1 --> C1 : 2. Solicita vincular la nota
+C1 --> E1 : 3. Revisa si la nota ya está\nvinculada a algún estudiante
+C1 --> C2 : 4. Si no está vinculada y el\nnombre existe, pasa los datos
+C2 --> C2 : 5. Divide automáticamente el texto en\nNombres y Apellidos según cantidad de palabras
+C2 --> C3 : 6. Entrega el nombre bien estructurado
+C3 --> E2 : 7. Inscribe (matricula) al nuevo alumno\nen la base de datos
+C3 --> E1 : 8. Conecta el examen físico\ncon el alumno recién matriculado
+C3 --> B1 : 9. Informa que se vinculó correctamente
+B1 --> ACTOR : 10. Muestra mensaje de éxito\ny actualiza la lista visualmente
+
+@enduml

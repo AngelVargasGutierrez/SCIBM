@@ -1,0 +1,65 @@
+@startuml Secuencia Codigo - RF15 Exportar a Sheets
+
+title "Diagrama de Secuencia Codificación — RF15: Exportar Google Sheets\nNivel: Implementación MVC (SCIBM)"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Vista (Fetch AJAX)" as View
+participant "ReporteController" as Controller
+participant "ScibmContext (DB)" as DB
+participant "GoogleSheetsHelper" as Helper
+participant "Google APIs" as Google
+
+ACTOR -> View : Clic en "Exportar a Google Sheets"
+View -> Controller : POST ExportarAGoogleSheets(filtros)
+activate Controller
+
+Controller -> Controller : GetValidAccessTokenAsync()
+alt Token Inválido o Nulo
+    Controller --> View : JsonResult { success = false, message = "..." }
+    View --> ACTOR : Muestra alerta de acceso denegado
+else Token Obtenido
+    Controller -> DB : ExamenesAlumnos.Include(...).Where(...)
+    activate DB
+    DB --> Controller : resultados (List<ExamenAlumno>)
+    deactivate DB
+    
+    alt resultados.Count == 0
+        Controller --> View : JsonResult { success = false, message = "Sin datos" }
+    else Datos Obtenidos con Éxito
+        Controller -> Controller : Agrupa resultados por alumno (GroupBy),\ncalcula notaPromedio, Max, Min
+        Controller -> Controller : Construye sheetData (List<IList<object>>)
+        
+        Controller -> Helper : CreateSpreadsheetAsync(sheetTitle, accessToken)
+        activate Helper
+        Helper -> Google : POST https://sheets.googleapis.com/v4/spreadsheets
+        Google --> Helper : JSON Response con spreadsheetId
+        Helper --> Controller : spreadsheetId
+        deactivate Helper
+        
+        Controller -> Helper : PopulateAndFormatReportAsync(spreadsheetId, sheetData...)
+        activate Helper
+        Helper -> Google : PUT (Escribe Valores de celdas)
+        Helper -> Google : POST (batchUpdate: Aplica colores y congela filas)
+        Google --> Helper : Status 200 OK
+        Helper --> Controller : true
+        deactivate Helper
+        
+        Controller -> Google : Ejecuta PATCH en Google Drive API\npara mover el archivo a targetFolderId
+        
+        Controller --> View : JsonResult { success = true, link = "https://docs.google.com/..." }
+        View --> ACTOR : Carga modal confirmando éxito y ofrece enlace
+    end
+end
+
+deactivate Controller
+
+@enduml

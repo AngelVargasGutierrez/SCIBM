@@ -1,0 +1,60 @@
+@startuml Secuencia - RF09 Modificar Solucionario
+
+title "Diagrama de Secuencia — RF09: Modificar Solucionario\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Interfaz Gráfica" as View
+participant "Sistema Central" as System
+participant "Base de Datos" as DB
+
+== Solicitud de Acceso ==
+ACTOR -> View : Solicita editar el solucionario
+View -> System : Pide abrir la pantalla de edición
+activate System
+
+System -> DB : Busca quién es el profesor dueño del examen
+activate DB
+DB --> System : Retorna la información
+deactivate DB
+
+alt El docente actual no es el dueño
+    System --> View : Deniega el acceso
+    View --> ACTOR : Muestra aviso "Recurso no encontrado"
+else Es el dueño correcto
+    System --> View : Autoriza y envía toda la información
+    View --> ACTOR : Carga el panel con los formularios y el PDF
+end
+deactivate System
+
+== Edición y Guardado Rápido ==
+ACTOR -> View : Corrige una pregunta y presiona guardar
+View -> System : Manda los cambios de forma oculta (en segundo plano)
+activate System
+
+System -> DB : Localiza las preguntas a modificar
+activate DB
+DB --> System : Datos actuales listos para cambiar
+deactivate DB
+
+System -> System : Reemplaza los textos y puntajes antiguos\npor los nuevos valores que envió el docente
+
+System -> DB : Aplica los cambios definitivos
+activate DB
+DB --> System : Confirma el guardado
+deactivate DB
+
+System --> View : Informa que el guardado fue exitoso
+deactivate System
+
+View --> ACTOR : Muestra un pequeño mensaje de éxito\nsin cambiar de pantalla
+
+@enduml

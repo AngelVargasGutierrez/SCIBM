@@ -1,0 +1,53 @@
+@startuml Secuencia - RF11 Emparejar Examenes
+
+title "Diagrama de Secuencia — RF11: Emparejar Exámenes con Alumnos\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Interfaz Gráfica" as View
+participant "Sistema Central" as System
+participant "Base de Datos" as DB
+
+ACTOR -> View : Hace clic en el botón "Matricular y Vincular"
+View -> System : Solicita vincular la nota del alumno
+activate System
+
+System -> DB : Busca los datos del examen calificado
+activate DB
+DB --> System : Entrega la información
+deactivate DB
+
+alt El examen ya estaba vinculado a un alumno
+    System --> View : Informa que ya existe la vinculación
+    View --> ACTOR : Muestra aviso de error
+else El examen no tiene nombre detectado
+    System --> View : Informa que no hay nombre disponible
+    View --> ACTOR : Muestra aviso pidiendo escribir el nombre
+else El examen está listo para vincularse
+    System -> System : Analiza el nombre completo que leyó la IA\ny lo divide en nombres y apellidos
+    
+    System -> DB : Guarda al alumno en el registro\noficial de matriculados
+    activate DB
+    DB --> System : Confirma el registro
+    deactivate DB
+    
+    System -> DB : Asocia la nota del examen con el nuevo alumno
+    activate DB
+    DB --> System : Confirma la asociación
+    deactivate DB
+    
+    System --> View : Responde con mensaje de éxito
+    View --> ACTOR : Notifica que la vinculación se realizó\ncorrectamente
+end
+
+deactivate System
+
+@enduml

@@ -1,0 +1,79 @@
+@startuml Robustez Codigo - RF15 Exportar a Sheets
+
+title "Diagrama de Robustez Codificación — RF15: Exportar Google Sheets\nNivel: Implementación MVC (SCIBM)"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente / Admin" as ACTOR
+
+package "Vista (UI JavaScript)" {
+  boundary "Reporte/Index.cshtml\n(Botón Exportar Sheets)" as ViewAJAX
+}
+
+package "Controlador y Helpers" {
+  control "ReporteController.\nExportarAGoogleSheets()" as Controller
+  control "GoogleSheetsHelper.\nCreateSpreadsheetAsync()" as HelperCreate
+  control "GoogleSheetsHelper.\nPopulateAndFormatReportAsync()" as HelperFormat
+}
+
+package "Entity Framework (DB)" {
+  entity "ScibmContext" as DBContext
+  entity "DbSet<ExamenesAlumnos>" as TblResultados
+}
+
+package "Servicios Externos (API REST)" {
+  entity "Google Sheets API\n(Google Workspace)" as GoogleAPI
+}
+
+ACTOR --> ViewAJAX : 1. Clic en "Exportar a\nGoogle Sheets"
+ViewAJAX --> Controller : 2. POST(cursoId, seccionId, unidadId...)
+Controller --> DBContext : 3. Llama a GetValidAccessTokenAsync(email)
+Controller --> TblResultados : 4. Ejecuta Query con Include() jerárquico\ny filtros .Where()
+TblResultados --> Controller : 5. Retorna List<ExamenAlumno>
+Controller --> Controller : 6. Calcula Max/Min/Promedio y Arma\nList<IList<object>> (sheetData)
+Controller --> HelperCreate : 7. CreateSpreadsheetAsync(sheetTitle, token)
+HelperCreate --> GoogleAPI : 8. POST spreadsheets.create
+GoogleAPI --> HelperCreate : 9. Retorna JSON con spreadsheetId
+HelperCreate --> Controller : 10. spreadsheetId
+Controller --> HelperFormat : 11. PopulateAndFormatReportAsync(id, data, token)
+HelperFormat --> GoogleAPI : 12. PUT (values) y POST (batchUpdate formato)
+GoogleAPI --> HelperFormat : 13. Confirmación de actualización de celdas
+HelperFormat --> Controller : 14. bool wrote = true
+Controller --> GoogleAPI : 15. Mueve el archivo a targetFolderId (Drive API)
+Controller --> ViewAJAX : 16. Retorna JsonResult { success=true, link }
+ViewAJAX --> ACTOR : 17. Despliega alerta flotante y el\nbotón para abrir documento
+
+@enduml

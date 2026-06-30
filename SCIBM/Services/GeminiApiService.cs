@@ -86,9 +86,9 @@ namespace SCIBM.Services
                 },
                 generationConfig = new
                 {
-                    response_mime_type = "application/json", // Forzamos respuesta en JSON estructurado
+                    responseMimeType = "application/json", // Forzamos respuesta en JSON estructurado
                     temperature = 0.0,
-                    max_output_tokens = 8192
+                    maxOutputTokens = 8192
                 }
             };
 

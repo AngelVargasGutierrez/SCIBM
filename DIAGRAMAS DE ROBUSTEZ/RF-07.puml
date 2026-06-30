@@ -1,0 +1,67 @@
+@startuml Robustez - RF07 Registrar Solucionario
+
+title "Diagrama de Robustez — RF07: Registrar Solucionario de Examen Maestro\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente" as ACTOR
+
+package "Frontera — Lo que ve el Docente" {
+  boundary "Vista de Revisión\ndel Solucionario" as B1
+  boundary "Alerta de Éxito\n(Redirección a Calibración)" as B2
+}
+
+package "Control — Procesos Automáticos" {
+  control "Receptor de\nDatos Editados" as C1
+  control "Comparador de\nListas (Borrados)" as C2
+  control "Gestor de\nActualización y Guardado" as C3
+}
+
+package "Entidad — Información Guardada" {
+  entity "Preguntas Temporales\n(Base de Datos)" as E1
+  entity "Solucionario\nDefinitivo" as E2
+}
+
+ACTOR --> B1 : 1. Revisa tabla, corrige textos/puntajes, borra errores\ny presiona "Confirmar Solucionario"
+B1 --> C1 : 2. Captura los datos ingresados y envía la lista
+C1 --> C2 : 3. Transfiere la información recibida
+C2 --> E1 : 4. Compara la nueva lista contra las preguntas temporales
+C2 --> C3 : 5. Instruye qué preguntas eliminar y cuáles actualizar\n(normalizando textos y decimales)
+C3 --> E2 : 6. Sobreescribe la información y guarda cambios permanentemente
+C3 --> B2 : 7. Envía señal de victoria (Éxito)
+B2 --> ACTOR : 8. Muestra "Guardado correctamente" y redirige a la vista de Calibración
+
+@enduml

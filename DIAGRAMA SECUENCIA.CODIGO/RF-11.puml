@@ -1,0 +1,59 @@
+@startuml Secuencia Codigo - RF11 Emparejar Examenes
+
+title "Diagrama de Secuencia Codificación — RF11: Emparejar Exámenes con Alumnos\nNivel: Implementación MVC (SCIBM)"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Vista (Fetch/AJAX)" as View
+participant "ExamenController" as Controller
+participant "ScibmContext (DB)" as DB
+
+ACTOR -> View : Clic en "Vincular"
+View -> Controller : POST MatricularYVincularAlumno(calificacionId)
+activate Controller
+
+alt Session["UserEmail"] == null
+    Controller --> View : JSON error "Sesión expirada"
+else
+    Controller -> DB : ExamenesAlumnos.Include(Examen.Unidad).FirstOrDefaultAsync()
+    activate DB
+    DB --> Controller : calificacion
+    deactivate DB
+    
+    alt calificacion == null
+        Controller --> View : JSON error "La calificación no existe"
+    else calificacion.AlumnoMatriculadoId != null
+        Controller --> View : JSON error "Este alumno ya está matriculado"
+    else string.IsNullOrEmpty(calificacion.NombreAlumno)
+        Controller --> View : JSON error "No hay nombre detectado"
+    else
+        Controller -> Controller : Separa fullName en Nombres y Apellidos\n(Algoritmo Split por espacios)
+        
+        Controller -> Controller : Crea objeto AlumnoMatriculado
+        Controller -> DB : AlumnosMatriculados.Add(nuevoAlumno)
+        activate DB
+        deactivate DB
+        
+        Controller -> Controller : Asigna calificacion.AlumnoMatriculadoId = nuevoAlumno.Id
+        
+        Controller -> DB : SaveChangesAsync()
+        activate DB
+        DB --> Controller : int
+        deactivate DB
+        
+        Controller --> View : JSON { success = true, message = "Exitoso" }
+        View --> ACTOR : Muestra alerta y refresca estado en la tabla
+    end
+end
+
+deactivate Controller
+
+@enduml

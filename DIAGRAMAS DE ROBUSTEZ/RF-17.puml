@@ -1,0 +1,66 @@
+@startuml Robustez - RF17 Clasificar Rendimiento
+
+title "Diagrama de Robustez — RF17: Clasificar Estado Académico\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente" as ACTOR
+
+package "Frontera — Interfaz Gráfica" {
+  boundary "Pantalla de Reportes\n(Tabla Dinámica)" as B1
+}
+
+package "Control — Procesos Automáticos" {
+  control "Recolector de\nNotas" as C1
+  control "Calculadora de\nPromedios" as C2
+  control "Evaluador de\nReglas y Rendimiento" as C3
+}
+
+package "Entidad — Repositorios de Información" {
+  entity "Base de Datos\ndel Sistema" as E1
+}
+
+ACTOR --> B1 : 1. Solicita ver las calificaciones\ndel curso
+B1 --> C1 : 2. Pide buscar las notas\ncon los filtros
+C1 --> E1 : 3. Extrae todas las notas\nguardadas hasta el momento
+C1 --> C2 : 4. Entrega las notas crudas
+C2 --> C2 : 5. Agrupa por estudiante y calcula\nsu promedio general exacto
+C2 --> C3 : 6. Pasa el promedio para evaluación
+C3 --> C3 : 7. Si Promedio < 10.5 es Desaprobado\nSi es < 14 es Regular\nSi es mayor, Aprobado
+C3 --> B1 : 8. Envía la lista estructurada con\nla etiqueta de estado lista
+B1 --> ACTOR : 9. Muestra la tabla pintando las filas\ncon colores según el estado académico
+
+@enduml

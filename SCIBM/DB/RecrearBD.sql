@@ -11,6 +11,7 @@ DROP TABLE IF EXISTS CicloAcademico;
 DROP TABLE IF EXISTS Carrera;
 DROP TABLE IF EXISTS EscuelaProfesional;
 DROP TABLE IF EXISTS Facultad;
+DROP TABLE IF EXISTS Docente;
 
 -- 1. Crear Tabla Facultad
 CREATE TABLE Facultad (
@@ -38,6 +39,17 @@ CREATE TABLE Carrera (
     CiclosTotales INT NOT NULL DEFAULT 10,
     CONSTRAINT PK_Carrera PRIMARY KEY (Id),
     CONSTRAINT FK_Carrera_Escuela FOREIGN KEY (EscuelaProfesionalId) REFERENCES EscuelaProfesional(Id) ON DELETE CASCADE
+);
+
+-- 3.5 Crear Tabla Docente
+CREATE TABLE Docente (
+    Email NVARCHAR(150) NOT NULL,
+    Nombre NVARCHAR(100) NOT NULL,
+    Apellido NVARCHAR(100) NOT NULL,
+    GoogleDriveFolderId NVARCHAR(100) NULL,
+    RefreshToken NVARCHAR(250) NULL,
+    UltimoAcceso DATETIME NULL,
+    CONSTRAINT PK_Docente PRIMARY KEY (Email)
 );
 
 -- 4. Crear Tabla de CicloAcademico

@@ -456,6 +456,7 @@ else
                             @foreach (var p in preguntas)
                             {
                                 bool isPadre = !p.PreguntaPadreId.HasValue;
+                                bool isContenedor = !p.PreguntaPadreId.HasValue && p.Tipo == "Contenedor";
                                 string indent = isPadre ? "0" : "30px";
                                 string bgRow = isPadre ? "rgba(128, 128, 128, 0.03)" : "var(--glass-bg)";
                                 string boldStr = isPadre ? "font-weight: bold; color: var(--text-color);" : "";
@@ -470,7 +471,7 @@ else
                                             <span style="color: var(--primary-glow); font-size: 16px; @boldStr; margin-top: 8px;">@numPrefix</span>
                                             <textarea name="preguntasEditadas[@index].Enunciado" class="form-input" style="flex: 1; resize: vertical; min-height: 40px; border: none; background: transparent; padding: 8px; @boldStr">@p.Enunciado</textarea>
                                         </div>
-                                        @if (!isPadre) {
+                                        @if (!isContenedor) {
                                             <div style="margin-top: 8px; margin-left: 30px;">
                                                 <span style="font-size: 11px; padding: 3px 8px; background: rgba(255,255,255,0.1); border-radius: 4px; color: var(--text-muted);">
                                                     @p.Tipo
@@ -480,7 +481,7 @@ else
                                     </td>
                                     
                                     <td style="padding: 15px; border-radius: 0 8px 8px 0; border: 1px solid var(--glass-border); border-left: none; vertical-align: top;">
-                                        @if (isPadre)
+                                        @if (isContenedor)
                                         {
                                             <div style="padding: 10px; color: var(--text-muted); font-size: 13px; font-style: italic;">
                                                 Instrucciones de sección (Sin respuesta)

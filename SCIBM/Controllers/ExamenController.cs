@@ -35,9 +35,27 @@ namespace SCIBM.Controllers
             return result.Trim();
         }
 
-        // Comparación flexible: exacta normalizada + substring si ambos >= 4 chars
         private static bool CompararRespuestaFlexible(string respuestaCorrecta, string respuestaDada)
         {
+            if (string.IsNullOrEmpty(respuestaCorrecta)) return false;
+            if (string.IsNullOrEmpty(respuestaDada)) return false;
+
+            // Extraer posible letra de la correcta (ej: "b) texto" -> "b")
+            var matchCorr = Regex.Match(respuestaCorrecta.Trim(), @"^([a-zA-Z])[\)\.-]");
+            if (matchCorr.Success)
+            {
+                string letraCorr = matchCorr.Groups[1].Value;
+                // Si la dada es solo la letra
+                if (respuestaDada.Trim().Equals(letraCorr, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            
+            // Extraer posible letra de la dada (ej: "B" o "B)")
+            var matchDada = Regex.Match(respuestaDada.Trim(), @"^([a-zA-Z])(?:[\)\.-]|$)");
+            if (matchDada.Success && matchCorr.Success)
+            {
+                if (matchDada.Groups[1].Value.Equals(matchCorr.Groups[1].Value, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+
             string corrNorm = NormalizarTexto(respuestaCorrecta);
             string dadaNorm = NormalizarTexto(respuestaDada);
             if (corrNorm == dadaNorm) return true;
@@ -183,112 +201,116 @@ Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
                     }
                     else
                     {
-                        prompt = @"Eres un asistente de OCR avanzado para exámenes.
-Analiza TODAS las páginas de este solucionario (examen ya resuelto).
-Identifica la estructura jerárquica de las preguntas Y las respuestas marcadas.
-Reglas estrictas de jerarquía:
-- PADRES: Son las instrucciones principales o contenedores (ej. números romanos I, II, III). 
-  Para ellos devuelve 'numeroPregunta' (entero, ej: I -> 1), 'enunciado', 'tipo': 'Contenedor', 'puntaje': 0, 'respuestaCorrecta': '', 'pagina' donde se encuentra.
-- HIJOS (Incisos): Son las subpreguntas (a, b, c, o 1, 2, 3 dentro de una sección).
-  Devuelve 'inciso' (letra o número), 'enunciado', 'tipo' ('OpcionMultiple', 'VerdaderoFalso', 'RespuestaCorta', 'Relacionar', 'RespuestaAbierta').
-  'puntaje': Extraído del texto del padre o 1.0 por defecto.
-  'respuestaCorrecta': EXTRAE la respuesta marcada, escrita o encerrada. Si es Múltiple, la letra. Si es V/F, la 'V' o 'F'. Si es Relacionar, el formato '1-B, 2-A'.
-  'opciones': Si el Tipo es 'OpcionMultiple', extrae un arreglo con 'label' (A, B, C) y 'text' (el texto de la opción). Para otros tipos, vacío [].
-  'pagina': donde se encuentra.
+                        prompt = @"Eres un calificador experto. Este es un examen ya resuelto por el profesor (solucionario).
+Extrae todas las preguntas. Para cada pregunta, indica:
+- NumeroPregunta (entero secuencial)
+- Enunciado (texto corto de la pregunta)
+- Tipo ('OpcionMultiple', 'RespuestaLibre' o 'VerdaderoFalso')
+- RespuestaCorrecta (La letra correcta si es múltiple, o la respuesta escrita si es libre/VF. Se muy exacto con lo que marcó el profesor.)
+- Puntaje (El valor en puntos de esta pregunta, búscalo en el texto. Si no lo indica claramente, asume 1.0)
 
-ESTRICTO: NUNCA utilices comillas dobles dentro de los textos de 'enunciado', 'respuestaCorrecta' u 'opciones'. Si necesitas citar, usa comillas simples (''). 
-
-Devuelve ÚNICAMENTE un JSON válido con esta estructura estricta:
-{
-  ""preguntas"": [
-    {
-      ""numeroPregunta"": 1,
-      ""enunciado"": ""Marcar con una X la respuesta correcta."",
-      ""tipo"": ""Contenedor"",
-      ""puntaje"": 0,
-      ""respuestaCorrecta"": """",
-      ""pagina"": 1,
-      ""subPreguntas"": [
-        {
-          ""inciso"": ""1"",
-          ""enunciado"": ""¿Cuál es la función principal de IIS?"",
-          ""tipo"": ""OpcionMultiple"",
-          ""puntaje"": 0.5,
-          ""respuestaCorrecta"": ""C"",
-          ""pagina"": 1,
-          ""opciones"": [
-            {""label"": ""A"", ""text"": ""Servir archivos de texto""},
-            {""label"": ""B"", ""text"": ""Alojar aplicaciones""},
-            {""label"": ""C"", ""text"": ""Servir contenido web""}
-          ]
-        }
-      ]
-    }
-  ]
-}";
+Devuelve ÚNICAMENTE un arreglo JSON válido (sin formato markdown adicional), estrictamente con las claves: NumeroPregunta, Enunciado, Tipo, RespuestaCorrecta, Puntaje.";
                     }
 
                     // 3. Llamar a Gemini
                     var gemini = new GeminiApiService();
                     string jsonResponse = await gemini.AnalyzePdfAsync(physicalPath, prompt);
                     jsonResponse = jsonResponse.Replace("```json", "").Replace("```", "").Trim();
-                    var rootObj = JsonConvert.DeserializeObject<RootPreguntasTemp>(jsonResponse);
-
-                    if (rootObj?.preguntas != null)
+                    
+                    try
                     {
-                        foreach (var pPadre in rootObj.preguntas)
+                        if (tipoExamen == "vacio")
                         {
-                            string safeTipoPadre = string.IsNullOrEmpty(pPadre.Tipo) ? "Contenedor" : pPadre.Tipo;
-                            if (safeTipoPadre.Length > 30) safeTipoPadre = safeTipoPadre.Substring(0, 30);
-                            string safeRespPadre = pPadre.RespuestaCorrecta ?? "";
-                            if (safeRespPadre.Length > 150) safeRespPadre = safeRespPadre.Substring(0, 150);
-
-                            var pregDb = new Pregunta
+                            var rootObj = JsonConvert.DeserializeObject<RootPreguntasTemp>(jsonResponse);
+                            if (rootObj?.preguntas != null)
                             {
-                                ExamenId = nuevoExamen.Id,
-                                PreguntaPadreId = null,
-                                NumeroPregunta = pPadre.NumeroPregunta,
-                                Enunciado = string.IsNullOrEmpty(pPadre.Enunciado) ? $"Sección {pPadre.NumeroPregunta}" : pPadre.Enunciado,
-                                Tipo = safeTipoPadre,
-                                RespuestaCorrecta = safeRespPadre,
-                                Puntaje = pPadre.Puntaje,
-                                Pagina = pPadre.Pagina > 0 ? pPadre.Pagina : 1
-                            };
-                            if (pPadre.Opciones != null && pPadre.Opciones.Any()) {
-                                pregDb.OpcionesJson = JsonConvert.SerializeObject(pPadre.Opciones);
-                            }
-                            db.Preguntas.Add(pregDb);
-                            await db.SaveChangesAsync(); // Para obtener el Id
-
-                            if (pPadre.SubPreguntas != null)
-                            {
-                                foreach (var pijo in pPadre.SubPreguntas)
+                                foreach (var pPadre in rootObj.preguntas)
                                 {
-                                    string safeTipoHijo = string.IsNullOrEmpty(pijo.Tipo) ? "RespuestaCorta" : pijo.Tipo;
-                                    if (safeTipoHijo.Length > 30) safeTipoHijo = safeTipoHijo.Substring(0, 30);
-                                    string safeRespHija = pijo.RespuestaCorrecta ?? "";
-                                    if (safeRespHija.Length > 150) safeRespHija = safeRespHija.Substring(0, 150);
+                                    string safeTipoPadre = string.IsNullOrEmpty(pPadre.Tipo) ? "Contenedor" : pPadre.Tipo;
+                                    if (safeTipoPadre.Length > 30) safeTipoPadre = safeTipoPadre.Substring(0, 30);
+                                    string safeRespPadre = pPadre.RespuestaCorrecta ?? "";
+                                    if (safeRespPadre.Length > 150) safeRespPadre = safeRespPadre.Substring(0, 150);
 
-                                    var subDb = new Pregunta
+                                    var pregDb = new Pregunta
                                     {
                                         ExamenId = nuevoExamen.Id,
-                                        PreguntaPadreId = pregDb.Id,
+                                        PreguntaPadreId = null,
                                         NumeroPregunta = pPadre.NumeroPregunta,
-                                        Inciso = string.IsNullOrEmpty(pijo.Inciso) ? "" : (pijo.Inciso.Length > 10 ? pijo.Inciso.Substring(0, 10) : pijo.Inciso),
-                                        Enunciado = string.IsNullOrEmpty(pijo.Enunciado) ? "Subpregunta" : pijo.Enunciado,
-                                        Tipo = safeTipoHijo,
-                                        RespuestaCorrecta = safeRespHija,
-                                        Puntaje = pijo.Puntaje > 0 ? pijo.Puntaje : 1.0,
-                                        Pagina = pijo.Pagina > 0 ? pijo.Pagina : 1
+                                        Enunciado = string.IsNullOrEmpty(pPadre.Enunciado) ? $"Sección {pPadre.NumeroPregunta}" : pPadre.Enunciado,
+                                        Tipo = safeTipoPadre,
+                                        RespuestaCorrecta = safeRespPadre,
+                                        Puntaje = pPadre.Puntaje,
+                                        Pagina = pPadre.Pagina > 0 ? pPadre.Pagina : 1
                                     };
-                                    if (pijo.Opciones != null && pijo.Opciones.Any()) {
-                                        subDb.OpcionesJson = JsonConvert.SerializeObject(pijo.Opciones);
+                                    if (pPadre.Opciones != null && pPadre.Opciones.Any()) {
+                                        pregDb.OpcionesJson = JsonConvert.SerializeObject(pPadre.Opciones);
                                     }
-                                    db.Preguntas.Add(subDb);
+                                    db.Preguntas.Add(pregDb);
+                                    await db.SaveChangesAsync(); // Para obtener el Id
+
+                                    if (pPadre.SubPreguntas != null)
+                                    {
+                                        foreach (var pijo in pPadre.SubPreguntas)
+                                        {
+                                            string safeTipoHijo = string.IsNullOrEmpty(pijo.Tipo) ? "RespuestaCorta" : pijo.Tipo;
+                                            if (safeTipoHijo.Length > 30) safeTipoHijo = safeTipoHijo.Substring(0, 30);
+                                            string safeRespHija = pijo.RespuestaCorrecta ?? "";
+                                            if (safeRespHija.Length > 150) safeRespHija = safeRespHija.Substring(0, 150);
+
+                                            var subDb = new Pregunta
+                                            {
+                                                ExamenId = nuevoExamen.Id,
+                                                PreguntaPadreId = pregDb.Id,
+                                                NumeroPregunta = pPadre.NumeroPregunta,
+                                                Inciso = string.IsNullOrEmpty(pijo.Inciso) ? "" : (pijo.Inciso.Length > 10 ? pijo.Inciso.Substring(0, 10) : pijo.Inciso),
+                                                Enunciado = string.IsNullOrEmpty(pijo.Enunciado) ? "Subpregunta" : pijo.Enunciado,
+                                                Tipo = safeTipoHijo,
+                                                RespuestaCorrecta = safeRespHija,
+                                                Puntaje = pijo.Puntaje > 0 ? pijo.Puntaje : 1.0,
+                                                Pagina = pijo.Pagina > 0 ? pijo.Pagina : 1
+                                            };
+                                            if (pijo.Opciones != null && pijo.Opciones.Any()) {
+                                                subDb.OpcionesJson = JsonConvert.SerializeObject(pijo.Opciones);
+                                            }
+                                            db.Preguntas.Add(subDb);
+                                        }
+                                        await db.SaveChangesAsync();
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            var preguntasExtraidas = JsonConvert.DeserializeObject<List<PreguntaTemp>>(jsonResponse);
+                            if (preguntasExtraidas != null)
+                            {
+                                foreach (var p in preguntasExtraidas)
+                                {
+                                    string safeTipo = string.IsNullOrEmpty(p.Tipo) ? "RespuestaLibre" : p.Tipo;
+                                    if (safeTipo.Length > 30) safeTipo = safeTipo.Substring(0, 30);
+
+                                    string safeRespuesta = p.RespuestaCorrecta ?? "";
+                                    if (safeRespuesta.Length > 150) safeRespuesta = safeRespuesta.Substring(0, 150);
+
+                                    db.Preguntas.Add(new Pregunta
+                                    {
+                                        ExamenId = nuevoExamen.Id,
+                                        NumeroPregunta = p.NumeroPregunta,
+                                        Enunciado = string.IsNullOrEmpty(p.Enunciado) ? $"Pregunta {p.NumeroPregunta}" : p.Enunciado,
+                                        Tipo = safeTipo,
+                                        RespuestaCorrecta = safeRespuesta,
+                                        Puntaje = p.Puntaje > 0 ? p.Puntaje : 1.0,
+                                        Pagina = 1
+                                    });
                                 }
                                 await db.SaveChangesAsync();
                             }
                         }
+                    }
+                    catch (JsonSerializationException)
+                    {
+                        TempData["Error"] = "El examen es demasiado extenso y la IA alcanzó su límite máximo de lectura (se cortó a la mitad). Por favor, divida el PDF en dos archivos más pequeños (ej. Mitad 1 y Mitad 2) e intente crear la versión nuevamente.";
+                        return RedirectToAction("Detail", "Unidad", new { id = unidadId });
                     }
 
                     // Intentar crear la carpeta en Drive
@@ -1071,6 +1093,11 @@ Reglas del JSON:
                                                 finalInciso = matchDb.Inciso; // Forzar capitalización exacta de la BD
                                             }
                                         }
+                                        else
+                                        {
+                                            // Si Gemini inventó un inciso pero la BD dice que la pregunta es plana, lo ignoramos.
+                                            finalInciso = null; 
+                                        }
                                     }
 
                                     respuestasFormatoJS.Add(new {
@@ -1122,6 +1149,18 @@ Reglas del JSON:
         }
 
         // GET: Examen/GradeOverview
+        [HttpGet]
+        public ActionResult ViewDebugLog()
+        {
+            string debugPath = Server.MapPath("~/App_Data/debug_gemini_upload.txt");
+            if (System.IO.File.Exists(debugPath))
+            {
+                string content = System.IO.File.ReadAllText(debugPath);
+                return Content(content, "text/plain", System.Text.Encoding.UTF8);
+            }
+            return Content("No hay log de depuración disponible.", "text/plain");
+        }
+
         public async Task<ActionResult> GradeOverview(Guid examenId)
         {
             if (Session["UserEmail"] == null)
@@ -1289,6 +1328,12 @@ Reglas del JSON:
                                 double cx = pregunta.PosX;
                                 double cy = pregunta.PosY;
 
+                                if (res.CorrectionStamps != null && res.CorrectionStamps.ContainsKey(qIndex.ToString()))
+                                {
+                                    cx = res.CorrectionStamps[qIndex.ToString()].x;
+                                    cy = res.CorrectionStamps[qIndex.ToString()].y;
+                                }
+
                                 correctionData.Add(new PdfStamperHelper.CorrectionStampData
                                 {
                                     X = cx,
@@ -1303,12 +1348,22 @@ Reglas del JSON:
 
                         // 4. Estampar la nota final y las correcciones en el PDF
                         string notaTexto = notaFinal.ToString("0.0");
+                        
                         var masterStamp = new StampInfoTemp { 
                             x = examen.StampX, 
                             y = examen.StampY, 
                             w = examen.StampWidth, 
                             h = examen.StampHeight 
                         };
+                        
+                        if (res.Stamp != null)
+                        {
+                            masterStamp.x = res.Stamp.x;
+                            masterStamp.y = res.Stamp.y;
+                            masterStamp.w = res.Stamp.w;
+                            masterStamp.h = res.Stamp.h;
+                        }
+
                         PdfStamperHelper.StampGradeAndCorrections(tempPhysicalPath, finalPhysicalPath, notaTexto, masterStamp, correctionData);
 
                         // DEBUG: Escribir cálculo detallado

@@ -1,0 +1,54 @@
+@startuml Secuencia Codigo - RF17 Clasificar Rendimiento
+
+title "Diagrama de Secuencia Codificación — RF17: Clasificar Estado Académico\nNivel: Implementación MVC (SCIBM)"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Vista (AJAX/Fetch)" as View
+participant "ReporteController" as Controller
+participant "ScibmContext (DB)" as DB
+
+ACTOR -> View : Modifica filtros y presiona Buscar\n(o Exportar a Sheets)
+View -> Controller : POST GetReporteDinamico()\no ExportarAGoogleSheets()
+activate Controller
+
+Controller -> DB : ExamenesAlumnos.Include(...).Where(...).ToListAsync()
+activate DB
+DB --> Controller : resultados (List<ExamenAlumno>)
+deactivate DB
+
+alt resultados.Count == 0
+    Controller --> View : JSON { success = false, message = "Sin datos" }
+else Se encontraron calificaciones
+    Controller -> Controller : alumnosAgrupados = resultados\n.GroupBy(r => NombreCompleto)
+    
+    loop Para cada Grupo de Notas de un Alumno
+        Controller -> Controller : var promedio = g.Average(x => x.Nota)
+        
+        alt promedio < 10.5
+            Controller -> Controller : estado = "Desaprobado"
+        else promedio < 14.0
+            Controller -> Controller : estado = "Regular"
+        else promedio >= 14.0
+            Controller -> Controller : estado = "Aprobado"
+        end
+        
+        Controller -> Controller : Instancia objeto { nombre, notas, promedio, estado }
+    end
+    
+    Controller -> Controller : .OrderByDescending(x => x.promedio).ToList()
+    Controller --> View : Retorna JsonResult (arreglo JSON serializado)
+end
+deactivate Controller
+View -> View : Itera respuesta en frontend y renderiza filas:\nAplica Badge CSS o Condición dependiendo del estado
+View --> ACTOR : Muestra la tabla dinámica con clasificaciones de rendimiento
+
+@enduml

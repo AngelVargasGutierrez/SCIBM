@@ -1,0 +1,75 @@
+@startuml Robustez Codigo - RF09 Modificar Solucionario
+
+title "Diagrama de Robustez Codificación — RF09: Modificar Solucionario\nNivel: Implementación MVC (SCIBM)"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente" as ACTOR
+
+package "Vista (UI)" {
+  boundary "Detalles (Botón Editar)" as ViewDetail
+  boundary "EditSolucionario.cshtml\n(Pestañas Datos y Calibración)" as ViewEdit
+}
+
+package "Controlador" {
+  control "ExamenController.\nEditSolucionario() [GET]" as CtrlGet
+  control "ExamenController.\nSaveSolucionarioData() [POST]" as CtrlPost
+}
+
+package "Entity Framework (DB)" {
+  entity "ScibmContext" as DBContext
+  entity "Examen (Incl. Jerarquía)" as TblExamen
+  entity "Pregunta" as TblPregunta
+}
+
+ACTOR --> ViewDetail : 1. Clic en "Modificar"
+ViewDetail --> CtrlGet : 2. GET EditSolucionario(id, tab)
+CtrlGet --> DBContext : 3. Include(Unidad.Seccion.Curso.Ciclo)
+DBContext --> TblExamen : 4. FirstOrDefaultAsync()
+TblExamen --> CtrlGet : 5. Valida DocenteEmail == Session
+CtrlGet --> ViewEdit : 6. Retorna View(examen)
+ViewEdit --> ACTOR : 7. Muestra Interfaz de Edición
+
+ACTOR --> ViewEdit : 8. Modifica puntajes/textos y Guarda
+ViewEdit --> CtrlPost : 9. POST AJAX SaveSolucionarioData()\nList<Pregunta>
+CtrlPost --> DBContext : 10. Busca examen con preguntas
+DBContext --> TblPregunta : 11. Para cada pEdit, busca pDb
+CtrlPost --> TblPregunta : 12. Actualiza Enunciado, Respuesta, Puntaje
+CtrlPost --> DBContext : 13. SaveChangesAsync()
+CtrlPost --> ViewEdit : 14. Retorna JsonResult { success: true }
+ViewEdit --> ACTOR : 15. Muestra Toast de éxito
+
+@enduml

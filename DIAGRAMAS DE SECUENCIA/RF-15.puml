@@ -1,0 +1,58 @@
+@startuml Secuencia - RF15 Exportar a Sheets
+
+title "Diagrama de Secuencia — RF15: Exportar Reportes a Google Sheets\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Interfaz de Reportes" as View
+participant "Sistema Central" as System
+participant "Google (Drive/Sheets)" as Google
+participant "Base de Datos" as DB
+
+ACTOR -> View : Hace clic en "Exportar a Google Sheets"
+View -> System : Solicita la creación del archivo\ncon los filtros seleccionados
+activate System
+
+System -> System : Comprueba que el docente tenga su\ncuenta de Google vinculada al sistema
+
+alt La cuenta no está vinculada o el permiso expiró
+    System --> View : Informa del error de conexión a Google
+    View --> ACTOR : Muestra alerta: "No se pudo acceder a Google Drive"
+else Acceso concedido
+    System -> DB : Busca las calificaciones de los alumnos
+    activate DB
+    DB --> System : Entrega la lista completa de notas
+    deactivate DB
+    
+    alt No hay notas registradas
+        System --> View : Informa que no hay información
+        View --> ACTOR : Muestra aviso: "No hay datos para exportar"
+    else Se encontraron calificaciones
+        System -> System : Calcula promedios, máximos y mínimos.\nOrganiza todo en una estructura de tabla.
+        
+        System -> Google : Solicita crear un archivo nuevo en blanco
+        activate Google
+        Google --> System : Devuelve el archivo recién creado
+        
+        System -> Google : Escribe todas las notas y le aplica diseño\n(colores de estado, negritas, fija encabezados)
+        Google --> System : Confirma que se escribió y formateó todo
+        deactivate Google
+        
+        System -> System : Organiza el archivo ubicándolo dentro\nde la carpeta del curso en Drive
+        
+        System --> View : Entrega la dirección URL del documento listo
+        View --> ACTOR : Muestra mensaje de éxito y despliega\nun enlace para "Abrir Archivo"
+    end
+end
+
+deactivate System
+
+@enduml

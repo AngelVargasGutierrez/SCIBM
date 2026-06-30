@@ -1,0 +1,56 @@
+@startuml Secuencia - RF07 Registrar Solucionario
+
+title "Diagrama de Secuencia — RF07: Registrar Solucionario de Examen Maestro\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Vista Revisión" as View
+participant "Sistema Central" as System
+participant "Base de Datos" as DB
+
+ACTOR -> View : Revisa tabla, corrige textos/puntajes\ny elimina preguntas incorrectas
+ACTOR -> View : Clic en botón "Confirmar Solucionario"
+View -> System : Envia la lista de preguntas\nconfirmadas (POST)
+activate System
+
+alt Lista vacía (Error)
+    System --> View : Rechaza la actualización
+    View --> ACTOR : Muestra error: "No se recibieron\npreguntas para actualizar"
+else Lista con preguntas correctas
+    System -> System : Compara lista recibida con\nlos registros temporales
+
+    System -> DB : Ejecuta el borrado de las\npreguntas descartadas por el usuario
+    activate DB
+    DB --> System : Eliminación exitosa
+    deactivate DB
+
+    System -> System : Normaliza decimales (comas por puntos)\ny actualiza Enunciado, Respuesta, Puntaje
+
+    System -> DB : Aplica los cambios permanentes en\nlas preguntas restantes
+    activate DB
+    
+    alt Error de validación de datos
+        DB --> System : Lanza excepción de validación\n(ej. texto demasiado largo)
+        System --> View : Cancela cambios y devuelve detalle del error
+        View --> ACTOR : Muestra mensaje detallado del campo problemático
+    else Guardado exitoso
+        DB --> System : Confirmación de guardado definitivo
+        deactivate DB
+
+        System --> View : Devuelve respuesta HTTP de éxito\n(Solucionario consolidado)
+        
+        View --> ACTOR : Despliega alerta Toast "Guardado correctamente"\ny redirige a interfaz de Calibración
+    end
+end
+
+deactivate System
+
+@enduml

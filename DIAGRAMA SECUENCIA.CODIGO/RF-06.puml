@@ -1,0 +1,63 @@
+@startuml Secuencia Codigo - RF06 Analizar Plantilla
+
+title "Diagrama de Secuencia Codificación — RF06: Analizar Plantilla de Examen\nNivel: Implementación MVC (SCIBM)"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceLifeLineBorderColor #B91C1C
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Detail.cshtml" as View
+participant "ExamenController" as Controller
+participant "GeminiApiService" as API
+participant "ScibmContext (DB)" as DB
+
+ACTOR -> View : Selecciona PDF y hace clic en\n"Analizar con Inteligencia Artificial"
+View -> Controller : POST AnalizarSolucionarioGemini\n(examenId, pdfFile)
+activate Controller
+
+alt pdfFile == null || ContentLength == 0
+    Controller --> View : RedirectToAction("Detail")\ncon TempData["Error"]
+else PDF es válido
+    Controller -> Controller : Genera Guid tempFileName\ny guarda en App_Data/Examenes/Temp
+    
+    Controller -> API : AnalyzePdfAsync(physicalPath, prompt)
+    activate API
+    API --> Controller : Retorna string JSON bruto
+    deactivate API
+    
+    Controller -> Controller : Limpia markdown (```json) y\nJsonConvert.DeserializeObject()
+    
+    Controller -> DB : Include(e => e.Preguntas)\n.FirstOrDefaultAsync(Id == examenId)
+    activate DB
+    DB --> Controller : Objeto Examen
+    deactivate DB
+    
+    Controller -> DB : Preguntas.RemoveRange(examen.Preguntas)
+    activate DB
+    deactivate DB
+    
+    loop por cada p en preguntasExtraidas
+        Controller -> DB : Preguntas.Add(new Pregunta { ... })
+        activate DB
+        deactivate DB
+    end
+    
+    Controller -> DB : SaveChangesAsync()
+    activate DB
+    DB --> Controller : int (Filas afectadas guardadas)
+    deactivate DB
+    
+    Controller --> View : RedirectToAction("Detail")\nTempData["Success"]
+end
+
+deactivate Controller
+View --> ACTOR : Renderiza vista Detail y despliega\nmodal con los datos de éxito
+
+@enduml

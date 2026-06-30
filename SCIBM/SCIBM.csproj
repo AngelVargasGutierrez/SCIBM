@@ -105,8 +105,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Content\images\logo_upt.png" />
     <Content Include="Global.asax" />
     <Content Include="Web.config" />
+    <Content Include="secrets.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App_Start\RouteConfig.cs" />
@@ -143,8 +147,11 @@
     <Content Include="Views\Examen\ScanTemplate.cshtml" />
     <Content Include="Views\Examen\GradeOverview.cshtml" />
     <Content Include="Views\Examen\Detail.cshtml" />
+    <Content Include="Views\Examen\EditSolucionario.cshtml" />
     <Content Include="Views\Reporte\Index.cshtml" />
     <None Include="packages.config" />
+    <None Include="Properties\PublishProfiles\FolderProfile.pubxml" />
+    <None Include="Properties\PublishProfiles\scibm - Web Deploy.pubxml" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>

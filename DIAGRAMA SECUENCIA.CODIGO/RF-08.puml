@@ -1,0 +1,54 @@
+@startuml Secuencia Codigo - RF08 Calibrar Examen
+
+title "Diagrama de Secuencia Codificación — RF08: Calibrar Examen\nNivel: Implementación MVC (SCIBM)"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Vista (JS Fetch)" as View
+participant "ExamenController" as Controller
+participant "ScibmContext (DB)" as DB
+
+ACTOR -> View : Arrastra pines visuales y\npresiona "Guardar Calibración"
+View -> Controller : POST SaveCalibracionVisual()\n[Con payload JSON y Coordenadas]
+activate Controller
+
+alt Session["UserEmail"] == null
+    Controller --> View : JsonResult { success = false, message = "No autorizado" }
+    View --> ACTOR : Muestra alerta de error
+else Sesión Válida
+    Controller -> DB : Examenes.Include(Preguntas)\n.FirstOrDefaultAsync(Id)
+    activate DB
+    DB --> Controller : Objeto Examen
+    deactivate DB
+    
+    alt Examen == null
+        Controller --> View : JsonResult { success = false, message = "No encontrado" }
+    else
+        Controller -> Controller : Asigna examen.StampX, StampY,\nStampWidth, StampHeight
+        
+        loop por cada pCal en preguntasCalibradas
+            Controller -> Controller : Busca pDb en examen.Preguntas\nActualiza pDb.PosX, pDb.PosY, pDb.Pagina
+        end
+        
+        Controller -> DB : SaveChangesAsync()
+        activate DB
+        DB --> Controller : int (Cambios persistidos)
+        deactivate DB
+        
+        Controller --> View : JsonResult { success = true, redirectUrl = "/Examen/Detail" }
+        View -> View : window.location.href = redirectUrl
+        View --> ACTOR : Carga la vista Detalles del Examen
+    end
+end
+
+deactivate Controller
+
+@enduml

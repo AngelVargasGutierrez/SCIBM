@@ -1,0 +1,73 @@
+@startuml Robustez Codigo - RF06 Analizar Plantilla
+
+title "Diagrama de Robustez Codificación — RF06: Analizar Plantilla de Examen\nNivel: Implementación MVC (SCIBM)"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente / Admin" as ACTOR
+
+package "Vista (UI)" {
+  boundary "Detail.cshtml\n(Formulario Subida PDF)" as ViewForm
+}
+
+package "Controlador y Servicios (Backend)" {
+  control "ExamenController.\nAnalizarSolucionarioGemini()" as Controller
+  control "GeminiApiService.\nAnalyzePdfAsync()" as GeminiAPI
+}
+
+package "Modelo y Base de Datos (Entity Framework)" {
+  entity "PreguntaTemp\n(Objeto Deserializado)" as ModelTemp
+  entity "ScibmContext\n(Contexto DB)" as DBContext
+  entity "Tabla: Preguntas\n(DbSet)" as TblPregunta
+  entity "Tabla: Examenes\n(DbSet)" as TblExamen
+}
+
+ACTOR --> ViewForm : 1. Sube archivo pdfFile y\nhace Submit (POST)
+ViewForm --> Controller : 2. HTTP POST(examenId, pdfFile)
+Controller --> Controller : 3. Guarda archivo temporal\nen App_Data/Examenes/Temp
+Controller --> GeminiAPI : 4. Llama a AnalyzePdfAsync\ncon el physicalPath y prompt
+GeminiAPI --> Controller : 5. Retorna cadena JSON\ncon datos extraidos
+Controller --> ModelTemp : 6. JsonConvert.DeserializeObject()\nLimpia formato Markdown si aplica
+ModelTemp --> Controller : 7. Devuelve Lista<PreguntaTemp>
+Controller --> DBContext : 8. Busca Examen e\nInclude(e => e.Preguntas)
+DBContext --> TblExamen : 9. FirstOrDefaultAsync(Id)
+Controller --> TblPregunta : 10. RemoveRange (limpia preguntas\nanteriores de este examen)
+Controller --> TblPregunta : 11. Add() (en loop, inserta las\nnuevas preguntas extraídas)
+Controller --> DBContext : 12. SaveChangesAsync()\nPersiste cambios en DB
+Controller --> ViewForm : 13. RedirectToAction("Detail")\ncon TempData["Success"]
+ViewForm --> ACTOR : 14. Muestra alerta de éxito\ny modal de revisión visual
+
+@enduml

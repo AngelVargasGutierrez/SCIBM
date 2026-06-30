@@ -1,0 +1,71 @@
+@startuml Robustez - RF06 Analizar Plantilla
+
+title "Diagrama de Robustez — RF06: Analizar Plantilla de Examen\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente" as ACTOR
+
+package "Frontera — Lo que ve el Docente" {
+  boundary "Pantalla Detalles\ndel Examen\n(Subir Solucionario)" as B1
+  boundary "Mensaje de Éxito\ny Preparación para\nRevisión" as B2
+}
+
+package "Control — Procesos Automáticos" {
+  control "Validador\nde Archivo PDF" as C1
+  control "Motor Inteligente (IA)\nde Reconocimiento visual" as C2
+  control "Estructurador\nde Datos IA" as C3
+  control "Gestor del\nBanco de Preguntas" as C4
+}
+
+package "Entidad — Información Guardada" {
+  entity "Archivo PDF\n(Temporal)" as E1
+  entity "Registro\ndel Examen" as E2
+  entity "Lista de\nPreguntas" as E3
+}
+
+ACTOR --> B1 : 1. Selecciona documento solucionario (PDF)\ny presiona botón "Analizar"
+B1 --> C1 : 2. Envía el documento para procesar
+C1 --> E1 : 3. Si el PDF es correcto,\nlo guarda temporalmente
+C1 --> C2 : 4. Solicita a la IA que analice\nel contenido del documento
+C2 --> C3 : 5. Devuelve la información detectada\nen texto crudo (JSON)
+C3 --> C4 : 6. Limpia la respuesta de la IA\ny estructura las preguntas
+C4 --> E2 : 7. Busca el registro del examen
+C4 --> E3 : 8. Elimina antiguas preguntas\ny guarda las nuevas extraídas
+C4 --> B2 : 9. Finaliza todo el proceso
+B2 --> ACTOR : 10. Muestra mensaje de "¡Éxito!"\ncon el total de preguntas leídas
+
+@enduml

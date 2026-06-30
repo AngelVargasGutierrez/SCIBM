@@ -1,0 +1,67 @@
+@startuml Robustez - RF08 Calibrar Examen
+
+title "Diagrama de Robustez — RF08: Calibrar Examen Maestro\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente" as ACTOR
+
+package "Frontera — Interfaz Gráfica" {
+  boundary "Lienzo de Calibración\nInteractiva (PDF)" as B1
+  boundary "Pantalla Principal\ndel Examen" as B2
+}
+
+package "Control — Procesos Automáticos" {
+  control "Capturador de\nCoordenadas" as C1
+  control "Validador de\nPermisos" as C2
+  control "Actualizador de\nConfiguración" as C3
+}
+
+package "Entidad — Información Guardada" {
+  entity "Base de Datos\ndel Sistema" as E1
+}
+
+ACTOR --> B1 : 1. Arrastra los pines de corrección\ny presiona "Guardar"
+B1 --> C1 : 2. Extrae las posiciones exactas\n(eje X e Y) del PDF
+C1 --> C2 : 3. Envía las coordenadas y verifica\nque la sesión siga activa
+C2 --> C3 : 4. Si tiene permiso, autoriza\nel proceso de guardado
+C3 --> E1 : 5. Busca el examen y actualiza la\nposición del sello de la nota final
+C3 --> E1 : 6. Actualiza las posiciones\nde estampa para cada pregunta
+C3 --> B1 : 7. Responde que todo se guardó bien
+B1 --> B2 : 8. Redirige automáticamente\nal usuario
+B2 --> ACTOR : 9. Muestra el examen\ncompletamente configurado
+
+@enduml

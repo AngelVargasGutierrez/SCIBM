@@ -1,0 +1,61 @@
+@startuml Secuencia Codigo - RF09 Modificar Solucionario
+
+title "Diagrama de Secuencia Codificación — RF09: Modificar Solucionario\nNivel: Implementación MVC (SCIBM)"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Vista (UI / AJAX)" as View
+participant "ExamenController" as Controller
+participant "ScibmContext (DB)" as DB
+
+== Fase 1: Carga de la Vista (GET) ==
+ACTOR -> View : Clic en "Modificar Solucionario"
+View -> Controller : GET EditSolucionario(id, tab)
+activate Controller
+Controller -> DB : Examenes.Include(...jerarquía...).FirstOrDefaultAsync(Id)
+activate DB
+DB --> Controller : examen
+deactivate DB
+
+alt DocenteEmail != Session["UserEmail"]
+    Controller --> View : HttpNotFound()
+    View --> ACTOR : Muestra error 404
+else Autorizado
+    Controller --> View : View(examen, ViewBag.ActiveTab = tab)
+    View --> ACTOR : Muestra formulario de edición y canvas PDF
+end
+deactivate Controller
+
+== Fase 2: Guardado Asíncrono (POST) ==
+ACTOR -> View : Modifica datos de pregunta y presiona Guardar
+View -> Controller : POST SaveSolucionarioData(examenId, preguntasEditadas)
+activate Controller
+
+Controller -> DB : Examenes.Include(Preguntas).FirstOrDefaultAsync(Id)
+activate DB
+DB --> Controller : examen
+deactivate DB
+
+loop Para cada pEdit en preguntasEditadas
+    Controller -> Controller : pDb = examen.Preguntas.FirstOrDefault(Id)
+    Controller -> Controller : pDb.Enunciado = pEdit.Enunciado\npDb.RespuestaCorrecta = pEdit.RespuestaCorrecta\npDb.Puntaje = pEdit.Puntaje
+end
+
+Controller -> DB : SaveChangesAsync()
+activate DB
+DB --> Controller : int
+deactivate DB
+
+Controller --> View : JsonResult { success = true, message = "..." }
+deactivate Controller
+View --> ACTOR : Muestra notificación flotante (Toast)
+
+@enduml

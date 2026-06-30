@@ -1,0 +1,69 @@
+@startuml Robustez - RF09 Modificar Solucionario
+
+title "Diagrama de Robustez — RF09: Modificar Solucionario\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+skinparam {
+  backgroundColor    #FFFFFF
+  shadowing          false
+  defaultFontName    Segoe UI
+  defaultFontSize    10
+  defaultFontColor   #1E293B
+  ArrowColor         #B91C1C
+  ArrowThickness     1.5
+}
+
+skinparam actor {
+  BorderColor        #B91C1C
+  BackgroundColor    #FFF1F2
+  FontColor          #7F1D1D
+  FontStyle          Bold
+}
+
+skinparam boundary {
+  BorderColor        #1D4ED8
+  BackgroundColor    #EFF6FF
+  FontColor          #1E3A8A
+}
+
+skinparam control {
+  BorderColor        #B45309
+  BackgroundColor    #FFFBEB
+  FontColor          #78350F
+}
+
+skinparam entity {
+  BorderColor        #065F46
+  BackgroundColor    #ECFDF5
+  FontColor          #064E3B
+}
+
+actor "Docente" as ACTOR
+
+package "Frontera — Lo que ve el Docente" {
+  boundary "Pantalla Principal\ndel Examen" as B1
+  boundary "Área de Edición\ny Calibración" as B2
+}
+
+package "Control — Procesos Automáticos" {
+  control "Verificador\nde Propiedad" as C1
+  control "Gestor de\nActualizaciones" as C2
+}
+
+package "Entidad — Información Guardada" {
+  entity "Base de Datos\ndel Sistema" as E1
+}
+
+ACTOR --> B1 : 1. Solicita modificar\nun examen ya creado
+B1 --> C1 : 2. Pide acceso a la\npantalla de edición
+C1 --> E1 : 3. Busca a quién pertenece\nrealmente el examen
+C1 --> B2 : 4. Si pertenece al docente,\ncarga el área de trabajo
+B2 --> ACTOR : 5. Muestra los datos y el PDF\nlistos para modificar
+
+ACTOR --> B2 : 6. Cambia valores y\nhace clic en guardar
+B2 --> C2 : 7. Envía los datos corregidos\nen segundo plano
+C2 --> E1 : 8. Busca las preguntas específicas\ny reemplaza los valores
+C2 --> E1 : 9. Guarda los cambios permanentemente
+C2 --> B2 : 10. Responde que se guardó\nsin recargar la página
+B2 --> ACTOR : 11. Muestra un aviso de éxito\nmientras sigue trabajando
+
+@enduml

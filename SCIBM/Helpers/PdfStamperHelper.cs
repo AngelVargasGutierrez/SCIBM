@@ -206,8 +206,10 @@ namespace SCIBM.Helpers
                                     currentGfx.DrawLine(crossPen, cx, cy - 10, cx + 10, cy);
                                     currentGfx.DrawLine(crossPen, cx + 10, cy - 10, cx, cy);
 
-                                    // Respuesta esperada
-                                    currentGfx.DrawString($" Cor: {cor.CorrectAnswerText}", textFont, XBrushes.DarkRed, cx + 15, cy);
+                                    // Respuesta esperada (truncada)
+                                    string shortCor = cor.CorrectAnswerText ?? "";
+                                    if (shortCor.Length > 20) shortCor = shortCor.Substring(0, 20) + "...";
+                                    currentGfx.DrawString($" Cor: {shortCor}", textFont, XBrushes.DarkRed, cx + 15, cy);
                                 }
                             }
                         }
@@ -221,6 +223,16 @@ namespace SCIBM.Helpers
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("Error al estampar nota/correcciones en PDF: " + ex.Message);
+                try
+                {
+                    string logPath = System.Web.Hosting.HostingEnvironment.MapPath("~/App_Data/debug_pdfstamper.txt");
+                    if (logPath != null)
+                    {
+                        File.AppendAllText(logPath, $"[{DateTime.Now}] Error StampGradeAndCorrections: {ex.ToString()}\n");
+                    }
+                }
+                catch { }
+
                 if (inputPdfPath != outputPdfPath) File.Copy(inputPdfPath, outputPdfPath, true);
             }
         }

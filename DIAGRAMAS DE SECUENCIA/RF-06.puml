@@ -1,0 +1,57 @@
+@startuml Secuencia - RF06 Analizar Plantilla
+
+title "Diagrama de Secuencia — RF06: Analizar Plantilla de Examen\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Pantalla de Examen" as View
+participant "Sistema Central" as System
+participant "Inteligencia Artificial" as IA
+participant "Base de Datos" as DB
+
+ACTOR -> View : Sube el PDF del Solucionario\ny presiona botón "Analizar"
+View -> System : Envia el documento para análisis
+activate System
+
+alt Archivo no válido o sin contenido
+    System --> View : Rechaza el archivo
+    View --> ACTOR : Muestra aviso: "Debe subir un PDF válido"
+else Archivo correcto
+    System -> System : Guarda el documento temporalmente
+    
+    System -> IA : Pide extraer preguntas, tipos\ny respuestas correctas
+    activate IA
+    IA --> System : Devuelve la información leída\ndel PDF
+    deactivate IA
+    
+    System -> System : Ordena, limpia y valida\nla información devuelta por la IA
+    
+    System -> DB : Busca el examen actual al que\npertenece el archivo
+    activate DB
+    DB --> System : Devuelve los datos del examen
+    
+    System -> DB : Elimina las preguntas antiguas\n(si existía un análisis previo)
+    
+    loop Para cada pregunta encontrada por la IA
+        System -> DB : Registra nueva pregunta con su\ntipo, puntaje y respuesta correcta
+    end
+    
+    System -> DB : Aplica y guarda los cambios
+    DB --> System : Confirmación de guardado exitoso
+    deactivate DB
+    
+    System --> View : Redirige indicando que\ntodo salió bien
+end
+
+deactivate System
+View --> ACTOR : Muestra alerta de éxito y la cantidad\nde preguntas listas para revisar
+
+@enduml

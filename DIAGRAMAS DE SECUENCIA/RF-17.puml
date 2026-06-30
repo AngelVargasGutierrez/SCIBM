@@ -1,0 +1,55 @@
+@startuml Secuencia - RF17 Clasificar Rendimiento
+
+title "Diagrama de Secuencia — RF17: Clasificar Estado Académico\nMOPGIMED / SCIBM · Lenguaje Natural"
+
+autonumber
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam sequenceArrowColor #B91C1C
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceGroupBorderColor #B91C1C
+skinparam sequenceGroupBackgroundColor #FFF5F5
+
+actor "Docente" as ACTOR
+participant "Pantalla de Reportes" as View
+participant "Sistema Central" as System
+participant "Base de Datos" as DB
+
+ACTOR -> View : Pide ver el reporte de un curso\no exportarlo
+View -> System : Solicita agrupar y mostrar calificaciones
+activate System
+
+System -> DB : Busca todas las notas disponibles
+activate DB
+DB --> System : Entrega la lista de notas
+deactivate DB
+
+alt No hay notas todavía
+    System --> View : Responde que no hay información
+    View --> ACTOR : Muestra tabla o reporte vacío
+else Existen calificaciones
+    System -> System : Agrupa todos los exámenes por el\nnombre de cada alumno
+    
+    loop Por cada estudiante
+        System -> System : Suma todas sus notas y divide entre\nla cantidad de evaluaciones (Calcula Promedio)
+        
+        alt Si promedio es menor a 10.5
+            System -> System : Le asigna la etiqueta "Desaprobado"
+        else Si promedio está entre 10.5 y 13.9
+            System -> System : Le asigna la etiqueta "Regular"
+        else Si promedio es 14 o superior
+            System -> System : Le asigna la etiqueta "Aprobado"
+        end
+        
+        System -> System : Ordena la lista poniendo a los\nmejores alumnos en la parte superior
+    end
+    
+    System --> View : Envía la lista definitiva, etiquetada y ordenada
+    View -> View : Aplica semáforo de colores según la etiqueta:\nRojo (Desaprobado), Amarillo (Regular), Verde (Aprobado)
+    View --> ACTOR : Muestra el reporte completo y colorido listo\npara interpretar a simple vista
+end
+
+deactivate System
+
+@enduml
